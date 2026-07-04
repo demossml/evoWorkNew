@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
+import { client } from "../../helpers/api";
+import { ReportHeader, ReportShareButton } from "@shared/ui";
 
 export default function SalesTodayReport() {
   const [salesData, setSalesData] = useState<Record<
@@ -7,13 +10,15 @@ export default function SalesTodayReport() {
   > | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useTelegramBackButton();
+
+  const reportRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const fetchSalesData = async () => {
       try {
-        const response = await fetch("/api/evotor/sales-today");
-        if (!response.ok) {
-          throw new Error(`Error: ${response.status}`);
-        }
+        const response = await client.api.evotor["sales-today"].$get();
+
         const data = await response.json();
         setSalesData(data.salesData);
       } catch (err) {
@@ -48,10 +53,8 @@ export default function SalesTodayReport() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <h2 className="text-2xl font-bold text-center mt-4">
-        Отчет о продажах за сегодня
-      </h2>
+    <div ref={reportRef} className="container mx-auto px-4 py-6">
+      <ReportHeader title="Отчёт о продажах за сегодня" />
       <ul className="mt-4 space-y-4">
         {Object.entries(salesData).map(([shopName, paymentTypes]) => (
           <li key={shopName} className="bg-white shadow-md rounded-lg p-4">
@@ -115,6 +118,7 @@ export default function SalesTodayReport() {
           На главную
         </a>
       </div>
+      <ReportShareButton targetRef={reportRef} filename="sales-today" />
     </div>
   );
 }

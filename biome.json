@@ -18,7 +18,9 @@
         "noForEach": "off"
       },
       "style": {
-        "noNonNullAssertion": "warn"
+        "noNonNullAssertion": "warn",
+        "useImportType": "error"
+
       },
       "correctness": {
         "useExhaustiveDependencies": "warn"

@@ -4,19 +4,31 @@
 	"private": true,
 	"main": "src/index.ts",
 	"scripts": {
-		"dev": "wrangler dev",
-		"start": "wrangler dev",
-		"deploy": "wrangler deploy"
+		"dev": "wrangler dev --test-scheduled --port 8787",
+		"start": "wrangler dev --test-scheduled --port 8787",
+		"deploy": "wrangler deploy",
+		"db:generate": "drizzle-kit generate",
+		"db:apply-local": "wrangler d1 migrations apply DB --local",
+		"db:apply-remote": "wrangler d1 migrations apply DB --remote"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20250601.0",
+		"@cloudflare/workers-types": "^4.20250628.0",
+		"@types/unzip-stream": "^0.3.4",
+		"drizzle-kit": "^0.31.8",
+		"dts-gen": "^0.10.4",
+		"hono": "^4.6.20",
 		"prettier": "^3.3.3",
 		"typescript": "^5.5.2",
-		"wrangler": "^4.3.0"
+		"vitest": "^3.2.6",
+		"wrangler": "^4.39.0"
 	},
 	"dependencies": {
 		"@cloudflare/ai": "^1.2.2",
-		"hono": "^4.6.7",
+		"drizzle-orm": "^0.45.1",
+		"jsonwebtoken": "^9.0.2",
+		"jszip": "^3.10.1",
+		"unbound-fetch": "^1.0.8",
+		"unzip-stream": "^0.3.4",
 		"workers-ai-provider": "^0.5.2",
 		"zod": "^3.25.30",
 		"zod-to-json-schema": "^3.24.5"

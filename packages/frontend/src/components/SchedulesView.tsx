@@ -2,7 +2,8 @@ import type React from "react";
 import { useState } from "react";
 import { ShopSelectorNew } from "./ShopSelectorNew";
 import { useMe } from "../hooks/useApi";
-import ScheduleTableView from "./ScheduleTableView";
+import { ScheduleTableView } from "@widgets/reports";
+import { fetchScheduleTable } from "@features/reports/api";
 
 // Определяем тип для данных расписания
 interface ScheduleEntry {
@@ -33,18 +34,12 @@ const SchedulesView: React.FC = () => {
 
     setIsLoadingTable(true);
     try {
-      const response = await fetch("/api/schedules/table-view", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ month, year, shopId }),
-      });
-
-      if (!response.ok) throw new Error("Ошибка при получении табеля");
-
-      const data = await response.json();
-      setScheduleData(data.scheduleTable); // Устанавливаем данные расписания
+      const data = (await fetchScheduleTable({
+        month,
+        year,
+        shopId,
+      })) as { scheduleTable?: ScheduleEntry[] };
+      setScheduleData(data.scheduleTable || []); // Устанавливаем данные расписания
     } catch (error) {
       console.error("Ошибка:", error);
       alert("Не удалось загрузить данные");

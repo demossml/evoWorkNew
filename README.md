@@ -23,3 +23,5 @@ $ pnpm run deploy
 ```sh
 $ pnpm run dev
 ```
+
+https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook?url=<YOUR_WEBHOOK_URL>

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { client } from "../../helpers/api";
+import { PlanForTodayResponseSchema } from "@/shared/api/contracts/planMetrics";
 
 export default function PlanSalesReport() {
   const [salesData, setSalesData] = useState<Record<
@@ -11,12 +13,17 @@ export default function PlanSalesReport() {
     // Функция для получения данных о продажах за сегодня
     const fetchSalesData = async () => {
       try {
-        const response = await fetch("/api/evotor/plan-for-today");
+        const response = await client.api.evotor["plan-for-today"].$get();
+
         if (!response.ok) {
           throw new Error(`Error: ${response.status}`);
         }
-        const data = await response.json();
-        setSalesData(data.salesData);
+        const raw = await response.json();
+        const parsed = PlanForTodayResponseSchema.safeParse(raw);
+        if (!parsed.success) {
+          throw new Error("Некорректный формат данных плана");
+        }
+        setSalesData(parsed.data.salesData);
       } catch (err) {
         console.error(err);
         setError("Не удалось загрузить данные о продажах");
@@ -32,7 +39,7 @@ export default function PlanSalesReport() {
 
   if (!salesData) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+      <div className="app-page flex flex-col items-center justify-center bg-gray-100 p-4">
         <div className="flex items-center mb-4">
           {/* Loading spinner */}
           <div className="w-24 h-24 border-8 border-t-transparent border-blue-500 border-solid rounded-full animate-spin" />

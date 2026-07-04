@@ -8,6 +8,7 @@
 		"moduleResolution": "NodeNext",
 		"types": ["@cloudflare/workers-types"],
 		"resolveJsonModule": true,
+    	"esModuleInterop": true,   // Важно для unbound-fetch
 		"allowJs": true,
 		"checkJs": true,
 		"noEmit": true,
@@ -17,5 +18,4 @@
 		"strict": true,
 		"skipLibCheck": true
 	},
-	"include": ["src/**/*.ts"]
-}
+"include": ["src/**/*.ts", "src/**/*.d.ts"]}

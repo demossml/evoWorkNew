@@ -1,7 +1,11 @@
 import type React from "react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import ScheduleTableView from "../../components/ScheduleTableView";
+import { ScheduleTableView } from "@widgets/reports";
+import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
+import { client } from "../../helpers/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidateScheduleQueries } from "@shared/api";
 
 interface Shop {
   uuid: string;
@@ -27,6 +31,7 @@ interface ScheduleTableEntry {
 }
 
 const ScheduleTable: React.FC = () => {
+  const queryClient = useQueryClient();
   const currentDate = new Date();
   const [month, setMonth] = useState(currentDate.getMonth() + 1);
   const [year, setYear] = useState(currentDate.getFullYear());
@@ -39,6 +44,8 @@ const ScheduleTable: React.FC = () => {
   const [scheduleTable, setScheduleTable] = useState<ScheduleTableEntry[]>([]);
   const [isSaving, setIsSaving] = useState(false); // Добавлено состояние для отслеживания сохранения
 
+  useTelegramBackButton();
+
   const navigate = useNavigate();
 
   // Получение количества дней в месяце
@@ -50,7 +57,8 @@ const ScheduleTable: React.FC = () => {
   useEffect(() => {
     const fetchStores = async () => {
       try {
-        const response = await fetch("/api/shops");
+        const response = await client.api.stores.shops.$get();
+
         const data = await response.json();
         setStores(data.shopsNameAndUuid || []);
       } catch (error) {
@@ -66,13 +74,22 @@ const ScheduleTable: React.FC = () => {
       if (!store) return;
 
       try {
-        const response = await fetch("/api/employee/and-store/name-uuid", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shop: store }),
+        const response = await client.api.employees.employee["and-store"][
+          "name-uuid"
+        ].$post({
+          json: { shop: store },
         });
         const data = await response.json();
-        setEmployees(data.employeeNameAndUuid || []);
+        if (
+          data &&
+          typeof data === "object" &&
+          "employeeNameAndUuid" in data &&
+          Array.isArray(data.employeeNameAndUuid)
+        ) {
+          setEmployees(data.employeeNameAndUuid);
+        } else {
+          setEmployees([]);
+        }
       } catch (error) {
         console.error("Ошибка при загрузке сотрудников:", error);
       }
@@ -140,20 +157,19 @@ const ScheduleTable: React.FC = () => {
     setIsSaving(true); // Устанавливаем состояние "сохранение началось"
 
     try {
-      const response = await fetch("/api/schedules/table", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const response = await client.api.schedules.table.$post({
+        json: {
           month,
           year,
           schedules,
-        }),
+        },
       });
 
       if (!response.ok) throw new Error("Ошибка сохранения");
 
       const data = await response.json();
       setScheduleTable(data.scheduleTable || []);
+      await invalidateScheduleQueries(queryClient);
     } catch (error) {
       console.error("Ошибка сохранения:", error);
       alert("Ошибка при сохранении табеля");

@@ -1,5 +1,4 @@
 import type React from "react";
-import * as XLSX from "xlsx";
 
 // Типизация данных таблицы
 interface TableData {
@@ -16,7 +15,8 @@ const DownloadTableButton: React.FC<DownloadTableButtonProps> = ({
   fileName,
 }) => {
   // Функция для скачивания
-  const handleDownload = () => {
+  const handleDownload = async () => {
+    const XLSX = await import("xlsx");
     // Создание рабочей книги из данных
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();

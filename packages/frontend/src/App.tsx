@@ -1,49 +1,131 @@
-import { Route, Routes } from "react-router";
-import { Topbar } from "./components/Topbar";
-import Home from "./pages/Home";
-import SalaryReport from "./pages/reports/SalaryReport";
-import SalesTodayReport from "./pages/reports/SalesTodayReport";
-import PlanSalesReport from "./pages/reports/PlanSalesReport";
-import SalesReport from "./pages/reports/SaleRepor";
-import Settings from "./pages/reports/Settings";
-import SalestReportForThePeriod from "./pages/reports/SalestReportForThePeriod";
-import SalaryReports from "./pages/reports/SalarysReport";
-import SchedulesReport from "./pages/reports/SchedulesReport";
-import StoreOpeningReport from "./pages/reports/StoreOpeningReport";
-import QuantityTableProps from "./pages/reports/QuantityTable";
-import Order from "./pages/reports/Orders";
-import ScheduleTable from "./pages/reports/ScheduleTable";
-import SchedulesView from "./components/SchedulesView";
+import { useLocation } from "react-router";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { PWAInstall } from "./pwa";
+import { useEmployeeRole } from "./hooks/useApi";
+import { useTheme } from "./hooks/useTheme";
+import { useUser } from "./hooks/userProvider";
+import {
+  startBackgroundUpload,
+  hasFilesInQueue,
+} from "./helpers/backgroundUploader";
+import { trackEvent } from "./helpers/analytics";
+import { useTelegramFullscreenLayout } from "./hooks/useTelegramFullscreenLayout";
+import { AppRouter } from "@app/router";
+import { BottomNavigation } from "@widgets/navigation";
+import { fetchDataMode, queryKeys } from "@shared/api";
+import { ErrorBoundary } from "@shared/ui/states/ErrorBoundary";
 
 function App() {
+  const { data } = useEmployeeRole();
+  const tg = useUser();
+  const userId = tg?.id?.toString();
+  const location = useLocation();
+
+  useTheme();
+  useTelegramFullscreenLayout();
+
+  useQuery({
+    queryKey: queryKeys.admin.dataMode(),
+    queryFn: fetchDataMode,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+    retry: 1,
+  });
+
+  const [uploadStatus, setUploadStatus] = useState<{
+    isUploading: boolean;
+    uploaded: number;
+    total: number;
+  }>({ isUploading: false, uploaded: 0, total: 0 });
+
+  // Фоновая загрузка файлов при открытии приложения
+  useEffect(() => {
+    if (!userId) return;
+
+    const checkAndUpload = async () => {
+      const hasFiles = await hasFilesInQueue(userId);
+
+      if (hasFiles) {
+        console.log(
+          "📤 Обнаружены файлы в очереди, начинаю фоновую загрузку..."
+        );
+        setUploadStatus({ isUploading: true, uploaded: 0, total: 0 });
+
+        try {
+          const result = await startBackgroundUpload(
+            userId,
+            (uploaded, total) => {
+              setUploadStatus({ isUploading: true, uploaded, total });
+            }
+          );
+
+          console.log(
+            `✅ Фоновая загрузка завершена: ${result.uploaded} успешно, ${result.failed} ошибок`
+          );
+        } catch (error) {
+          console.error("❌ Ошибка фоновой загрузки:", error);
+        } finally {
+          setUploadStatus({ isUploading: false, uploaded: 0, total: 0 });
+        }
+      }
+    };
+
+    // Запускаем проверку через 2 секунды после загрузки
+    const timer = setTimeout(checkAndUpload, 2000);
+
+    const onOnline = () => {
+      void checkAndUpload();
+    };
+    window.addEventListener("online", onOnline);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    const screen = location.pathname || "/";
+    void trackEvent("screen_open", { screen });
+    return () => {
+      void trackEvent("screen_close", { screen });
+    };
+  }, [location.pathname]);
+
   return (
     <>
-      <Topbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/evotor/salary-report" element={<SalaryReports />} />
-        <Route path="/evotor/sales-today" element={<SalesTodayReport />} />
-        <Route path="/evotor/plan-for-today" element={<PlanSalesReport />} />
-        <Route path="/evotor/sales-report" element={<SalesReport />} />
-        <Route path="/evotor/settings" element={<Settings />} />
-        <Route
-          path="/evotor/sales-for-the-period"
-          element={<SalestReportForThePeriod />}
-        />
-        <Route path="/evotor/salary-user-report" element={<SalaryReport />} />
-        <Route path="/evotor/schedules" element={<SchedulesReport />} />
-        <Route
-          path="/evotor/store-opening-report"
-          element={<StoreOpeningReport />}
-        />
-        <Route
-          path="/evotor/stock-realization-report"
-          element={<QuantityTableProps />}
-        />
-        <Route path="/evotor/orders" element={<Order />} />
-        <Route path="/evotor/schedules-table" element={<ScheduleTable />} />
-        <Route path="/evotor/schedules-view" element={<SchedulesView />} />
-      </Routes>
+      <PWAInstall />
+      {/* Индикатор фоновой загрузки */}
+      {uploadStatus.isUploading && uploadStatus.total > 0 && (
+        <div
+          className="fixed right-4 z-50 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg animate-pulse"
+          style={{
+            top: "calc(var(--tg-app-top-offset, var(--tg-safe-top, 0px)) + 0.5rem)",
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm">
+              Загружаю фото: {uploadStatus.uploaded} / {uploadStatus.total}
+            </span>
+          </div>
+        </div>
+      )}
+      {/* <div className="pb-20"> */} {/* отступ снизу под меню */}
+      <main className="app-shell-main">
+        <ErrorBoundary>
+          <AppRouter />
+        </ErrorBoundary>
+      </main>
+      {(() => {
+        const allowedRoles = ["SUPERADMIN", "CASHIER", "ADMIN"];
+        const role = allowedRoles.includes(data?.employeeRole ?? "")
+          ? (data?.employeeRole as "SUPERADMIN" | "CASHIER" | "ADMIN")
+          : "CASHIER";
+        return <BottomNavigation employeeRole={role} />;
+      })()}
     </>
   );
 }

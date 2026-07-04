@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import { useMe } from "../../hooks/useApi";
-import { GoBackButton } from "../../components/GoBackButton";
-import { ShopSelector } from "../../components/ShopSelector";
-import { GroupSelector } from "../../components/GroupSelector";
-import { LoadingSpinner } from "../../components/LoadingSpinner";
-import { ErrorDisplay } from "../../components/ErrorDisplay";
-import { DynamicTable } from "../../components/DynamicTable";
+import { ErrorState, LoadingState } from "@shared/ui/states";
+import { DynamicTable, GroupSelector, ShopSelector } from "@widgets/reports";
+import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
+import { client } from "../../helpers/api";
 
 interface GroupOption {
   name: string;
@@ -28,22 +26,22 @@ export default function QuantityTableProps() {
   const [isLoadingReport, setIsLoadingReport] = useState<boolean>(false);
 
   const [isLoadingShops, setIsLoadingShops] = useState<boolean>(false);
-  const [selectedShop, setSelectedShop] = useState<string | null>(null); // Добавляем состояние для выбранного магазина
+  const [selectedShop, setSelectedShop] = useState<string | null>(null);
 
   const { data } = useMe();
   const userId = data?.id.toString();
+
+  useTelegramBackButton();
 
   useEffect(() => {
     const fetchSalesData = async () => {
       setIsLoadingShops(true); // Начало загрузки групп
 
       try {
-        const response = await fetch("/api/evotor/shops", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+        const response = await client.api.evotor.shops.$post({
+          json: {
+            userId: userId || "",
           },
-          body: JSON.stringify({ userId }),
         });
 
         if (!response.ok) {
@@ -77,19 +75,20 @@ export default function QuantityTableProps() {
       const dataGroups = {
         shopUuid: shopUuid,
       };
-      const response = await fetch("/api/evotor/groups-by-shop", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(dataGroups),
+      const response = await client.api.evotor["groups-by-shop"].$post({
+        json: dataGroups,
       });
 
       if (!response.ok) {
         throw new Error(`Ошибка загрузки групп: ${response.status}`);
       }
 
-      const data: { groups: GroupOption[] } = await response.json();
+      const data = (await response.json()) as
+        | { groups: GroupOption[] }
+        | { code: string; message: string; details?: unknown };
+      if (!("groups" in data)) {
+        throw new Error(data.message || "Не удалось загрузить группы");
+      }
       setGroupOptions(data.groups || []);
       setSelectedGroups([]);
     } catch (err) {
@@ -114,12 +113,8 @@ export default function QuantityTableProps() {
     setIsLoadingReport(true);
 
     try {
-      const response = await fetch("/api/evotor/stock-report", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
+      const response = await client.api.evotor["stock-report"].$post({
+        json: data,
       });
 
       if (!response.ok) {
@@ -137,16 +132,16 @@ export default function QuantityTableProps() {
   };
 
   if (isLoadingReport) {
-    return <LoadingSpinner />;
+    return <LoadingState />;
   }
 
   if (error) {
-    return <ErrorDisplay error={error} />;
+    return <ErrorState error={error} />;
   }
 
   if (!Object.keys(shopOptions).length) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-custom-gray p-4">
+      <div className="app-page flex flex-col items-center justify-center bg-custom-gray p-4">
         <div className="flex items-center mb-4">
           <div className="w-24 h-24 border-8 border-t-transparent border-blue-500 border-solid rounded-full animate-spin" />
         </div>
@@ -166,7 +161,6 @@ export default function QuantityTableProps() {
     );
     return (
       <div className="p-4 flex flex-col items-start bg-custom-gray dark:bg-gray-900 gap-4 max-w-md mx-auto">
-        <GoBackButton />
         {/* Заголовок с информацией */}
         <div className="text-sm text-gray-700 dark:text-gray-400">
           <p className="font-semibold">{shopName}</p>
@@ -178,8 +172,7 @@ export default function QuantityTableProps() {
   }
 
   return (
-    <div className="fixed  w-screen h-screen px-4 bg-custom-gray dark:text-gray-400 dark:bg-gray-900">
-      <GoBackButton />
+    <div className="app-page-scroll px-4 bg-custom-gray dark:text-gray-400 dark:bg-gray-900">
       <h1 className="text-xl font-bold"> Товарные остатки</h1>
 
       <div className="w-full">

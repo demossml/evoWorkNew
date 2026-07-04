@@ -1,33 +1,64 @@
 import { useQuery } from "@tanstack/react-query";
-import { client } from "../helpers/api";
+import {
+  fetchEmployeeNameAndUuid,
+  fetchEmployeeRole,
+  fetchMe,
+  fetchSchedules,
+  fetchShops,
+  fetchWorkingByShops,
+  queryKeys,
+} from "@shared/api";
 
 export const useMe = () =>
   useQuery({
-    queryKey: ["currentUser"],
-    queryFn: () => client.api.user.$get().then((res) => res.json()),
+    queryKey: queryKeys.employee.me(),
+    queryFn: fetchMe,
   });
 
 export const useEmployeeRole = () =>
   useQuery({
-    queryKey: ["currentEmployee"],
-    queryFn: () => client.api["employee-role"].$get().then((res) => res.json()),
+    queryKey: queryKeys.employee.role(),
+    queryFn: fetchEmployeeRole,
   });
 
 export const useEmployeeNameAndUuid = () =>
   useQuery({
-    queryKey: ["currentEmployeeUuidName"],
-    queryFn: () =>
-      client.api["by-last-name-uuid"].$get().then((res) => res.json()),
+    queryKey: queryKeys.employee.uuidAndName(),
+    queryFn: fetchEmployeeNameAndUuid,
   });
 
 export const useSchedules = () =>
   useQuery({
-    queryKey: ["schedules"],
-    queryFn: () => client.api.schedules.$get().then((res) => res.json()),
+    queryKey: queryKeys.schedules.all(),
+    queryFn: fetchSchedules,
   });
 
-export const useGetShops = () =>
+export const useWorkingByShops = () =>
   useQuery({
-    queryKey: ["getShops"],
-    queryFn: () => client.api.shops.$get().then((res) => res.json()),
+    queryKey: queryKeys.evotor.workingByShops(),
+    queryFn: fetchWorkingByShops,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
+
+type ShopBrief = { uuid: string; name: string };
+
+export const useGetShops = () =>
+  useQuery<{ shopsNameAndUuid: ShopBrief[] }, Error>({
+    queryKey: queryKeys.stores.shops(),
+    queryFn: fetchShops,
+  });
+
+// export const useGetShopNames = () =>
+//   useQuery<string[], Error>({
+//     queryKey: ["getShopNames"],
+//     queryFn: async () => {
+//       const res = await client.api.evotor["shops-names"].$get();
+//       if (!res.ok) {
+//         throw new Error("Ошибка загрузки названий магазинов");
+//       }
+//       const data = await res.json();
+//       return data.shopsName || [];
+//     },
+//     select: (data) => data || [], // на всякий случай
+//   });

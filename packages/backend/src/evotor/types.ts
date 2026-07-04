@@ -18,21 +18,36 @@ export interface Employee {
 }
 
 export interface Document {
-	type:
-		| "OPEN_SESSION"
+	shop_id: string;
+	type: /** Открытие смены (кассовой сессии) */
+	| "OPEN_SESSION"
+		/** Закрытие смены (кассовой сессии) */
 		| "CLOSE_SESSION"
+		/** Внесение наличных в кассу */
 		| "CASH_INCOME"
+		/** Приём товара на склад */
 		| "ACCEPT"
+		/** Продажа товара */
 		| "SELL"
+		/** Возврат продажи (возврат денег покупателю) */
 		| "PAYBACK"
+		/** Возврат товара (возврат на склад) */
 		| "RETURN"
+		/** Покупка товара (закупка) */
 		| "BUY"
+		/** Возврат закупки (возврат поставщику) */
 		| "BUYBACK"
+		/** X-отчёт (промежуточный отчёт без обнуления) */
 		| "X_REPORT"
+		/** Z-отчёт (итоговый отчёт с обнулением) */
 		| "Z_REPORT"
+		/** Корректировка документа (исправление ошибок) */
 		| "CORRECTION"
+		/** Операция оплаты (например, оплата по карте/наличными) */
 		| "PAYMENT"
+		/** Выплата наличных из кассы */
 		| "CASH_OUTCOME"
+		/** Внесение наличных в кассу (дублируется, возможно для разных сценариев) */
 		| "CASH_INCOME";
 
 	id: string; // Уникальный идентификатор документа
@@ -45,16 +60,19 @@ export interface Document {
 	close_user_id: string; // Идентификатор сотрудника, создавшего документ
 	device_id: string; // Идентификатор смарт-терминала
 	store_id: string; // Идентификатор магазина
+	storeUuid: string; // UUID магазина
 	user_id: string; // Идентификатор пользователя Эвотор
 	version?: string; // Версия схемы документа
 	counterparties?: Counterparty[]; // Массив контрагентов, если применимо
 	body: DocumentBody; // Основная информация о документе
-	openUserUuid?: string;
+	openUserUuid: string;
 	transactions: Transaction[];
 }
 
 // Пример интерфейса для Transaction
 export interface Transaction {
+	total: number;
+	userUuid: string;
 	type:
 		| "PAYMENT"
 		| "REFUND"
@@ -204,4 +222,74 @@ export interface PaymentType {
 export interface ShopUuidName {
 	uuid: string; // UUID магазина
 	name: string; // Имя магазина
+}
+
+export interface PaymentInfo {
+	paymentType: string;
+	sum: number;
+}
+
+export interface TransactionSale {
+	productName: string;
+	quantity: number;
+	price: number;
+	costPrice: number;
+	sum: number;
+}
+
+export interface SalesInfo {
+	type: "SALE" | "PAYBACK"; // Тип транзакции: продажа или возврат
+	shopName: string;
+	closeDate: string;
+	employeeName: string;
+	paymentData: PaymentInfo[];
+	transactions: TransactionSale[];
+}
+
+export interface IndexDocument {
+	closeDate: string;
+	number: number;
+	openUserUuid: string;
+	shop_id: string;
+	type:
+		| "OPEN_SESSION"
+		/** Закрытие смены (кассовой сессии) */
+		| "CLOSE_SESSION"
+		/** Внесение наличных в кассу */
+		| "CASH_INCOME"
+		/** Приём товара на склад */
+		| "ACCEPT"
+		/** Продажа товара */
+		| "SELL"
+		/** Возврат продажи (возврат денег покупателю) */
+		| "PAYBACK"
+		/** Возврат товара (возврат на склад) */
+		| "RETURN"
+		/** Покупка товара (закупка) */
+		| "BUY"
+		/** Возврат закупки (возврат поставщику) */
+		| "BUYBACK"
+		/** X-отчёт (промежуточный отчёт без обнуления) */
+		| "X_REPORT"
+		/** Z-отчёт (итоговый отчёт с обнулением) */
+		| "Z_REPORT"
+		/** Корректировка документа (исправление ошибок) */
+		| "CORRECTION"
+		/** Операция оплаты (например, оплата по карте/наличными) */
+		| "PAYMENT"
+		/** Выплата наличных из кассы */
+		| "CASH_OUTCOME"
+		/** Внесение наличных в кассу (дублируется, возможно для разных сценариев) */
+		| "CASH_INCOME"; // уточни типы, если они другие
+	transactions: Transaction[]; // нужно описать интерфейс Transaction
+}
+export interface ShopQuery {
+	shopId: string;
+	since: string;
+	until: string;
+}
+
+export interface SalesStats {
+	totalSum: number;
+	quantityByProduct: Record<string, number>;
 }

@@ -1,11 +1,29 @@
 
 
-> @evo-app/frontend@0.0.0 build /Users/runcible/code/demossml/evoAppAi/packages/frontend
+> @evo-app/frontend@0.0.0 build /Users/dmitrijsuvalov/Desktop/testapp2/packages/frontend
 > tsc -b && vite build && cp -R dist ../backend/
 
-[36mvite v5.4.14 [32mbuilding for production...[36m[39m
-[2K[1Gtransforming (1) [2mindex.html[22m[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (23) [2m../../node_modules/.pnpm/react@18.3.1/node_modules/react/cjs/react.production.min.js[22m[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (62) [2m../../node_modules/.pnpm/@tanstack+query-core@5.66.0/node_modules/@tanstack/query-core/build/modern/removable.js[22m[2K[1G[2K[1Gtransforming (111) [2m../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/client.js[22m[2K[1G[32m✓[39m 125 modules transformed.
-[2K[1Grendering chunks (1)...[2K[1G[2K[1Gcomputing gzip size (0)...[2K[1Gcomputing gzip size (1)...[2K[1Gcomputing gzip size (2)...[2K[1Gcomputing gzip size (3)...[2K[1G[2mdist/[22m[32mindex.html                 [39m[1m[2m  0.52 kB[22m[1m[22m[2m │ gzip:  0.32 kB[22m
-[2mdist/[22m[2massets/[22m[35mindex-C31n2DnN.css  [39m[1m[2m 18.27 kB[22m[1m[22m[2m │ gzip:  3.92 kB[22m
-[2mdist/[22m[2massets/[22m[36mindex-Dusd85Bm.js   [39m[1m[2m296.69 kB[22m[1m[22m[2m │ gzip: 88.01 kB[22m
-[32m✓ built in 637ms[39m
+[36mvite v5.4.20 [32mbuilding for production...[36m[39m
+[2K[1Gtransforming (1) [2mindex.html[22m[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+[2K[1Gtransforming (3) [2msrc/main.tsx[22mBrowserslist: browsers data (caniuse-lite) is 9 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[2K[1Gtransforming (9) [2m../../node_modules/react/cjs/react.production.min.js[22m[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (111) [2msrc/components/opening/InitialStep.tsx[22m[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (1118) [2m../../node_modules/lucide-react/dist/esm/icons/infinity.js[22m[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (2016) [2m../../node_modules/framer-motion/dist/es/utils/reduced-motion/index.mjs[22m[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (2247) [2m../../node_modules/framer-motion/dist/es/motion/utils/use-visual-element.mjs[22m[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1G[2K[1Gtransforming (2441) [2m../../node_modules/lodash/_shortOut.js[22m[2K[1Gtransforming (2772) [2m../../node_modules/lodash/_hashDelete.js[22m[2K[1G[2K[1G[2K[1G[2K[1G[32m✓[39m 3043 modules transformed.
+[2K[1Grendering chunks (1)...[2K[1Grendering chunks (2)...[2K[1G[2K[1Gcomputing gzip size (0)...[2K[1Gcomputing gzip size (1)...[2K[1Gcomputing gzip size (2)...[2K[1Gcomputing gzip size (3)...[2K[1Gcomputing gzip size (4)...[2K[1G[2mdist/[22m[32mmanifest.webmanifest                        [39m[1m[2m  0.43 kB[22m[1m[22m
+[2mdist/[22m[32mindex.html                                  [39m[1m[2m  0.96 kB[22m[1m[22m[2m │ gzip:   0.58 kB[22m
+[2mdist/[22m[2massets/[22m[35mindex-DTrzX4g7.css                   [39m[1m[2m 46.68 kB[22m[1m[22m[2m │ gzip:   8.42 kB[22m
+[2mdist/[22m[2massets/[22m[36mworkbox-window.prod.es5-B9K5rw8f.js  [39m[1m[2m  5.72 kB[22m[1m[22m[2m │ gzip:   2.36 kB[22m
+[2mdist/[22m[2massets/[22m[36mindex-Rfw-C5oR.js                    [39m[1m[33m967.07 kB[39m[22m[2m │ gzip: 288.12 kB[22m
+[33m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 1.87s[39m
+
+[36mPWA v1.0.3[39m
+mode      [35mgenerateSW[39m
+precache  [32m9 entries[39m [2m(1003.45 KiB)[22m
+files generated
+  [2mdist/sw.js[22m
+  [2mdist/workbox-1be04862.js[22m

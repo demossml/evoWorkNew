@@ -3,6 +3,24 @@ import zodToJsonSchema from "zod-to-json-schema";
 import type { IContext } from "../types";
 import { assert } from "../utils";
 
+type AiTextGenerationToolInput = {
+	type: "function" | (string & NonNullable<unknown>);
+	function: {
+		name: string;
+		description: string;
+		parameters?: {
+			type: "object" | (string & NonNullable<unknown>);
+			properties: {
+				[key: string]: {
+					type: string;
+					description?: string;
+				};
+			};
+			required: string[];
+		};
+	};
+};
+
 export type ITool<T = unknown, U = unknown> = {
 	schema: AiTextGenerationToolInput;
 	input: ZodSchema<T>;

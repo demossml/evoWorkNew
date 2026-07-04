@@ -7,15 +7,39 @@ assets = { directory = "dist"}
 upload_source_maps = true
 
 
+
 [[d1_databases]]
-binding = "DB" # i.e. available in your Worker on env.DB
+binding = "DB" # доступно как env.DB
 database_name = "d1-bot"
 database_id = "17efe5ea-cab5-4ea6-8b12-0bdf77c375fb"
 
+migrations_dir = "./drizzle"
+
+
+
 [ai]
-binding = "AI" # это имя, под которым ты будешь обращаться к AI в коде (env.AI)
+binding = "AI"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "evotor"
+preview_bucket_name = "evotor"
+
+
+
 
 
 [vars]
 EVOTOR_API_TOKEN = "1126f94c-2b19-490e-872c-49ded3be310e"
-BOT_TOKEN = "5405385673:AAFvJDIlR4BqQmnXDBGS8XOzEGSpVmE1w84"
+BOT_TOKEN = "8727487138:AAHnSTM9tisI2pOmRqooqTSHwsuJVtMmXag"
+TELEGRAM_STORAGE_BOT_TOKEN = "8727487138:AAHnSTM9tisI2pOmRqooqTSHwsuJVtMmXag"
+TELEGRAM_STORAGE_CHAT_ID = "-5118742446"
+R2_PUBLIC_URL = "c1e9f63e6135bb4fa5600e83bf4a1a4b.r2.cloudflarestorage.com/evotor"
+
+[triggers]
+crons = [
+  "*/3 * * * *",   # Продажи (SELL) — syncDocuments
+  "*/25 * * * *",  # Товары + Сотрудники — updateProducts, updateProductsShope
+  "*/30 * * * *",  # Остатки (stock)
+  "0 3 * * *",     # План-факт — getDataForCurrentDate
+]

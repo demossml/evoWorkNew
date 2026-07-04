@@ -1,3 +1,4 @@
 .turbo
 node_modules
-dist
+dist.dev.vars
+.deploy.vars.json

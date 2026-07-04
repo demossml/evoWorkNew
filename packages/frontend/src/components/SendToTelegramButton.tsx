@@ -1,5 +1,6 @@
 // SendToTelegramButton.tsx
 import type React from "react";
+import { generatePdfFromHtml } from "@features/reports/api";
 
 interface SendToTelegramButtonProps {
   html: string; // Тип для html пропса
@@ -16,15 +17,10 @@ const SendToTelegramButton: React.FC<SendToTelegramButtonProps> = ({
       return;
     }
 
-    const response = await fetch("/api/evotor/generate-pdf", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ html }),
-    });
-
-    if (response.ok) {
-      alert("Отчет отправлен в Telegram!");
-    } else {
+    try {
+      await generatePdfFromHtml(html);
+      alert("Отчёт отправлен в Telegram!");
+    } catch {
       alert("Ошибка отправки.");
     }
   };

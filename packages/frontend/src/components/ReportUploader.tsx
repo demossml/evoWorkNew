@@ -4,7 +4,7 @@ import {
   forwardRef,
   type MutableRefObject,
 } from "react";
-import { toPng } from "html-to-image";
+import { generatePdfFromFile } from "@features/reports/api";
 
 interface ReportUploaderProps {
   children?: React.ReactNode;
@@ -39,6 +39,7 @@ const ReportUploader = forwardRef<HTMLDivElement, ReportUploaderProps>(
       addLog("Создание изображения...");
 
       try {
+        const { toPng } = await import("html-to-image");
         // Добавляем задержку для завершения рендеринга
         await new Promise((resolve) => setTimeout(resolve, 300));
 
@@ -69,21 +70,11 @@ const ReportUploader = forwardRef<HTMLDivElement, ReportUploaderProps>(
           lastModified: Date.now(),
         });
 
-        const formData = new FormData();
-        formData.append("file", file);
-
         // Логирование перед отправкой
         addLog(`Отправка файла: ${file.name} (${file.size} байт)`);
 
         // Отправка на сервер
-        const response = await fetch("/api/evotor/generate-pdf", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error(`Ошибка сервера: ${response.status}`);
-        }
+        await generatePdfFromFile(file);
 
         addLog("Изображение успешно отправлено!");
       } catch (err) {

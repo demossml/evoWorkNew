@@ -1,37 +1,51 @@
-import { GoBackButton } from "../../components/GoBackButton";
 import { useSchedules } from "../../hooks/useApi";
+import { motion } from "framer-motion";
+import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 
 export default function SchedulesReport() {
-  const { data, error, isLoading } = useSchedules(); // Получаем данные из хука useSchedules
+  const { data, error, isLoading } = useSchedules();
 
-  // Если данные загружаются, отображаем индикатор загрузки
+  useTelegramBackButton();
+
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-custom-gray p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="app-page flex flex-col items-center justify-center bg-custom-gray p-4"
+      >
         <div className="flex items-center mb-4">
-          {/* Loading spinner */}
           <div className="w-24 h-24 border-8 border-t-transparent border-blue-500 border-solid rounded-full animate-spin" />
           <h1 className="ml-4 text-xl sm:text-2xl text-gray-800 font-bold" />
         </div>
-      </div>
+      </motion.div>
     );
   }
 
-  // Если есть ошибка при загрузке данных
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-custom-gray p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="app-page flex flex-col items-center justify-center bg-custom-gray p-4"
+      >
         <h1 className="mb-4 text-xl sm:text-2xl text-gray-800 font-bold">
           Ошибка: {error.message}
         </h1>
-      </div>
+      </motion.div>
     );
   }
 
-  // Если данных нет, показываем сообщение
   if (!data) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-custom-gray p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="app-page flex flex-col items-center justify-center bg-custom-gray p-4"
+      >
         <h1 className="mb-4 text-xl sm:text-2xl text-gray-800 font-bold">
           Нет данных для отображения.
         </h1>
@@ -43,36 +57,40 @@ export default function SchedulesReport() {
             На главную
           </a>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
-  // Отображаем данные из dataReport
   const { dataReport } = data;
 
   return (
-    <div className="fixed  w-screen h-screen px-4 bg-custom-gray dark:text-gray-400 dark:bg-gray-900">
-      <div className="mb-4 ">
-        <GoBackButton />
-      </div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="app-page w-full px-4 bg-custom-gray dark:text-gray-400 dark:bg-gray-900"
+    >
       <h2 className="text-xl font-bold text-gray-800 dark:text-gray-300 mb-4">
-        Отчет о времени открытия
+        Отчёт о времени открытия
       </h2>
       <div className="space-y-4">
-        {Object.entries(dataReport).map(([key, value]) => (
-          <div
+        {Object.entries(dataReport).map(([key, value], idx) => (
+          <motion.div
             key={key}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: idx * 0.07, ease: "easeInOut" }}
             className="p-4 bg-custom-gray dark:bg-gray-700 rounded-lg shadow-md"
           >
             <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">
               {key}:
             </p>
             <p className="text-base text-gray-800 dark:text-gray-200">
-              {value}
+              {String(value)}
             </p>
-          </div>
+          </motion.div>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }

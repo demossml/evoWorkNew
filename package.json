@@ -11,6 +11,8 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --filter=@evo-app/{backend,frontend}",
+    "dev:cron": "npx tsx packages/backend/scripts/local-scheduler.ts",
+    "dev:all": "turbo run dev --filter=@evo-app/{backend,frontend} & sleep 3 && npx tsx packages/backend/scripts/local-scheduler.ts & wait",
     "deploy": "turbo run deploy",
     "format": "prettier . --write",
     "lint": "pnpm biome lint --write --unsafe ."

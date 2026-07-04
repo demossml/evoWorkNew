@@ -1,260 +1,394 @@
-import { useState } from "react";
-import { useEmployeeNameAndUuid } from "../../hooks/useApi.ts";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Label } from "../../components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "../../components/ui/select";
+import { Button } from "../../components/ui/button";
+import type { DateRange } from "react-day-picker";
+import { Popover, PopoverContent, PopoverTrigger, Calendar } from "../../components/ui";
+import { SaveAsJpegButton } from "@widgets/reports";
+import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
+import { client } from "../../helpers/api";
+
+interface EmployeeOption {
+  uuid: string;
+  name: string;
+}
+
+interface DayResult {
+  date: string;
+  shopName: string;
+  bonusAccessories: number;
+  dataPlan: number;
+  salesDataVape: number;
+  bonusPlan: number;
+  totalBonus: number;
+  okladDaily?: number;
+}
 
 interface TotalReport {
-  employeeName: string | null; // Имя сотрудника
-  startDate: string; // Начальная дата
-  endDate: string; // Конечная дата
-  totalBonusAccessories: number; // Общая сумма бонусов по аксессуарам
-  totalBonusPlan: number; // Общая сумма плановых бонусов
-  totalBonus: number; // Общая сумма бонусов
+  employeeName: string | null;
+  startDate: string;
+  endDate: string;
+  workingDays?: number;
+  totalOklad?: number;
+  totalBonusAccessories: number;
+  totalBonusPlan: number;
+  totalBonus: number;
+  totalPayout?: number;
 }
 
 interface ResponseData {
-  status: string;
-  message: string;
-  result?: Array<{
-    date: string; // Дата
-    shopName: string; // Имя магазина
-    bonusAccessories: number; // Бонус за аксессуары
-    dataPlan: number; // План на сегодня
-    salesDataVape: number; // Продажи Vape
-    bonusPlan: number; // Бонус за продажу Vape
-    totalBonus: number; // Итоговый бонус
-  }>;
-  totalReport?: TotalReport; // Общий отчет
+  result?: DayResult[];
+  totalReport?: TotalReport;
 }
 
 export default function SalaryReport() {
-  // const [employeeOptions, setEmployeeOptions] = useState<EmployeeOptions[]>([]);
-  const [startDate, setStartDate] = useState<string>(
-    new Date().toISOString().split("T")[0]
-  );
-  const [endDate, setEndDate] = useState<string>(
-    new Date().toISOString().split("T")[0]
-  );
-  const [error, setError] = useState<string | null>(null);
-  const [responseData, setResponseData] = useState<ResponseData | null>(null);
-  const [loading, setLoading] = useState<boolean>(false); // Состояние загрузки
+  const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
 
-  const calculateDate = (date: string, days: number): string => {
-    const result = new Date(date);
-    result.setDate(result.getDate() + days);
-    return result.toISOString().split("T")[0];
+  const formatLocalDate = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+  const getLastWeekRange = () => {
+    const today = new Date();
+    const day = today.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const thisWeekMonday = new Date(today);
+    thisWeekMonday.setDate(today.getDate() + mondayOffset);
+    const start = new Date(thisWeekMonday);
+    start.setDate(thisWeekMonday.getDate() - 7);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { startDate: formatLocalDate(start), endDate: formatLocalDate(end) };
   };
 
-  const { data } = useEmployeeNameAndUuid(); // Получаем данные из хука useEmployeeRole
+  const initialRange = getLastWeekRange();
+  const [startDate, setStartDate] = useState(initialRange.startDate);
+  const [endDate, setEndDate] = useState(initialRange.endDate);
+  const [dateMode, setDateMode] = useState<"lastWeek" | "period">("lastWeek");
+  const [period, setPeriod] = useState<DateRange | undefined>(undefined);
+  const [tempPeriod, setTempPeriod] = useState<DateRange | undefined>(undefined);
+  const [showPeriodPicker, setShowPeriodPicker] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [responseData, setResponseData] = useState<ResponseData | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const employeeNameAndUuid = data?.employeeNameAndUuid ?? []; // Если данных нет, используем пустой массив
+  useTelegramBackButton();
+
+  const formatDate = (date: Date) =>
+    date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+  useEffect(() => {
+    if (dateMode === "lastWeek") {
+      const lastWeek = getLastWeekRange();
+      setStartDate(lastWeek.startDate);
+      setEndDate(lastWeek.endDate);
+      setPeriod(undefined);
+      setTempPeriod(undefined);
+      setShowPeriodPicker(false);
+    }
+  }, [dateMode]);
+
+  useEffect(() => {
+    if (dateMode !== "period" || !period?.from || !period?.to) return;
+    setStartDate(formatLocalDate(period.from));
+    setEndDate(formatLocalDate(period.to));
+  }, [dateMode, period]);
+
+  // Load employees
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const response = await client.api.employees.nameUuid.$get();
+        if (!response.ok) throw new Error(`Ошибка: ${response.status}`);
+        const data = await response.json();
+        if (data.employeeNameAndUuid) {
+          setEmployeeOptions(data.employeeNameAndUuid);
+            if (data.employeeNameAndUuid.length === 1) {
+            setSelectedEmployee(data.employeeNameAndUuid[0].uuid);
+          }
+        }
+      } catch (err) {
+        console.error("Ошибка загрузки сотрудников:", err);
+      }
+    };
+    fetchEmployees();
+  }, []);
+
+  // Auto-select first employee if in simple mode (CASHIER role)
+  useEffect(() => {
+    if (employeeOptions.length > 0 && !selectedEmployee) {
+      setSelectedEmployee(employeeOptions[0].uuid);
+    }
+  }, [employeeOptions, selectedEmployee]);
+
+  const showEmployeeSelect = employeeOptions.length > 1;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    // Находим сотрудника по uuid
-    const employee = employeeNameAndUuid.find((emp) => emp.uuid);
-
+    const employee = selectedEmployee || employeeOptions[0]?.uuid;
     if (!employee) {
       setError("Сотрудник не найден");
       return;
     }
-
-    const data = {
-      employee: employee.uuid,
-      startDate,
-      endDate,
-    };
-
-    setLoading(true); // Устанавливаем состояние загрузки в true
-    setError(null); // Сбрасываем ошибку перед новым запросом
-    setResponseData(null); // Очищаем предыдущий отчет
-
+    setLoading(true);
+    setError(null);
+    setResponseData(null);
     try {
-      const response = await fetch("/api/evotor/salary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+      const response = await client.api.evotor.salary.$post({
+        json: { employee, startDate, endDate },
       });
-
       if (response.ok) {
-        const result: ResponseData = await response.json();
+        const result = (await response.json()) as ResponseData;
         setResponseData(result);
       } else {
-        setError("Не удалось отправить данные");
+        const err = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+        setError(
+          (typeof err?.error === "string" ? err.error : undefined) ||
+            (typeof err?.message === "string" ? err.message : undefined) ||
+            "Не удалось загрузить отчёт",
+        );
       }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Неизвестная ошибка";
-      console.error("Ошибка при отправке формы:", errorMessage);
+    } catch {
       setError("Не удалось отправить данные");
     } finally {
-      setLoading(false); // Сбрасываем состояние загрузки
+      setLoading(false);
     }
   };
 
+  // Progress bar component
+  const ProgressBar = ({ value, max, label }: { value: number; max: number; label?: string }) => {
+    const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+    const color = pct >= 100
+      ? "bg-emerald-500"
+      : pct >= 70
+        ? "bg-blue-500"
+        : pct >= 40
+          ? "bg-amber-500"
+          : "bg-red-400";
+    return (
+      <div className="w-full">
+        {label && <div className="text-xs text-slate-500 mb-1">{label}: {pct}%</div>}
+        <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700">
+          <div className={`h-2 rounded-full transition-all duration-500 ${color}`} style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className=" w-screen h-screen px-4  dark:text-gray-400 dark:bg-gray-900">
-      <h2 className="text-2xl font-bold text-center dark:text-gray-400 mt-4">
-        Отчет по зарплате
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="app-page w-full px-4 sm:px-6 py-6 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col items-center"
+      style={{
+        paddingTop: "calc(var(--app-top-clearance) + 0.5rem)",
+        paddingBottom: "calc(var(--app-bottom-clearance) + 0.5rem)",
+      }}
+    >
+      <h2 className="text-xl sm:text-2xl font-semibold text-center mb-2">
+        💰 Отчёт по зарплате
       </h2>
+      <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center">
+        Выберите период и получите детализацию начислений
+      </p>
+
       {error && (
-        <div className="text-red-500 text-center mt-4">Ошибка: {error}</div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-red-500 text-center mb-4"
+        >
+          {error}
+        </motion.div>
       )}
 
-      {loading ? ( // Если идет загрузка, показываем только сообщение о загрузке
-        <div className="flex flex-col items-center justify-center min-h-screen bg-custom-gray p-4">
-          <div className="flex items-center mb-4">
-            {/* Loading spinner */}
-            <div className="w-24 h-24 border-8 border-t-transparent border-blue-500 border-solid rounded-full animate-spin" />
-            <h1 className="ml-4 text-xl sm:text-2xl text-gray-800 font-bold" />
-          </div>
+      {loading ? (
+        <div className="flex justify-center items-center min-h-[60vh]">
+          <motion.div
+            initial={{ scale: 0.7, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-24 h-24 border-8 border-t-transparent border-blue-500 rounded-full animate-spin"
+          />
         </div>
-      ) : responseData ? ( // Если отчет получен, отображаем его
-        <div className="mt-4">
-          <h3 className="text-xl font-bold text-center">Результат:</h3>
-          <div className="mt-4">
-            <h4 className="font-semibold">Начало периода:</h4>
-            <p>{responseData.totalReport?.startDate || startDate}</p>
-            <h4 className="font-semibold">Конец периода:</h4>
-            <p>{responseData.totalReport?.endDate || endDate}</p>
-          </div>
-          <ul className="mt-4 space-y-4">
-            {responseData.result?.map((item, index) => (
-              <li
-                key={index}
-                className="bg-custom-gray shadow-md rounded-lg p-4"
-              >
-                <ul className="mt-2">
-                  <li className="flex justify-between text-gray-700 mt-1">
-                    <span>Дата:</span>
-                    <span className="font-bold">{item.date}</span>
-                  </li>
-                  <li className="flex justify-between text-gray-700 mt-1">
-                    <span>Имя магазина:</span>
-                    <span className="font-bold">{item.shopName}</span>
-                  </li>
-                  <li className="flex justify-between text-gray-700 mt-1">
-                    <span>Бонус за аксессуары:</span>
-                    <span className="font-bold">{item.bonusAccessories} ₽</span>
-                  </li>
-                  <li className="flex justify-between text-gray-700 mt-1">
-                    <span>План Vape:</span>
-                    <span className="font-bold">{item.dataPlan} ₽</span>
-                  </li>
-                  <li className="flex justify-between text-gray-700 mt-1">
-                    <span>Продажи Vape:</span>
-                    <span className="font-bold">{item.salesDataVape} ₽</span>
-                  </li>
-                  <li className="flex justify-between text-gray-700 mt-1">
-                    <span>Бонус за продажу Vape:</span>
-                    <span className="font-bold">{item.bonusPlan} ₽</span>
-                  </li>
-                </ul>
-                <div className="mt-2 flex justify-between text-gray-700 font-bold">
-                  <span>Итоговый бонус:</span>
-                  <span className="bg-blue-500 text-white rounded-full px-3 py-1 text-xs font-semibold">
-                    {item.totalBonus} ₽
-                  </span>{" "}
-                  {/* Total bonus at the bottom */}
-                </div>
-                <hr className="my-2" /> {/* Separator between records */}
-              </li>
-            ))}
-          </ul>
+      ) : responseData ? (
+        <SaveAsJpegButton fileName="salary-report.jpeg">
+          <div className="w-full max-w-3xl space-y-4">
+            {/* Total summary card */}
+            {responseData.totalReport && (
+              <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl shadow-lg border-0">
+                <CardContent className="space-y-3 py-5">
+                  <div className="text-lg font-semibold">
+                    {responseData.totalReport.employeeName || "Сотрудник"}
+                  </div>
+                  <div className="text-sm opacity-80">
+                    {responseData.totalReport.startDate} → {responseData.totalReport.endDate}
+                    {" · "}
+                    {responseData.totalReport.workingDays ?? 0} дн.
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="opacity-70">Оклад: </span>
+                      <span className="font-bold">{responseData.totalReport.totalOklad ?? 0} ₽</span>
+                    </div>
+                    <div>
+                      <span className="opacity-70">Бонус аксессуары: </span>
+                      <span className="font-bold">{responseData.totalReport.totalBonusAccessories} ₽</span>
+                    </div>
+                    <div>
+                      <span className="opacity-70">Бонус план: </span>
+                      <span className="font-bold">{responseData.totalReport.totalBonusPlan} ₽</span>
+                    </div>
+                    <div>
+                      <span className="opacity-70">Итого бонус: </span>
+                      <span className="font-bold">{responseData.totalReport.totalBonus} ₽</span>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-white/20 text-2xl font-bold">
+                    К выплате: {responseData.totalReport.totalPayout ?? 0} ₽
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-          {responseData.totalReport && (
-            <div className="mt-6">
-              <h4 className="font-semibold">Общий отчет:</h4>
-              <ul className="bg-custom-gray shadow-md rounded-lg p-4 mt-4 space-y-2">
-                <li className="flex justify-between text-gray-700 mt-1">
-                  <span>Имя сотрудника:</span>
-                  <span className="font-bold">
-                    {responseData.totalReport.employeeName || "Не указано"}
-                  </span>
-                </li>
-                <li className="flex justify-between text-gray-700 mt-1">
-                  <span>Итого бонус по аксессуарам:</span>
-                  <span className="font-bold">
-                    {responseData.totalReport.totalBonusAccessories} ₽
-                  </span>
-                </li>
-                <li className="flex justify-between text-gray-700 mt-1">
-                  <span>Итого бонус по план Vape:</span>
-                  <span className="font-bold">
-                    {responseData.totalReport.totalBonusPlan} ₽
-                  </span>
-                </li>
-                <li className="flex justify-between text-gray-700 mt-1">
-                  <span>Итого бонус:</span>
-                  <span className="font-bold">
-                    {responseData.totalReport.totalBonus} ₽
-                  </span>
-                </li>
-              </ul>
+            {/* Daily details */}
+            {responseData.result?.map((item, idx) => (
+              <Card
+                key={idx}
+                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/70 dark:border-slate-800 shadow-sm"
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex justify-between">
+                    <span>{item.date}</span>
+                    <span className="text-slate-500">{item.shopName}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 dark:text-gray-300">
+                  {/* Vape plan progress */}
+                  <ProgressBar
+                    value={item.salesDataVape}
+                    max={item.dataPlan}
+                    label={`План по вейпам: ${item.salesDataVape} ₽ / ${item.dataPlan} ₽`}
+                  />
+
+                  <div className="grid grid-cols-2 gap-1 text-sm pt-1">
+                    <div>
+                      <span className="text-slate-500">Бонус аксессуары: </span>
+                      <span className="font-semibold">{item.bonusAccessories} ₽</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Бонус план: </span>
+                      <span className={`font-semibold ${item.bonusPlan > 0 ? "text-emerald-600" : "text-slate-400"}`}>
+                        {item.bonusPlan > 0 ? "✓" : "✗"} {item.bonusPlan} ₽
+                      </span>
+                    </div>
+                    {item.okladDaily ? (
+                      <div>
+                        <span className="text-slate-500">Оклад/день: </span>
+                        <span className="font-semibold">{item.okladDaily} ₽</span>
+                      </div>
+                    ) : null}
+                    <div>
+                      <span className="text-slate-500">Итого: </span>
+                      <span className="font-bold text-blue-600">{item.totalBonus + (item.okladDaily || 0)} ₽</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </SaveAsJpegButton>
+      ) : (
+        <motion.form
+          onSubmit={handleSubmit}
+          initial={{ opacity: 0, scale: 0.97 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-3xl space-y-4 bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-200/70 dark:border-slate-800 shadow-sm"
+        >
+          {/* Period selector */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              className={`rounded-lg border px-3 py-2 text-sm transition ${
+                dateMode === "lastWeek"
+                  ? "border-blue-600 bg-blue-600 text-white"
+                  : "border-slate-300 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              }`}
+              onClick={() => setDateMode("lastWeek")}
+            >
+              Прошлая неделя
+            </button>
+            <Popover open={showPeriodPicker} onOpenChange={(open) => { setShowPeriodPicker(open); if (!open) setTempPeriod(undefined); }}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={`rounded-lg border px-3 py-2 text-sm transition ${
+                    dateMode === "period"
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-slate-300 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  }`}
+                  onClick={() => { setDateMode("period"); setTempPeriod(period); setShowPeriodPicker(true); }}
+                >
+                  Период
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto p-0">
+                <Calendar
+                  mode="range"
+                  selected={tempPeriod?.from ? tempPeriod : undefined}
+                  onSelect={setTempPeriod}
+                  numberOfMonths={1}
+                  disabled={(date) => date > new Date()}
+                  initialFocus
+                />
+                <div className="flex justify-end p-2">
+                  <button
+                    className="px-3 py-1 rounded bg-blue-600 text-white"
+                    disabled={!(tempPeriod?.from && tempPeriod?.to)}
+                    onClick={() => { setPeriod(tempPeriod); setShowPeriodPicker(false); }}
+                  >
+                    Применить
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+          {dateMode === "period" && period?.from && period?.to && (
+            <div className="text-sm text-slate-600 dark:text-slate-300">
+              {formatDate(period.from)} → {formatDate(period.to)}
             </div>
           )}
-        </div>
-      ) : (
-        // Если ни загрузка, ни данные, показываем форму для выбора
-        <form
-          onSubmit={handleSubmit}
-          className="bg-custom-graye shadow-md rounded-lg p-4 mt-4"
-        >
-          <label htmlFor="start-date" className="block text-lg font-semibold">
-            Начало периода:
-          </label>
-          <input
-            type="date"
-            id="start-date"
-            name="startDate"
-            value={startDate}
-            onChange={(e) => {
-              setStartDate(e.target.value);
-              // Устанавливаем новую дату окончания, если текущая выходит за пределы допустимого диапазона
-              if (
-                new Date(endDate) > new Date(calculateDate(e.target.value, 7))
-              ) {
-                setEndDate(calculateDate(e.target.value, 7));
-              }
-              if (new Date(endDate) < new Date(e.target.value)) {
-                setEndDate(e.target.value);
-              }
-            }}
-            className="border rounded-md p-2 mt-1 w-full"
-          />
 
-          <label
-            htmlFor="end-date"
-            className="block text-lg font-semibold mt-2"
-          >
-            Конец периода:
-          </label>
-          <input
-            type="date"
-            id="end-date"
-            name="endDate"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="border rounded-md p-2 mt-1 w-full"
-            min={startDate} // Минимальная дата - начало периода
-            max={calculateDate(startDate, 7)} // Максимальная дата - +7 дней от начала
-          />
+          {/* Employee selector (only if multiple) */}
+          {showEmployeeSelect && (
+            <div>
+              <Label htmlFor="employee" className="dark:text-gray-300">Сотрудник:</Label>
+              <Select onValueChange={setSelectedEmployee} value={selectedEmployee || ""}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Выберите сотрудника" />
+                </SelectTrigger>
+                <SelectContent>
+                  {employeeOptions.map((opt) => (
+                    <SelectItem key={opt.uuid} value={opt.uuid}>{opt.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-          <button
+          <Button
             type="submit"
-            className="bg-blue-500 text-white rounded-md px-4 py-2 mt-4"
+            className="w-full mt-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white border-0 shadow-sm"
           >
-            Получить отчет
-          </button>
-        </form>
+            Получить отчёт
+          </Button>
+        </motion.form>
       )}
-      <div className="text-left mt-6">
-        <a
-          href="/"
-          className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 active:bg-blue-700 transition duration-300"
-        >
-          На главную
-        </a>
-      </div>
-    </div>
+    </motion.div>
   );
 }

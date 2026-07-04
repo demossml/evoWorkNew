@@ -52,7 +52,7 @@ export const EmployeeRoleProvider = ({ children }: PropsWithChildren) => {
   }
 
   return (
-    <EmployeeRoleContext.Provider value={{ role: data.employeeRole }}>
+    <EmployeeRoleContext.Provider value={{ role: data.employeeRole ?? "null" }}>
       {children}
     </EmployeeRoleContext.Provider>
   );

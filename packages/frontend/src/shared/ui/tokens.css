@@ -1,0 +1,41 @@
+:root {
+  /* Spacing scale (8px step) */
+  --ui-space-1: 8px;
+  --ui-space-2: 16px;
+  --ui-space-3: 24px;
+  --ui-space-4: 32px;
+  --ui-space-5: 40px;
+  --ui-space-6: 48px;
+
+  /* Radius */
+  --ui-radius-md: 12px;
+
+  /* Semantic colors */
+  --ui-color-bg: #f8fafc;
+  --ui-color-surface: #ffffff;
+  --ui-color-text: #0f172a;
+  --ui-color-muted: #64748b;
+  --ui-color-border: #e2e8f0;
+  --ui-color-primary: #2563eb;
+  --ui-color-success: #16a34a;
+  --ui-color-warning: #d97706;
+  --ui-color-danger: #dc2626;
+
+  /*
+   * Bridge design-system tokens to existing app variables.
+   * This keeps legacy styles working while introducing unified tokens.
+   */
+  --radius: var(--ui-radius-md);
+}
+
+.dark {
+  --ui-color-bg: #0f172a;
+  --ui-color-surface: #111827;
+  --ui-color-text: #f8fafc;
+  --ui-color-muted: #94a3b8;
+  --ui-color-border: #334155;
+  --ui-color-primary: #60a5fa;
+  --ui-color-success: #4ade80;
+  --ui-color-warning: #f59e0b;
+  --ui-color-danger: #f87171;
+}

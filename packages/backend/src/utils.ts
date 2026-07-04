@@ -1,9 +1,17 @@
-import type { D1Database } from "@cloudflare/workers-types";
+import type {
+	D1Database,
+	D1PreparedStatement,
+	R2Bucket,
+} from "@cloudflare/workers-types";
 import { z } from "zod";
 import type { Evotor } from "./evotor";
-import type { Document, Transaction } from "./evotor/types";
+import type {
+	Document,
+	IndexDocument,
+	ShopQuery,
+	Transaction,
+} from "./evotor/types";
 
-// import { Init } from "v8";
 export function assert(
 	statement: unknown,
 	message?: string,
@@ -98,6 +106,36 @@ export function formatDateWithTime(date: Date, isEndOfDay = false): string {
 	return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${fractionalSeconds}+00:00`;
 }
 
+/**
+ * Возвращает метку времени в формате ISO 8601 (UTC),
+ * совместимом с API Evotor (например, "2025-07-26T12:34:56.123000+00:00").
+ *
+ * @param isEndOfDay - Если true, возвращает метку времени конца дня (23:59:59.999).
+ *                     Если false (по умолчанию), используется текущее время.
+ * @param dayOffset - Смещение по дням (может быть положительным или отрицательным).
+ *                    Например, -1 — вчера, 0 — сегодня, 1 — завтра.
+ * @returns ISO-строка метки времени с миллисекундами, дополненными до микросекунд.
+ */
+export function getIsoTimestamp(isEndOfDay = false, dayOffset = 0): string {
+	const now = new Date();
+	now.setUTCDate(now.getUTCDate() + dayOffset); // Смещаем дату
+
+	const pad = (num: number, size = 2): string =>
+		String(num).padStart(size, "0");
+
+	const year: number = now.getUTCFullYear();
+	const month: string = pad(now.getUTCMonth() + 1);
+	const day: string = pad(now.getUTCDate());
+
+	const hours: string = pad(isEndOfDay ? 23 : now.getUTCHours());
+	const minutes: string = pad(isEndOfDay ? 59 : now.getUTCMinutes());
+	const seconds: string = pad(isEndOfDay ? 59 : now.getUTCSeconds());
+	const milliseconds: string = pad(now.getUTCMilliseconds(), 3);
+	const fractionalSeconds: string = `${milliseconds}000`.slice(0, 6);
+
+	return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${fractionalSeconds}+00:00`;
+}
+
 export function formatDate(date: Date): string {
 	// console.log(date)
 	const day = String(date.getDate()).padStart(2, "0"); // Добавляем ведущий ноль, если день меньше 10
@@ -105,6 +143,43 @@ export function formatDate(date: Date): string {
 	const year = date.getFullYear(); // Получаем год
 
 	return `${day}-${month}-${year}`; // Форматируем в dd-mm-yyyy
+}
+
+/**
+ * Возвращает массив дат сегодня с 03:00 до 21:00 в формате "YYYY-MM-DDTHH:mm:ss.000+0000"
+ */
+export function getTodayRangeEvotor(): [string, string] {
+	const now = new Date();
+	const year = now.getFullYear();
+	const month = String(now.getMonth() + 1).padStart(2, "0");
+	const day = String(now.getDate()).padStart(2, "0");
+
+	const start = `${year}-${month}-${day}T03:00:00.000+0000`;
+	const end = `${year}-${month}-${day}T21:00:00.000+0000`;
+
+	return [start, end];
+}
+
+/**
+ * Возвращает кортеж дат для периода: start — это 03:00 (N-1) дней назад, end — сегодня 21:00.
+ * @param days - количество дней (например, 1 — только сегодня, 2 — вчера и сегодня)
+ * @returns [start, end] в формате "YYYY-MM-DDTHH:mm:ss.000+0000"
+ */
+export function getPeriodRangeEvotor(days = 1): [string, string] {
+	const now = new Date();
+	const endYear = now.getFullYear();
+	const endMonth = String(now.getMonth() + 1).padStart(2, "0");
+	const endDay = String(now.getDate()).padStart(2, "0");
+	const end = `${endYear}-${endMonth}-${endDay}T21:00:00.000+0000`;
+
+	const startDate = new Date(now);
+	startDate.setDate(startDate.getDate() - (days - 1));
+	const startYear = startDate.getFullYear();
+	const startMonth = String(startDate.getMonth() + 1).padStart(2, "0");
+	const startDay = String(startDate.getDate()).padStart(2, "0");
+	const start = `${startYear}-${startMonth}-${startDay}T03:00:00.000+0000`;
+
+	return [start, end];
 }
 
 /**
@@ -1934,5 +2009,1098 @@ export async function analyzeSalesDocuments(docs: Document[], aiWithRun: any) {
 		console.error("Ошибка при парсинге ответа:", err);
 		console.error("Ответ модели :", response.response);
 		return null;
+	}
+}
+
+export async function createIndexDocumentsTable(db: D1Database): Promise<void> {
+	try {
+		await db.batch([
+			db.prepare(`
+        CREATE TABLE IF NOT EXISTS index_documents (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          number TEXT NOT NULL,
+          shop_id TEXT NOT NULL,
+          close_date TEXT,
+          open_user_uuid TEXT,
+          type TEXT,
+          transactions TEXT,
+          UNIQUE(number, shop_id)
+        )
+      `),
+			db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_index_documents_shop_id 
+        ON index_documents (shop_id)
+      `),
+			db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_index_documents_number 
+        ON index_documents (number)
+      `),
+		]);
+
+		console.log("Таблица 'index_documents' успешно создана или уже существует");
+	} catch (err) {
+		console.error("Ошибка при создании таблицы 'index_documents':", err);
+		throw err; // Пробрасываем ошибку для обработки на уровень выше
+	}
+}
+
+export async function createIndexOnType(db: D1Database): Promise<void> {
+	try {
+		await db
+			.prepare(
+				`
+			CREATE INDEX IF NOT EXISTS idx_index_documents_type 
+			ON index_documents (type)
+		`,
+			)
+			.run();
+
+		console.log("Индекс по полю 'type' успешно создан или уже существует");
+	} catch (err) {
+		console.error("Ошибка при создании индекса по полю 'type':", err);
+		throw err;
+	}
+}
+
+/**
+ * Сохраняет новые документы в таблицу `index_documents`.
+ * При возникновении дубликатов по уникальному ключу (number, shop_id) запись пропускается.
+ *
+ * @param db - Экземпляр базы данных D1
+ * @param documents - Массив документов для вставки
+ * @throws Ошибка базы данных при неудачной вставке
+ */
+export async function saveNewIndexDocuments(
+	db: D1Database,
+	documents: IndexDocument[],
+): Promise<void> {
+	if (!documents?.length) {
+		console.log("No documents provided to saveNewIndexDocuments");
+		return;
+	}
+
+	const insertStmt = db.prepare(`
+    INSERT OR IGNORE INTO index_documents 
+    (number, shop_id, close_date, open_user_uuid, type, transactions) 
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+
+	try {
+		const statements = documents
+			.map((doc, index) => {
+				if (doc.number === undefined || doc.number === null) {
+					console.warn(
+						`Skipping document at index ${index}: number is missing`,
+						doc,
+					);
+					return null;
+				}
+				if (!doc.shop_id) {
+					console.warn(
+						`Skipping document at index ${index}: shop_id is missing`,
+						doc,
+					);
+					return null;
+				}
+
+				return insertStmt.bind(
+					String(doc.number),
+					doc.shop_id,
+					doc.closeDate ?? null,
+					doc.openUserUuid ?? null,
+					doc.type ?? null,
+					doc.transactions ? JSON.stringify(doc.transactions) : null,
+				);
+			})
+			.filter((stmt): stmt is D1PreparedStatement => stmt !== null);
+
+		if (statements.length === 0) {
+			console.log("No valid documents to insert");
+			return;
+		}
+
+		await db.batch(statements);
+		console.log(
+			`Successfully inserted ${statements.length} documents (duplicates skipped)`,
+		);
+	} catch (err) {
+		console.error("Error in saveNewIndexDocuments:", err);
+		throw err;
+	}
+}
+
+// export async function saveNewIndexDocuments(
+// 	db: D1Database,
+// 	documents: IndexDocument[],
+// ): Promise<void> {
+// 	if (!documents?.length) {
+// 		console.log("No documents provided to saveNewIndexDocuments");
+// 		return;
+// 	}
+
+// 	const insertStmt = db.prepare(`
+//     INSERT INTO index_documents
+//     (number, shop_id, close_date, open_user_uuid, type, transactions)
+//     VALUES (?, ?, ?, ?, ?, ?)
+//   `);
+
+// 	const checkStmt = db.prepare(`
+//     SELECT 1 FROM index_documents WHERE number = ? AND shop_id = ? LIMIT 1
+//   `);
+
+// 	try {
+// 		const batch = await Promise.all(
+// 			documents.map(async (doc, index) => {
+// 				// Валидация обязательных полей
+// 				if (doc.number === undefined || doc.number === null) {
+// 					console.warn(
+// 						`Skipping document at index ${index}: number is missing`,
+// 						doc,
+// 					);
+// 					return null;
+// 				}
+// 				if (!doc.shop_id) {
+// 					console.warn(
+// 						`Skipping document at index ${index}: shop_id is missing`,
+// 						doc,
+// 					);
+// 					return null;
+// 				}
+
+// 				// Проверяем уникальность number + shop_id
+// 				const exists = await checkStmt
+// 					.bind(String(doc.number), doc.shop_id)
+// 					.first();
+// 				if (!exists) {
+// 					return insertStmt.bind(
+// 						String(doc.number), // Преобразуем number в строку
+// 						doc.shop_id,
+// 						doc.closeDate ?? null,
+// 						doc.openUserUuid ?? null,
+// 						doc.type ?? null,
+// 						doc.transactions ? JSON.stringify(doc.transactions) : null,
+// 					);
+// 				}
+// 				return null;
+// 			}),
+// 		);
+
+// 		const validInserts = batch.filter(
+// 			(stmt): stmt is D1PreparedStatement => stmt !== null,
+// 		);
+
+// 		if (validInserts.length) {
+// 			await db.batch(validInserts);
+// 			console.log(`Successfully inserted ${validInserts.length} documents`);
+// 		} else {
+// 			console.log("No new documents to insert");
+// 		}
+// 	} catch (err) {
+// 		console.error("Error in saveNewIndexDocuments:", err);
+// 		throw err;
+// 	}
+// }
+
+interface ShopLastDocument {
+	shop_id: string;
+	closeDate: string;
+}
+
+export async function getLatestCloseDates(
+	db: D1Database,
+	shopIds: string[],
+): Promise<ShopLastDocument[]> {
+	if (!shopIds?.length) {
+		console.log("No shop IDs provided to getLatestCloseDates");
+		return [];
+	}
+
+	const validShopIds = shopIds.filter((id) => id);
+	if (!validShopIds.length) {
+		console.warn("No valid shop IDs provided");
+		return [];
+	}
+
+	try {
+		const result = await db
+			.prepare(
+				`
+        SELECT shop_id, MAX(close_date) as close_date
+        FROM index_documents
+        WHERE shop_id IN (${validShopIds.map(() => "?").join(",")})
+        GROUP BY shop_id
+      `,
+			)
+			.bind(...validShopIds)
+			.all<{ shop_id: string; close_date: string }>();
+
+		console.log("Query results:", result.results);
+
+		const closeDatesMap = new Map(
+			result.results.map((row) => [row.shop_id, row.close_date]),
+		);
+
+		const now = new Date();
+		now.setUTCHours(3, 0, 0, 0); // начало дня + 3 часа UTC
+
+		// Преобразуем дату в нужный формат
+		function formatDate(date: Date): string {
+			return date.toISOString().replace("Z", "+0000");
+		}
+
+		return validShopIds.map((shopId) => {
+			const closeDate = closeDatesMap.get(shopId);
+			return {
+				shop_id: shopId,
+				closeDate: closeDate ?? formatDate(now),
+			};
+		});
+	} catch (err) {
+		console.error("Error in getLatestCloseDates:", err);
+		throw err;
+	}
+}
+
+function formatDateToCustomUTC(date: Date): string {
+	const pad = (n: number, z = 2) => String(n).padStart(z, "0");
+	return (
+		`${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T` +
+		`${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}.` +
+		`${pad(date.getUTCMilliseconds(), 3)}+0000`
+	);
+}
+
+export function buildSinceUntilFromDocuments(
+	documents: ShopLastDocument[],
+): ShopQuery[] {
+	const now = new Date();
+	const endOfDayUTC = new Date(
+		Date.UTC(
+			now.getUTCFullYear(),
+			now.getUTCMonth(),
+			now.getUTCDate(),
+			23,
+			59,
+			59,
+			999,
+		),
+	);
+	const until = new Date(endOfDayUTC.getTime() + 3 * 60 * 60 * 1000); // +3 часа
+
+	return documents.map(({ shop_id, closeDate }) => {
+		const sinceDate = new Date(new Date(closeDate).getTime() + 1);
+		return {
+			shopId: shop_id,
+			since: formatDateToCustomUTC(sinceDate),
+			until: formatDateToCustomUTC(until),
+		};
+	});
+}
+
+export async function getDocumentsByPeriod(
+	db: D1Database,
+	shopId: string,
+	since: string,
+	until: string,
+): Promise<IndexDocument[]> {
+	try {
+		const stmt = await db
+			.prepare(
+				`
+			SELECT * FROM index_documents
+			WHERE shop_id = ? 
+			AND close_date BETWEEN ? AND ?
+			ORDER BY close_date ASC
+		`,
+			)
+			.bind(shopId, since, until);
+
+		const result = await stmt.all();
+
+		const documents: IndexDocument[] = result.results.map((row) => ({
+			closeDate: String(row.close_date),
+			number: Number(row.number),
+			openUserUuid: String(row.open_user_uuid),
+			shop_id: String(row.shop_id),
+			type: row.type as IndexDocument["type"],
+			transactions: parseTransactions(row.transactions),
+		}));
+
+		return documents;
+	} catch (error) {
+		console.error("Ошибка при получении документов за период:", error);
+		throw error;
+	}
+}
+
+function parseTransactions(value: unknown): Transaction[] {
+	if (!value) return [];
+	try {
+		const parsed = JSON.parse(String(value));
+		if (Array.isArray(parsed)) {
+			return parsed;
+		}
+		console.warn("transactions is not an array:", parsed);
+		return [];
+	} catch (e) {
+		console.warn("Ошибка парсинга transactions:", e);
+		return [];
+	}
+}
+
+export async function getDocumentsByCashOutcomeByPeriod(
+	db: D1Database,
+	shopId: string,
+	since: string,
+	until: string,
+): Promise<IndexDocument[]> {
+	try {
+		const stmt = await db
+			.prepare(
+				`
+			SELECT close_date, number, open_user_uuid, shop_id, type, transactions
+			FROM index_documents
+			WHERE shop_id = ? 
+			AND close_date BETWEEN ? AND ?
+			AND type = 'CASH_OUTCOME'
+			ORDER BY close_date ASC		
+		`,
+			)
+			.bind(shopId, since, until);
+
+		const result = await stmt.all();
+
+		const documents: IndexDocument[] = result.results.map((row) => ({
+			closeDate: String(row.close_date),
+			number: Number(row.number),
+			openUserUuid: String(row.open_user_uuid),
+			shop_id: String(row.shop_id),
+			type: row.type as IndexDocument["type"],
+			transactions: parseTransactions(row.transactions),
+		}));
+
+		return documents;
+	} catch (error) {
+		console.error("Ошибка при получении документов за период:", error);
+		throw error;
+	}
+}
+
+export async function getDocumentsBySalesPeriod(
+	db: D1Database,
+	shopId: string,
+	since: string,
+	until: string,
+): Promise<IndexDocument[]> {
+	try {
+		const stmt = await db
+			.prepare(
+				`
+			SELECT close_date, number, open_user_uuid, shop_id, type, transactions
+			FROM index_documents
+			WHERE shop_id = ? 
+			AND close_date BETWEEN ? AND ?
+			AND type IN ('SELL', 'PAYBACK')
+			ORDER BY close_date ASC		
+		`,
+			)
+			.bind(shopId, since, until);
+
+		const result = await stmt.all();
+
+		const documents: IndexDocument[] = result.results.map((row) => ({
+			closeDate: String(row.close_date),
+			number: Number(row.number),
+			openUserUuid: String(row.open_user_uuid),
+			shop_id: String(row.shop_id),
+			type: row.type as IndexDocument["type"],
+			transactions: parseTransactions(row.transactions),
+		}));
+
+		return documents;
+	} catch (error) {
+		console.error("Ошибка при получении документов за период:", error);
+		throw error;
+	}
+}
+
+export async function getDocumentsBySales(
+	db: D1Database,
+	shopId: string,
+	since: string,
+	until: string,
+): Promise<IndexDocument[]> {
+	try {
+		const stmt = await db
+			.prepare(
+				`
+			SELECT close_date, number, open_user_uuid, shop_id, type, transactions
+			FROM index_documents
+			WHERE shop_id = ? 
+			AND close_date BETWEEN ? AND ?
+			AND type IN ('SELL')
+			ORDER BY close_date ASC		
+		`,
+			)
+			.bind(shopId, since, until);
+
+		const result = await stmt.all();
+
+		const documents: IndexDocument[] = result.results.map((row) => ({
+			closeDate: String(row.close_date),
+			number: Number(row.number),
+			openUserUuid: String(row.open_user_uuid),
+			shop_id: String(row.shop_id),
+			type: row.type as IndexDocument["type"],
+			transactions: parseTransactions(row.transactions),
+		}));
+
+		return documents;
+	} catch (error) {
+		console.error("Ошибка при получении документов за период:", error);
+		throw error;
+	}
+}
+
+import JSZip from "jszip";
+
+export type CandleBinance = {
+	symbol: string;
+	interval: string;
+	year: string;
+	month: string;
+};
+
+export const downloadCandleBinance = async (
+	params: CandleBinance,
+	r2: R2Bucket,
+): Promise<string> => {
+	const keyName = `${params.symbol}/${params.interval}/${params.year}-${params.month}`;
+
+	const fileName = `${params.symbol}-${params.interval}-${params.year}-${params.month}.zip`;
+	const binanceUrl = `https://data.binance.vision/data/spot/monthly/klines/${params.symbol}/${params.interval}/${fileName}`;
+
+	const response = await fetch(binanceUrl);
+
+	if (!response.ok) {
+		throw new Error(`Ошибка загрузки данных с Binance: ${response.statusText}`);
+	}
+
+	const data = await response.blob();
+
+	// Разархивация с помощью JSZip
+	const zipData = await JSZip.loadAsync(data);
+	console.log(Object.keys(zipData.files));
+
+	// Ищем CSV-файл
+	const csvFile = Object.keys(zipData.files).find((fileName) =>
+		fileName.endsWith(".csv"),
+	);
+
+	if (!csvFile) {
+		throw new Error("CSV файл не найден в архиве");
+	}
+
+	const file = zipData.file(csvFile);
+	if (!file) {
+		throw new Error("CSV файл не найден в архиве");
+	}
+
+	await saveToR2(r2, keyName, await file.async("string"));
+
+	return file.async("string");
+};
+
+export const downloadCandleBinance2 = async (
+	symbol: string,
+	interval: string,
+	r2: R2Bucket,
+): Promise<string> => {
+	const date = new Date();
+	date.setMonth(date.getMonth() - 1); // Получаем данные за последний месяц
+	const year = date.getFullYear().toString();
+	const month = (date.getMonth() + 1).toString().padStart(2, "0");
+	console.log("Получаем данные за:", {
+		symbol,
+		interval,
+		year,
+		month,
+	});
+
+	const paramsCandleBinance: CandleBinance = {
+		symbol,
+		interval,
+		year,
+		month,
+	};
+	console.log("Параметры для Binance:", paramsCandleBinance);
+	const data = await downloadCandleBinance(paramsCandleBinance, r2); // Используем исправленную функцию
+
+	return data;
+};
+//
+// pnpm add -D @types/unzip-stream
+import { Readable } from "node:stream";
+import unzip from "unzip-stream";
+import type { DeadStockItem } from "./types";
+
+export const saveToR2 = async (
+	r2: R2Bucket,
+	key: string,
+	data: string,
+): Promise<void> => {
+	console.log(" Сохраняем в R2:", key);
+
+	try {
+		await r2.put(key, data, {
+			httpMetadata: {
+				contentType: "text/csv; charset=utf-8",
+			},
+		});
+		console.log(" Успешно сохранено:", key);
+	} catch (err) {
+		console.error(err);
+	}
+};
+
+export const downloadCandleBinance3 = async (
+	params: CandleBinance,
+	r2: R2Bucket,
+	db: D1Database,
+): Promise<string[]> => {
+	await createCandesTable(db);
+	const fileName = `${params.symbol}-${params.interval}-${params.year}-${params.month}.zip`;
+	const binanceUrl = `https://data.binance.vision/data/spot/monthly/klines/${params.symbol}/${params.interval}/${fileName}`;
+
+	const response = await fetch(binanceUrl);
+	if (!response.ok) {
+		throw new Error(
+			`Error loading data from Binance: ${response.status} ${response.statusText}`,
+		);
+	}
+	if (!response.body) {
+		throw new Error("Response body is null or undefined");
+	}
+
+	const reader = Readable.fromWeb(response.body as any);
+
+	return new Promise<string[]>((resolve, reject) => {
+		const candles: string[] = [];
+		const tasks: Promise<void>[] = [];
+
+		reader
+			.pipe(unzip.Parse())
+			.on("entry", (entry) => {
+				if (entry.path.endsWith(".csv")) {
+					let csvData = "";
+
+					entry.on("data", (chunk: Buffer) => {
+						csvData += chunk.toString();
+						console.log("Получен фрагмент данных:", chunk.toString());
+					});
+
+					entry.on("end", () => {
+						const key = `${params.symbol}/${params.interval}/${params.year}-${params.month}.csv`;
+
+						// сохраняем в R2 и ждём
+						const task = saveToR2(r2, key, csvData).then(() => {
+							candles.push(csvData);
+						});
+						const saveDb = parsedCandles(
+							csvData,
+							params.symbol,
+							params.interval,
+							params.year,
+							params.month,
+						).then((parsed) => saveCandlesToD1(db, parsed));
+
+						tasks.push(task, saveDb);
+					});
+				} else {
+					entry.autodrain();
+				}
+			})
+			.on("close", async () => {
+				try {
+					await Promise.all(tasks);
+					resolve(candles);
+				} catch (err) {
+					reject(err);
+				}
+			})
+			.on("error", reject);
+	});
+};
+
+export const syncBinanceAll = async (
+	symbol: string,
+	interval: string,
+	since: string,
+	r2: R2Bucket,
+	db: D1Database,
+): Promise<void> => {
+	const date = new Date(since);
+	const today = new Date();
+
+	while (date <= today) {
+		const year = date.getFullYear().toString();
+		const month = (date.getMonth() + 1).toString().padStart(2, "0");
+		console.log("Получаем данные за:", {
+			symbol,
+			interval,
+			year,
+			month,
+		});
+
+		const paramsCandleBinance: CandleBinance = {
+			symbol,
+			interval,
+			year,
+			month,
+		};
+
+		const candles = await downloadCandleBinance3(paramsCandleBinance, r2, db);
+
+		if (candles.length === 0) {
+			break;
+		}
+		date.setMonth(date.getMonth() + 1);
+	}
+};
+
+export type CandleBinanseCsv = {
+	symbol: string;
+	interval: string;
+	year: string;
+	month: string;
+	timestamp: number;
+	open: number;
+	high: number;
+	low: number;
+	close: number;
+	volume: number;
+	closeTime: number;
+	quoteAssetVolume: number;
+	numberOfTrades: number;
+	takerBuyBaseAssetVolume: number;
+	takerBuyQuoteAssetVolume: number;
+	ignored: number;
+};
+
+export const parsedCandles = async (
+	csvData: string,
+	symbol: string,
+	interval: string,
+	year: string,
+	month: string,
+): Promise<CandleBinanseCsv[]> => {
+	return csvData
+		.trim()
+		.split("\n")
+		.map((line) => {
+			const values = line.split(",");
+			return {
+				symbol,
+				interval,
+				year,
+				month,
+				timestamp: Number(values[0]),
+				open: Number.parseFloat(values[1]),
+				high: Number.parseFloat(values[2]),
+				low: Number.parseFloat(values[3]),
+				close: Number.parseFloat(values[4]),
+				volume: Number.parseFloat(values[5]),
+				closeTime: Number(values[6]),
+				quoteAssetVolume: Number.parseFloat(values[7]),
+				numberOfTrades: Number.parseInt(values[8], 10),
+				takerBuyBaseAssetVolume: Number.parseFloat(values[9]),
+				takerBuyQuoteAssetVolume: Number.parseFloat(values[10]),
+				ignored: Number.parseFloat(values[11]),
+			};
+		});
+};
+
+export async function createCandesTable(db: D1Database): Promise<void> {
+	try {
+		await db.batch([
+			db.prepare(`
+				CREATE TABLE IF NOT EXISTS candes (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					symbol TEXT NOT NULL,
+					interval TEXT NOT NULL,
+					year TEXT NOT NULL,
+					month TEXT NOT NULL,
+					timestamp INTEGER NOT NULL,
+					open REAL NOT NULL,
+					high REAL NOT NULL,
+					low REAL NOT NULL,
+					close REAL NOT NULL,
+					volume REAL NOT NULL,
+					closeTime INTEGER NOT NULL,
+					quoteAssetVolume REAL NOT NULL,
+					numberOfTrades INTEGER NOT NULL,
+					takerBuyBaseAssetVolume REAL NOT NULL,
+					takerBuyQuoteAssetVolume REAL NOT NULL,
+					ignored REAL
+				)
+			`),
+			db.prepare(`
+				CREATE INDEX IF NOT EXISTS idx_candes_symbol_interval_timestamp 
+				ON candes (symbol, interval, timestamp)
+			`),
+			db.prepare(`
+				CREATE INDEX IF NOT EXISTS idx_candes_year_month_symbol_interval
+				ON candes (year, month, symbol, interval)
+			`),
+		]);
+
+		console.log("Таблица 'candes' успешно создана или уже существует");
+	} catch (err) {
+		console.error("Ошибка при создании таблицы 'candes':", err);
+		throw err;
+	}
+}
+
+export async function saveCandlesToD1(
+	db: D1Database,
+	candles: CandleBinanseCsv[],
+): Promise<void> {
+	if (!candles.length) {
+		console.log("Нет данных для сохранения");
+		return;
+	}
+
+	const insertStmt = db.prepare(`
+		INSERT INTO candes (
+			symbol, interval, year, month, timestamp, open, high, low, close, volume,
+			closeTime, quoteAssetVolume, numberOfTrades,
+			takerBuyBaseAssetVolume, takerBuyQuoteAssetVolume, ignored
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`);
+
+	const checkStmt = db.prepare(`
+		SELECT 1 FROM candes WHERE symbol = ? AND interval = ? AND timestamp = ? LIMIT 1
+	`);
+
+	for (const candle of candles) {
+		try {
+			const existing = await checkStmt
+				.bind(candle.symbol, candle.interval, candle.timestamp)
+				.first();
+
+			if (existing) {
+				console.log(
+					`Запись уже существует: ${candle.symbol} ${candle.interval} ${candle.timestamp}`,
+				);
+				continue;
+			}
+
+			// сохраняем новую
+			await insertStmt
+				.bind(
+					candle.symbol,
+					candle.interval,
+					candle.year,
+					candle.month,
+					candle.timestamp,
+					candle.open,
+					candle.high,
+					candle.low,
+					candle.close,
+					candle.volume,
+					candle.closeTime,
+					candle.quoteAssetVolume,
+					candle.numberOfTrades,
+					candle.takerBuyBaseAssetVolume,
+					candle.takerBuyQuoteAssetVolume,
+					candle.ignored,
+				)
+				.run();
+		} catch (err) {
+			console.error("Ошибка при сохранении свечи:", err, candle);
+		}
+	}
+}
+
+/**
+ * Сохраняет файл в R2 по указанному ключу.
+ * Ничего не возвращает, если все успешно.
+ * Выбрасывает ошибку при неудаче.
+ */
+export async function saveFileToR2(
+	r2: R2Bucket,
+	file: File,
+	key: string,
+): Promise<void> {
+	if (!file || !(file instanceof File)) {
+		throw new Error("Передан некорректный файл");
+	}
+
+	try {
+		const arrayBuffer = await file.arrayBuffer();
+
+		console.log("Saving to R2:", key, "type:", file.type, "size:", file.size);
+
+		await r2.put(key, arrayBuffer, {
+			httpMetadata: {
+				contentType: file.type || "application/octet-stream",
+			},
+		});
+
+		// Успешно — ничего не возвращаем
+		return;
+	} catch (error) {
+		console.error("Ошибка сохранения в R2:", error);
+		throw new Error("Не удалось сохранить файл в R2");
+	}
+}
+
+// Функция для создания таблицы plan, если она не существует
+export async function createOpenStorsTable(db: D1Database): Promise<void> {
+	try {
+		// Сначала добавляем колонку, если таблица уже существует
+		try {
+			await db.prepare("ALTER TABLE openStors ADD COLUMN shop_uuid TEXT").run();
+		} catch {
+			// колонка уже существует — ок
+		}
+		try {
+			await db.prepare("ALTER TABLE openStors ADD COLUMN shop_name TEXT").run();
+		} catch {
+			// колонка уже существует — ок
+		}
+		try {
+			await db.prepare("ALTER TABLE openStors ADD COLUMN user_name TEXT").run();
+		} catch {
+			// колонка уже существует — ок
+		}
+
+		const createTableQuery =
+			"CREATE TABLE IF NOT EXISTS openStors (" +
+			"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+			"date TEXT NOT NULL, " +
+			"userId TEXT NOT NULL, " +
+			"shop_uuid TEXT, " +
+			"shop_name TEXT, " +
+			"user_name TEXT, " +
+			"cash REAL, " +
+			"sign TEXT CHECK(sign IN ('+', '-')), " +
+			"ok INTEGER" +
+			");";
+		await db.prepare(createTableQuery).run();
+	} catch (err) {
+		console.error("Ошибка при создании таблицы:", err);
+	}
+}
+
+export async function updateOpenStore(
+	db: D1Database,
+	userId: string,
+	data: { cash: number | null; sign: string | null },
+): Promise<void> {
+	try {
+		await db
+			.prepare(
+				"UPDATE openStors " +
+					"SET cash = ?, sign = ? " +
+					"WHERE userId = ? " +
+					"ORDER BY id DESC " +
+					"LIMIT 1",
+			)
+			.bind(data.cash, data.sign, userId)
+			.run();
+	} catch (err) {
+		console.error("Ошибка при обновлении openStors:", err);
+	}
+}
+
+export async function saveOpenStorsTable(
+	db: D1Database,
+	data: {
+		date: string;
+		userId: string;
+		shopUuid?: string | null;
+		shopName?: string | null;
+		userName?: string | null;
+		cash?: number | null;
+		sign?: string | null;
+		ok?: number | null;
+	},
+): Promise<void> {
+	try {
+		await db
+			.prepare(
+				"INSERT INTO openStors (date, userId, shop_uuid, shop_name, user_name, cash, sign, ok) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+			)
+			.bind(
+				data.date,
+				data.userId,
+				data.shopUuid ?? null,
+				data.shopName ?? null,
+				data.userName ?? null,
+				data.cash ?? null,
+				data.sign ?? null,
+				data.ok ?? null,
+			)
+			.run();
+	} catch (err) {
+		console.error("Ошибка при сохранении данных в openStors:", err);
+	}
+}
+
+// export async function isOpenStoreExists(
+// 	db: D1Database,
+// 	userId: string,
+// 	dateDDMMYYYY: string,
+// ): Promise<boolean> {
+// 	try {
+// 		// Разбираем дату dd-mm-yyyy
+// 		const [day, month, year] = dateDDMMYYYY.split("-").map(Number);
+
+// 		// Начало и конец дня в формате ISO
+// 		const startDate = new Date(
+// 			Date.UTC(year, month - 1, day, 0, 0, 0),
+// 		).toISOString();
+// 		const endDate = new Date(
+// 			Date.UTC(year, month - 1, day, 23, 59, 59),
+// 		).toISOString();
+
+// 		// Проверяем, есть ли запись для пользователя в этот день
+// 		const res = await db
+// 			.prepare(
+// 				"SELECT COUNT(*) AS count FROM openStors WHERE userId = ? AND date BETWEEN ? AND ?",
+// 			)
+// 			.bind(userId, startDate, endDate)
+// 			.first<{ count: number }>();
+
+// 		// Если res или res.count undefined, считаем что записи нет
+// 		const count = res?.count ?? 0;
+
+// 		return count > 0;
+// 	} catch (err) {
+// 		console.error("Ошибка при проверке открытия магазина:", err);
+// 		return false;
+// 	}
+// }
+
+export async function isOpenStoreExists(
+	db: D1Database,
+	userId: string,
+	dateDDMMYYYY: string,
+): Promise<boolean> {
+	try {
+		// Разбираем дату dd-mm-yyyy
+		const [day, month, year] = dateDDMMYYYY.split("-").map(Number);
+
+		// Начало и конец дня в формате ISO
+		const startDate = new Date(
+			Date.UTC(year, month - 1, day, 0, 0, 0),
+		).toISOString();
+		const endDate = new Date(
+			Date.UTC(year, month - 1, day, 23, 59, 59),
+		).toISOString();
+
+		// Проверяем, есть ли запись с хотя бы одним не-null полем из cash, sign, ok
+		const res = await db
+			.prepare(
+				`SELECT COUNT(*) AS count 
+				 FROM openStors 
+				 WHERE userId = ? 
+				   AND date BETWEEN ? AND ? 
+				   AND (cash IS NOT NULL OR sign IS NOT NULL OR ok IS NOT NULL)`,
+			)
+			.bind(userId, startDate, endDate)
+			.first<{ count: number }>();
+
+		// Если res или res.count undefined, считаем что записи нет
+		const count = res?.count ?? 0;
+
+		return count > 0;
+	} catch (err) {
+		console.error("Ошибка при проверке открытия магазина:", err);
+		return false;
+	}
+}
+
+export async function createDeadStocksTable(db: D1Database): Promise<void> {
+	try {
+		const createTableQuery =
+			"CREATE TABLE IF NOT EXISTS deadStocks (" +
+			"id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+			"shop_uuid TEXT NOT NULL, " +
+			"name TEXT NOT NULL, " +
+			"quantity INTEGER NOT NULL, " +
+			"sold INTEGER NOT NULL, " +
+			"lastSaleDate TEXT, " +
+			"mark TEXT, " +
+			"moveCount INTEGER, " +
+			"moveToStore TEXT, " +
+			"document_number TEXT, " +
+			"document_date TEXT" +
+			");";
+		await db.prepare(createTableQuery).run();
+		// console.log("Таблица 'deadStocks' успешно создана или уже существует.");
+	} catch (err) {
+		console.error("Ошибка при создании таблицы:", err);
+	}
+}
+
+export async function saveDeadStocks(
+	db: D1Database,
+	shopUuid: string,
+	items: DeadStockItem[],
+): Promise<void> {
+	if (!shopUuid || !items || !Array.isArray(items) || items.length === 0) {
+		throw new Error("Неверные данные");
+	}
+
+	// Генерация номера и даты документа для батча
+	const document_number = crypto.randomUUID(); // Или другой формат, например, 'DS-' + Date.now()
+	const document_date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+	const insertQuery = `
+    INSERT INTO deadStocks 
+    (shop_uuid, name, quantity, sold, lastSaleDate, mark, moveCount, moveToStore, document_number, document_date) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+	const statements = items.map((item) =>
+		db
+			.prepare(insertQuery)
+			.bind(
+				shopUuid,
+				item.name,
+				item.quantity,
+				item.sold,
+				item.lastSaleDate,
+				item.mark,
+				item.moveCount ?? null,
+				item.moveToStore ?? null,
+				document_number,
+				document_date,
+			),
+	);
+
+	await db.batch(statements);
+}
+
+export async function createOpeningPhotosTable(db: D1Database): Promise<void> {
+	try {
+		await db.prepare(`
+			CREATE TABLE IF NOT EXISTS opening_photos (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				shop_uuid TEXT NOT NULL,
+				user_id TEXT NOT NULL,
+				date TEXT NOT NULL,
+				category TEXT NOT NULL,
+				slot_index INTEGER NOT NULL,
+				telegram_file_id TEXT NOT NULL,
+				created_at TEXT NOT NULL DEFAULT (datetime('now')),
+				UNIQUE(shop_uuid, date, category, slot_index)
+			)
+		`).run();
+	} catch (err) {
+		console.error("Ошибка при создании opening_photos:", err);
 	}
 }
