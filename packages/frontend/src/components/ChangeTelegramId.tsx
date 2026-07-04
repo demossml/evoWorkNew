@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
+import { Input, Button } from "@shared/ui";
 
 export function ChangeTelegramId() {
   const [newId, setNewId] = useState("");

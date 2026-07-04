@@ -100,17 +100,15 @@ function App() {
       {/* Индикатор фоновой загрузки */}
       {uploadStatus.isUploading && uploadStatus.total > 0 && (
         <div
-          className="fixed right-4 z-50 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg animate-pulse"
+          className="fixed right-4 z-50 flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-primary-foreground shadow-lg"
           style={{
             top: "calc(var(--tg-app-top-offset, var(--tg-safe-top, 0px)) + 0.5rem)",
           }}
         >
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm">
-              Загружаю фото: {uploadStatus.uploaded} / {uploadStatus.total}
-            </span>
-          </div>
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+          <span className="text-sm">
+            Загружаю фото: {uploadStatus.uploaded} / {uploadStatus.total}
+          </span>
         </div>
       )}
       {/* <div className="pb-20"> */} {/* отступ снизу под меню */}

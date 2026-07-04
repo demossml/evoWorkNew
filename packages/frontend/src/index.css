@@ -2,33 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------------------------------
+ * Design tokens — single source of truth.
+ *
+ * Previously this file, shared/ui/tokens.css and an ad-hoc "glass theme"
+ * layer each defined their own overlapping color variables (--background /
+ * --glass-bg / --ui-color-bg all meant roughly the same thing). That's
+ * consolidated here. shared/ui/tokens.css now only aliases these values for
+ * backward compatibility with existing component code — see that file.
+ * ------------------------------------------------------------------------- */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 222 47% 11%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --popover-foreground: 222 47% 11%;
+
+    /* Brand accent — this is the app's actual blue, used consistently in
+       nav, KPIs and CTAs. Previously --primary was near-black here, which
+       fought with the blue used everywhere else in the app. */
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 95%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 20% 95%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 210 20% 95%;
+    --accent-foreground: 222 47% 11%;
+
+    --success: 142 71% 35%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 95% 44%;
+    --warning-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 20% 90%;
+    --input: 214 20% 90%;
+    --ring: 221 83% 53%;
+
+    --chart-1: 221 83% 53%;
+    --chart-2: 160 60% 40%;
+    --chart-3: 32 90% 50%;
+    --chart-4: 262 60% 60%;
+    --chart-5: 0 72% 51%;
+
+    --radius: 0.75rem;
+
+    /* Telegram viewport / safe-area, unrelated to color theme */
     --tg-safe-top: 0px;
     --tg-safe-bottom: 0px;
     --tg-viewport-height: 100dvh;
@@ -41,31 +70,46 @@
       var(--app-bottom-nav-height, 64px) + var(--tg-safe-bottom, 0px) + 8px
     );
   }
+
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%
+    --background: 222 47% 6%;
+    --foreground: 210 20% 98%;
+
+    --card: 222 40% 9%;
+    --card-foreground: 210 20% 98%;
+
+    --popover: 222 40% 9%;
+    --popover-foreground: 210 20% 98%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 6%;
+
+    --secondary: 222 30% 14%;
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 222 30% 14%;
+    --muted-foreground: 215 16% 65%;
+
+    --accent: 222 30% 14%;
+    --accent-foreground: 210 20% 98%;
+
+    --success: 142 65% 45%;
+    --success-foreground: 222 47% 6%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 222 47% 6%;
+
+    --destructive: 0 63% 55%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 222 25% 18%;
+    --input: 222 25% 18%;
+    --ring: 217 91% 60%;
+
+    --chart-1: 217 91% 60%;
+    --chart-2: 160 55% 50%;
+    --chart-3: 32 90% 55%;
+    --chart-4: 262 65% 68%;
+    --chart-5: 0 63% 60%;
   }
 }
 
@@ -78,12 +122,26 @@
   }
 }
 
+/* Match Telegram's own typography instead of shipping a webfont — keeps the
+   Mini App visually consistent with the host client and avoids extra
+   network weight (this app is loaded inside Telegram's WebView). */
+html,
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
 html,
 body,
 #root {
   height: var(--tg-viewport-height);
   min-height: var(--tg-viewport-height);
   overflow-x: hidden;
+}
+
+body {
+  padding-top: var(--app-top-clearance);
+  padding-bottom: var(--app-bottom-clearance);
 }
 
 .app-shell-main {
@@ -107,92 +165,4 @@ body,
       var(--app-bottom-clearance)
   );
   overflow-y: auto;
-}
-
-/* Global Glass Theme (light + dark) */
-:root {
-  --glass-font: "General Sans", "Inter", "Segoe UI", sans-serif;
-  --glass-bg: #f3f6fb;
-  --glass-text: #0f172a;
-  --glass-muted: #475569;
-  --glass-accent-a: rgba(37, 99, 235, 0.1);
-  --glass-accent-b: rgba(139, 92, 246, 0.08);
-  --glass-panel: rgba(255, 255, 255, 0.72);
-  --glass-panel-border: rgba(15, 23, 42, 0.08);
-  --glass-shadow: 0 18px 48px rgba(37, 99, 235, 0.12);
-  --glass-shadow-strong: 0 24px 64px rgba(37, 99, 235, 0.2);
-}
-
-.dark {
-  --glass-bg: #0f1115;
-  --glass-text: #f8fafc;
-  --glass-muted: #cbd5e1;
-  --glass-accent-a: rgba(37, 99, 235, 0.2);
-  --glass-accent-b: rgba(139, 92, 246, 0.16);
-  --glass-panel: rgba(30, 41, 59, 0.4);
-  --glass-panel-border: rgba(255, 255, 255, 0.08);
-  --glass-shadow: 0 18px 48px rgba(30, 58, 138, 0.16);
-  --glass-shadow-strong: 0 24px 64px rgba(30, 58, 138, 0.24);
-}
-
-html,
-body {
-  font-family: var(--glass-font);
-  color: var(--glass-text);
-  background:
-    radial-gradient(1200px 600px at 20% -20%, var(--glass-accent-a), transparent
-          60%),
-    radial-gradient(900px 500px at 100% 0%, var(--glass-accent-b), transparent
-          60%),
-    var(--glass-bg);
-}
-
-.app-shell-main,
-.app-page,
-.app-page-scroll {
-  background:
-    radial-gradient(1200px 600px at 20% -20%, var(--glass-accent-a), transparent
-          60%),
-    radial-gradient(900px 500px at 100% 0%, var(--glass-accent-b), transparent
-          60%),
-    var(--glass-bg) !important;
-  color: var(--glass-text);
-}
-
-/* Auto-style only card-like blocks (rounded + shadow) */
-.app-shell-main :is(div, section, article, li):not([class*="animate-spin"])[class*="rounded"][class*="shadow"]:is(
-    [class*="bg-white"],
-    [class*="bg-gray-50"],
-    [class*="dark:bg-gray-800"],
-    [class*="dark:bg-gray-700"]
-  ) {
-  background: var(--glass-panel) !important;
-  border: 1px solid var(--glass-panel-border) !important;
-  backdrop-filter: blur(12px);
-  box-shadow: var(--glass-shadow);
-}
-
-.app-shell-main :is(div, section, article, li)[class*="rounded"][class*="shadow"] {
-  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.app-shell-main :is(div, section, article, li)[class*="rounded"][class*="shadow"]:active {
-  transform: scale(0.98);
-}
-
-/* Global semantic accents */
-.app-shell-main .text-blue-600,
-.app-shell-main .dark\:text-blue-400 {
-  color: #2563eb !important;
-}
-
-.app-shell-main .text-green-600,
-.app-shell-main .dark\:text-green-400 {
-  color: #10b981 !important;
-}
-
-.app-shell-main .text-red-600,
-.app-shell-main .dark\:text-red-400 {
-  color: #f43f5e !important;
 }

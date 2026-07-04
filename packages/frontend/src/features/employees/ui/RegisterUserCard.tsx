@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Input, Button, Card, CardHeader, CardTitle, CardContent } from "@shared/ui";
 import { client } from "@/helpers/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { invalidateUserQueries } from "@shared/api";
@@ -50,7 +48,7 @@ export function RegisterUserCard({ onRegister }: RegisterUserCardProps) {
   };
 
   return (
-    <Card className="w-full max-w-md shadow-lg dark:bg-gray-800 text-black dark:text-gray-200">
+    <Card className="w-full max-w-md shadow-lg">
       <CardHeader>
         <CardTitle className="text-center text-lg font-semibold">
           Регистрация нового пользователя
@@ -66,7 +64,7 @@ export function RegisterUserCard({ onRegister }: RegisterUserCardProps) {
             disabled={loading}
           />
 
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && <p className="text-destructive text-sm">{error}</p>}
 
           <Button
             type="submit"

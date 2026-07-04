@@ -16,6 +16,7 @@ import {
   NotepadText,
   Maximize2,
   TrendingUp,
+  ClipboardCheck,
 } from "lucide-react";
 import { isTelegramMiniApp, telegram } from "@/helpers/telegram";
 
@@ -46,7 +47,7 @@ const mainNav = [
   },
   {
     to: "/evotor/salary-user-report",
-    label: "Зарплата",
+    label: "Моя зарплата",
     icon: HandCoins,
     roles: ["CASHIER", "ADMIN"],
   },
@@ -58,56 +59,82 @@ const mainNav = [
   },
 ];
 
-/* -------------------- Доп. разделы -------------------- */
+/* -------------------- Доп. разделы, сгруппированные по смыслу --------------------
+ * Плоский список из 8 пунктов был неудобен для SUPERADMIN — сгруппировано по
+ * той же логике, что и остальные отчёты в приложении.
+ */
 
-const moreButtons = [
+const moreGroups: Array<{
+  title: string;
+  items: Array<{ to: string; label: string; icon: typeof Home; roles: string[] }>;
+}> = [
   {
-    to: "/evotor/salary-report",
-    label: "Зарплата",
-    icon: HandCoins,
-    roles: ["SUPERADMIN"],
+    title: "Продажи",
+    items: [
+      {
+        to: "/evotor/period-comparison",
+        label: "Сравнение периодов",
+        icon: TrendingUp,
+        roles: ["SUPERADMIN"],
+      },
+    ],
   },
   {
-    to: "/evotor/dead-stock",
-    label: "Dead stock",
-    icon: NotepadText,
-    roles: ["SUPERADMIN"],
+    title: "Финансы",
+    items: [
+      {
+        to: "/evotor/salary-report",
+        label: "Зарплата сотрудников",
+        icon: HandCoins,
+        roles: ["SUPERADMIN"],
+      },
+      {
+        to: "/evotor/sales-for-the-period",
+        label: "Финансовый отчёт",
+        icon: FileBarChart,
+        roles: ["SUPERADMIN"],
+      },
+    ],
   },
   {
-    to: "/evotor/sales-for-the-period",
-    label: "Финансовый отчёт",
-    icon: FileBarChart,
-    roles: ["SUPERADMIN"],
+    title: "Склад",
+    items: [
+      {
+        to: "/evotor/orders",
+        label: "Заказ товара",
+        icon: Package,
+        roles: ["CASHIER", "ADMIN", "SUPERADMIN"],
+      },
+      {
+        to: "/evotor/stock-realization-report",
+        label: "Товарные остатки",
+        icon: Wallet,
+        roles: ["ADMIN", "SUPERADMIN"],
+      },
+      {
+        to: "/evotor/dead-stock",
+        label: "Dead stock",
+        icon: NotepadText,
+        roles: ["SUPERADMIN"],
+      },
+    ],
   },
   {
-    to: "/evotor/orders",
-    label: "Заказ товара",
-    icon: Package,
-    roles: ["CASHIER", "ADMIN", "SUPERADMIN"],
-  },
-  {
-    to: "/evotor/store-opening-report",
-    label: "Открытие магазинов",
-    icon: Store,
-    roles: ["SUPERADMIN"],
-  },
-  {
-    to: "/evotor/store-openings-admin",
-    label: "Открытия (сводка)",
-    icon: BarChart3,
-    roles: ["SUPERADMIN"],
-  },
-  {
-    to: "/evotor/stock-realization-report",
-    label: "Товарные остатки",
-    icon: Wallet,
-    roles: ["ADMIN", "SUPERADMIN"],
-  },
-  {
-    to: "/evotor/period-comparison",
-    label: "Сравнение",
-    icon: TrendingUp,
-    roles: ["SUPERADMIN"],
+    title: "Магазины",
+    items: [
+      {
+        to: "/evotor/store-opening-report",
+        label: "Открытие магазинов",
+        icon: Store,
+        roles: ["SUPERADMIN"],
+      },
+      {
+        to: "/evotor/store-openings-admin",
+        label: "Открытия (сводка)",
+        icon: ClipboardCheck,
+        roles: ["SUPERADMIN"],
+      },
+    ],
   },
 ];
 
@@ -123,21 +150,22 @@ export function BottomNavigation({
   const isMiniApp = isTelegramMiniApp();
 
   const filteredMainNav = mainNav.filter((i) => i.roles.includes(employeeRole));
-  const filteredMoreButtons = moreButtons.filter((i) =>
-    i.roles.includes(employeeRole)
-  );
+  const filteredMoreGroups = moreGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((i) => i.roles.includes(employeeRole)),
+    }))
+    .filter((group) => group.items.length > 0);
+  const hasMore = filteredMoreGroups.length > 0;
 
-  /* ---------- Telegram init ---------- */
+  /* ---------- Telegram viewport tracking ----------
+   * Background color sync and closing-confirmation are owned by useTheme()
+   * (called once from App.tsx) — this hook only needs to know whether the
+   * Mini App is expanded, to decide whether to show the "Развернуть" button.
+   */
 
   useEffect(() => {
     if (!isMiniApp) return;
-
-    const theme = telegram.WebApp.colorScheme;
-    telegram.WebApp.setBackgroundColor(
-      theme === "dark" ? "#020617" : "#f8fafc"
-    );
-
-    telegram.WebApp.enableClosingConfirmation();
 
     const handleViewportChanged = () => {
       setIsExpanded(telegram.WebApp.isExpanded);
@@ -148,7 +176,6 @@ export function BottomNavigation({
 
     return () => {
       telegram.WebApp.offEvent("viewportChanged", handleViewportChanged);
-      telegram.WebApp.disableClosingConfirmation();
     };
   }, [isMiniApp]);
 
@@ -232,7 +259,7 @@ export function BottomNavigation({
     <>
       <nav
         ref={navRef}
-        className="fixed left-0 z-50 w-full border-t border-slate-200/80 bg-white/80 shadow-[0_-8px_30px_rgba(37,99,235,0.14)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/85 dark:shadow-[0_-8px_30px_rgba(30,58,138,0.28)]"
+        className="fixed left-0 z-50 w-full border-t border-border bg-card/85 shadow-[0_-8px_30px_-4px_hsl(var(--foreground)/0.12)] backdrop-blur-xl"
         style={{ bottom: "var(--tg-safe-bottom, 0px)" }}
       >
         <div
@@ -244,17 +271,17 @@ export function BottomNavigation({
               key={to}
               to={to}
               onClick={handleNavigation}
-              className="flex flex-col items-center text-slate-500 transition-colors hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400"
+              className="flex flex-col items-center text-muted-foreground transition-colors hover:text-primary"
             >
               <Icon className="h-5 w-5" />
               <span className="text-xs">{label}</span>
             </Link>
           ))}
 
-          {filteredMoreButtons.length > 0 && (
+          {hasMore && (
             <button
               onClick={open ? closeMenu : openMenu}
-              className="flex flex-col items-center text-slate-500 transition-colors hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400"
+              className="flex flex-col items-center text-muted-foreground transition-colors hover:text-primary"
             >
               <MoreHorizontal className="h-5 w-5" />
               <span className="text-xs">Ещё</span>
@@ -267,7 +294,7 @@ export function BottomNavigation({
         {open && (
           <>
             <motion.div
-              className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px]"
+              className="fixed inset-0 z-40 bg-foreground/40 backdrop-blur-[2px]"
               onClick={closeMenu}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -275,7 +302,7 @@ export function BottomNavigation({
             />
 
             <motion.div
-              className="fixed left-0 z-50 w-full rounded-t-2xl border border-slate-200/80 bg-white/88 p-4 shadow-[0_-20px_60px_rgba(37,99,235,0.2)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90 dark:shadow-[0_-20px_60px_rgba(30,58,138,0.35)]"
+              className="fixed left-0 z-50 max-h-[75vh] w-full overflow-y-auto rounded-t-2xl border border-border bg-card/95 p-4 shadow-[0_-20px_60px_-8px_hsl(var(--foreground)/0.2)] backdrop-blur-xl"
               style={{
                 bottom: "var(--tg-safe-bottom, 0px)",
                 paddingBottom: "calc(2rem + var(--tg-safe-bottom, 0px))",
@@ -285,35 +312,42 @@ export function BottomNavigation({
               exit={{ y: "100%" }}
             >
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  Разделы
-                </h3>
+                <h3 className="text-lg font-semibold text-foreground">Разделы</h3>
                 <button
                   onClick={closeMenu}
-                  className="text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                  className="text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <X />
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                {filteredMoreButtons.map(({ to, label, icon: Icon }) => (
-                  <Link
-                    key={to}
-                    to={to}
-                    onClick={handleNavigation}
-                    className="flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/85 px-3 py-3 text-sm font-medium text-slate-700 transition-all hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-900/75 dark:text-slate-200 dark:hover:bg-slate-800/90"
-                  >
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </Link>
+              <div className="space-y-4">
+                {filteredMoreGroups.map((group) => (
+                  <div key={group.title}>
+                    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {group.title}
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      {group.items.map(({ to, label, icon: Icon }) => (
+                        <Link
+                          key={to}
+                          to={to}
+                          onClick={handleNavigation}
+                          className="flex items-center gap-2 rounded-xl border border-border bg-background/60 px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          {label}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
 
               {isMiniApp && !isExpanded && (
                 <button
                   onClick={expandApp}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-white transition-colors hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-primary-foreground transition-colors hover:bg-primary/90"
                 >
                   <Maximize2 className="h-4 w-4" />
                   Развернуть

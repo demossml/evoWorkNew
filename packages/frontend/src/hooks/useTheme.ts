@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { isTelegramMiniApp, telegram } from "../helpers/telegram";
+import { TELEGRAM_BG } from "../config/theme";
 
 export const useTheme = () => {
   useEffect(() => {
@@ -9,7 +10,7 @@ export const useTheme = () => {
       const applyTheme = () => {
         const theme = WebApp.colorScheme; // "dark" | "light"
         document.documentElement.classList.toggle("dark", theme === "dark");
-        WebApp.setBackgroundColor(theme === "dark" ? "#1f2937" : "#f3f4f6");
+        WebApp.setBackgroundColor(theme === "dark" ? TELEGRAM_BG.dark : TELEGRAM_BG.light);
       };
 
       // Применяем сразу

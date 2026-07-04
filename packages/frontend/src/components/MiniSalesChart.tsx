@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from "recharts";
-import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@shared/ui";
 import type { ChartConfig } from "./ui/chart";
 import {
   ChartContainer,

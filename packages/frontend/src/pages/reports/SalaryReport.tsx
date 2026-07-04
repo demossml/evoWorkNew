@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, Button } from "@shared/ui";
 import { Label } from "../../components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "../../components/ui/select";
-import { Button } from "../../components/ui/button";
 import type { DateRange } from "react-day-picker";
 import { Popover, PopoverContent, PopoverTrigger, Calendar } from "../../components/ui";
 import { SaveAsJpegButton } from "@widgets/reports";
@@ -381,10 +380,7 @@ export default function SalaryReport() {
             </div>
           )}
 
-          <Button
-            type="submit"
-            className="w-full mt-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white border-0 shadow-sm"
-          >
+          <Button type="submit" className="w-full mt-2 shadow-sm">
             Получить отчёт
           </Button>
         </motion.form>

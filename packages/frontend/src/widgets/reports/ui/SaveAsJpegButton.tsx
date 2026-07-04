@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@shared/ui";
 import { useRef, useState, useEffect } from "react";
 import { Save, Loader } from "lucide-react";
 import { telegram, isTelegramMiniApp } from "@/helpers/telegram.ts";
@@ -132,7 +132,7 @@ export const SaveAsJpegButton: React.FC<SaveAsJpegButtonProps> = ({
         <Button
           onClick={handleSaveAsJpeg}
           disabled={isLoading}
-          className="w-full mt-2 bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-400 dark:text-gray-300 rounded-md flex items-center justify-center gap-2"
+          className="w-full mt-2 flex items-center justify-center gap-2"
         >
           {isLoading ? (
             <>
