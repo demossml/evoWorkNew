@@ -19,7 +19,6 @@ import type { D1Database } from "@cloudflare/workers-types";
  */
 export async function getDocumentsByCashOutcomeData(
 	db: D1Database,
-	evo: any,
 	shopUuids: string[],
 	since: string,
 	until: string,
@@ -40,8 +39,9 @@ export async function getDocumentsByCashOutcomeData(
 	const results = await Promise.all(
 		shopUuids.map((shopUuid) =>
 			limit(async () => {
+				const { getShopNameFromDB } = await import("../sync/db.js");
 				const [shopName, cashOutcomeDocuments] = await Promise.all([
-					evo.getShopName(shopUuid),
+					getShopNameFromDB(db, shopUuid),
 					getDocumentsByCashOutcomeByPeriod(db, shopUuid, since, until),
 				]);
 
@@ -74,7 +74,6 @@ export async function getDocumentsByCashOutcomeData(
 
 export async function getSalesgardenReportData(
 	db: D1Database,
-	evo: any,
 	shopUuids: string[],
 	since: string,
 	until: string,
@@ -102,6 +101,7 @@ export async function getSalesgardenReportData(
 
 	try {
 		// Параллельно получаем документы и имена магазинов
+		const { getShopNameFromDB } = await import("../sync/db.js");
 		const [documentsByShop, shopNames] = await Promise.all([
 			Promise.all(
 				shopUuids.map(async (uuid) => ({
@@ -109,7 +109,7 @@ export async function getSalesgardenReportData(
 					docs: await getDocumentsBySalesPeriod(db, uuid, since, until),
 				})),
 			),
-			Promise.all(shopUuids.map((uuid) => evo.getShopName(uuid))),
+			Promise.all(shopUuids.map((uuid) => getShopNameFromDB(db, uuid))),
 		]);
 
 		// Создаем мапу uuid => имя магазина
@@ -184,7 +184,6 @@ interface ShopChartData {
 
 export async function getSalesDataG(
 	db: D1Database,
-	evo: any,
 	shopUuids: string[],
 	since: string,
 	until: string,
@@ -195,6 +194,7 @@ export async function getSalesDataG(
 		// console.log(`📅 Период: с ${since} по ${until}`);
 
 		// Параллельно получаем документы и названия магазинов
+		const { getShopNameFromDB } = await import("../sync/db.js");
 		const [documentsByShop, shopNames] = await Promise.all([
 			Promise.all(
 				shopUuids.map(async (uuid) => {
@@ -213,7 +213,7 @@ export async function getSalesDataG(
 			),
 			Promise.all(
 				shopUuids.map(async (uuid) => {
-					const name = await evo.getShopName(uuid);
+					const name = await getShopNameFromDB(db, uuid);
 					// console.log(`🏪 Название магазина ${uuid}: ${name || "Неизвестно"}`);
 					return name || `Магазин ${uuid}`; // Запасное имя
 				}),

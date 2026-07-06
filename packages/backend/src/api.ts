@@ -684,7 +684,6 @@ export const api = new Hono<IEnv>()
 
 		const nowDataSales = await getSalesDataG(
 			db,
-			evo,
 			shopUuids,
 			nowSince,
 			nowUntil,
@@ -692,7 +691,6 @@ export const api = new Hono<IEnv>()
 
 		const sevenDaysDataSales = await getSalesDataG(
 			db,
-			evo,
 			shopUuids,
 			sevenDaysSince,
 			sevenDaysUntil,
@@ -1297,11 +1295,10 @@ export const api = new Hono<IEnv>()
 			const shopUuids = await evo.getShopUuids();
 
 			const { salesDataByShopName, grandTotalSell, grandTotalRefund } =
-				await getSalesgardenReportData(db, evo, shopUuids, since, until);
+				await getSalesgardenReportData(db, shopUuids, since, until);
 
 			const cashOutcomeData = await getDocumentsByCashOutcomeData(
 				db,
-				evo,
 				shopUuids,
 				since,
 				until,
