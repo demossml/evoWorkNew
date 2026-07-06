@@ -2190,10 +2190,10 @@ export const api = new Hono<IEnv>()
 			// Compute KPI rows for a period
 			const computeRows = async (since: string, until: string) => {
 				const { salesDataByShopName, grandTotalSell, grandTotalRefund } =
-					await getSalesgardenReportData(db, evo, allShopUuids, since, until);
+					await getSalesgardenReportData(db, allShopUuids, since, until);
 
 				const cashOutcomeData = await getDocumentsByCashOutcomeData(
-					db, evo, allShopUuids, since, until,
+					db, allShopUuids, since, until,
 				);
 
 				// Count SELL documents per shop for checks count
