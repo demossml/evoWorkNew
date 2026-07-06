@@ -70,7 +70,7 @@ const SchedulesView: React.FC = () => {
       ) : (
         <>
           <div className="mb-4">
-            <label className="block mb-2 text-gray-700 dark:text-gray-400 text-sm">
+            <label className="block mb-2 text-muted-foreground text-sm">
               Месяц:
             </label>
             <select
@@ -87,7 +87,7 @@ const SchedulesView: React.FC = () => {
           </div>
 
           <div className="mb-4">
-            <label className="block mb-2 text-gray-700 dark:text-gray-400 text-sm">
+            <label className="block mb-2 text-muted-foreground text-sm">
               Год:
             </label>
             <select
@@ -111,7 +111,7 @@ const SchedulesView: React.FC = () => {
           <button
             onClick={handleGetSchedule}
             disabled={isLoadingTable}
-            className="mt-4 bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700 disabled:bg-gray-400"
+            className="mt-4 bg-primary text-white p-2 rounded w-full hover:bg-primary/90 disabled:bg-gray-400"
           >
             {isLoadingTable ? "Загрузка..." : "Показать табель"}
           </button>

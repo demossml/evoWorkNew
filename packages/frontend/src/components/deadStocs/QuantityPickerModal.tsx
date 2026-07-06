@@ -36,7 +36,7 @@ export const QuantityPickerModal: React.FC<QuantityPickerModalProps> = ({
           onClick={onClose}
         >
           <motion.div
-            className="bg-white dark:bg-gray-900 rounded-2xl w-64 p-4"
+            className="bg-card rounded-2xl w-64 p-4"
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
@@ -46,7 +46,7 @@ export const QuantityPickerModal: React.FC<QuantityPickerModalProps> = ({
 
             {/* Окно барабана */}
             <div className="relative h-40 overflow-hidden">
-              <div className="absolute inset-x-0 top-1/2 h-8 -translate-y-1/2 border-y border-blue-500 pointer-events-none" />
+              <div className="absolute inset-x-0 top-1/2 h-8 -translate-y-1/2 border-y border-primary pointer-events-none" />
 
               <div
                 ref={listRef}
@@ -74,7 +74,7 @@ export const QuantityPickerModal: React.FC<QuantityPickerModalProps> = ({
 
             <button
               onClick={onClose}
-              className="mt-3 w-full py-1.5 rounded bg-gray-200 dark:bg-gray-700 text-sm"
+              className="mt-3 w-full py-1.5 rounded bg-muted text-sm"
             >
               Отмена
             </button>

@@ -8,7 +8,7 @@ import type { IEnv, SaveDeadStocksRequest } from "./types";
 
 // const JWT_SECRET = "your_secret_key"; // Секретный ключ для подписи токена
 
-import { analyzeDocsStaffTask, getHoroscopeByDateTask } from "./ai";
+import { analyzeDocsStaffTask, getHoroscopeByDateTask, analyzeDocsInsightsTask, analyzeDocsAnomaliesTask, analyzeDocsPatternsTask } from "./ai";
 import { runOrderForecastV2 } from "./services/orderForecastV2";
 import { deepseekChat } from "./services/deepseek";
 import type { ShopUuidName } from "./evotor/types";
@@ -19,6 +19,7 @@ import {
 	createAccessoriesTable,
 	createPlanTable,
 	createSalaryBonusTable,
+	createSalaryTable,
 	createScheduleTable,
 	formatDate,
 	formatDateWithTime,
@@ -32,6 +33,7 @@ import {
 	getPeriodRangeEvotor,
 	getPlan,
 	getProductsByGroup,
+	getSalaryAndBonus,
 	getSalaryData,
 	getScheduleByPeriod,
 	getScheduleByPeriodAndShopId,
@@ -156,15 +158,12 @@ export const api = new Hono<IEnv>()
 	})
 
 	.get("/api/by-grammar", async (c) => {
-		// const result = await createSloveneGrammarTask(c, {
-		// 	topic: "спряжение глаголов",
-		// 	level: "продвинутый",
-		// 	count: 5,
-		// });
-		const result = getHoroscopeByDateTask(c, { date: "08-06-2025" });
-
-		// console.log(employeeNameAndUuid);
-		return c.json({ result });
+		try {
+			const result = await getHoroscopeByDateTask(c, { date: "08-06-2025" });
+			return c.json({ result });
+		} catch (e: any) {
+			return c.json({ error: e.message }, 500);
+		}
 	})
 
 	.get("/api/employee/name-uuid", async (c) => {
@@ -628,6 +627,38 @@ export const api = new Hono<IEnv>()
 		}
 	})
 
+	// --- /api/evotor/share-report/:key (GET) ---
+	.get("/api/evotor/share-report/:key", async (c) => {
+		const key = c.req.param("key");
+		const object = await c.env.R2.get(`share-reports/${key}`);
+		if (!object) return c.json({ error: "Not found" }, 404);
+
+		return new Response(object.body, {
+			headers: {
+				"Content-Type": object.httpMetadata?.contentType ?? "image/jpeg",
+				"Cache-Control": "public, max-age=31536000",
+			},
+		});
+	})
+
+	// --- /api/evotor/share-report (POST) ---
+	.post("/api/evotor/share-report", async (c) => {
+		const formData = await c.req.formData();
+		const file = formData.get("file") as File | null;
+		if (!file || !(file instanceof File)) {
+			return c.json({ error: "Нет файла для загрузки" }, 400);
+		}
+
+		const key = `${crypto.randomUUID()}.jpg`;
+		const arrayBuffer = await file.arrayBuffer();
+
+		await c.env.R2.put(`share-reports/${key}`, arrayBuffer, {
+			httpMetadata: { contentType: "image/jpeg" },
+		});
+
+		return c.json({ url: `/api/evotor/share-report/${key}` });
+	})
+
 	.get("/api/evotor/sales-today", async (c) => {
 		const salesData = await c.var.evotor.getSalesToday();
 
@@ -818,13 +849,18 @@ export const api = new Hono<IEnv>()
 
 			return c.json({ groups });
 		}
+
+		return c.json({ groups: [] });
 	})
 
 	.post("/api/evotor/salary", async (c) => {
 		try {
 			const { employee, startDate, endDate } = await c.req.json();
-			console.log("data:", await c.req.json());
 			const db = c.get("db");
+
+			// Убедимся, что таблицы существуют (создаются лениво)
+			await createSalaryTable(db);
+			await createSalaryBonusTable(db);
 
 			const sincetDate = formatDateWithTime(new Date(startDate), false);
 			const untilDate = formatDateWithTime(new Date(endDate), true);
@@ -851,112 +887,151 @@ export const api = new Hono<IEnv>()
 				employeeName,
 				startDate: formatDate(new Date(startDate)),
 				endDate: formatDate(new Date(endDate)),
+				totalMissedBonusPlan: 0,
+				workingDays: 0,
+				totalOklad: 0,
 				totalBonusAccessories: 0,
 				totalBonusPlan: 0,
 				totalBonus: 0,
+				totalPayout: 0,
 			};
+
+			// Получаем месячный оклад из таблицы salary_bonus
+			const salaryBonus = await getSalaryAndBonus(
+				formatDate(new Date(startDate)),
+				db,
+			);
+			const monthlyOklad = salaryBonus?.salary ?? 0;
+			// Количество дней в месяце для расчёта дневного оклада
+			const reportMonth = new Date(startDate).getMonth();
+			const reportYear = new Date(startDate).getFullYear();
+			const daysInMonth = new Date(reportYear, reportMonth + 1, 0).getDate();
+			const okladDaily = daysInMonth > 0 ? Math.round(monthlyOklad / daysInMonth) : 0;
 
 			const result = [];
 
-			for (const date_ of dates) {
-				const date = new Date(date_);
-				const since = formatDateWithTime(date, false);
-				const until = formatDateWithTime(date, true);
-				const datePlan = formatDate(date);
+			const dayResults = await Promise.all(
+				dates.map(async (date_) => {
+					const date = new Date(date_);
+					const since = formatDateWithTime(date, false);
+					const until = formatDateWithTime(date, true);
+					const datePlan = formatDate(date);
 
-				const openShopUuid = await c.var.evotor.getFirstOpenSession(
-					since,
-					until,
-					employee,
-				);
-				if (!openShopUuid) continue;
+					const openShopUuid = await c.var.evotor.getFirstOpenSession(
+						since,
+						until,
+						employee,
+					);
+					if (!openShopUuid) return null;
 
-				const dataReport = {
-					date: datePlan,
-					shopName: await c.var.evotor.getShopName(openShopUuid),
-					bonusAccessories: 0,
-					dataPlan: 0,
-					salesDataVape: 0,
-					bonusPlan: 0,
-					totalBonus: 0,
-				};
+					const dataReport = {
+						date: datePlan,
+						shopName: await c.var.evotor.getShopName(openShopUuid),
+						bonusAccessories: 0,
+						dataPlan: 0,
+						salesDataVape: 0,
+						bonusPlan: 0,
+						totalBonus: 0,
+						okladDaily,
+						missedBonusPlan: 0,
+					};
 
-				const salaryData = await getSalaryData(employee, datePlan, until, db);
+					const salaryData = await getSalaryData(
+						employee,
+						datePlan,
+						until,
+						db,
+					);
 
-				if (salaryData) {
-					const { date, bonusAccessories, dataPlan, salesDataVape } =
-						salaryData;
-					const bonusPlan = salesDataVape >= dataPlan ? 450 : 0;
+					if (salaryData) {
+						const {
+							bonusAccessories,
+							dataPlan,
+							salesDataVape,
+						} = salaryData;
+						const bonusPlan = salesDataVape >= dataPlan ? 450 : 0;
+						const missedBonusPlan = bonusPlan > 0 ? 0 : 450;
 
-					Object.assign(dataReport, {
-						date,
-						bonusAccessories,
-						dataPlan,
-						salesDataVape,
-						bonusPlan,
-						totalBonus: bonusPlan + bonusAccessories,
-					});
-				} else {
-					let plan = await getPlan(datePlan, db);
-					if (!plan || Object.keys(plan).length === 0) {
-						plan = await c.var.evotor.getPlan(date, productUuidsVape);
-						await updatePlan(plan, datePlan, db);
+						Object.assign(dataReport, {
+							bonusAccessories,
+							dataPlan,
+							missedBonusPlan,
+							salesDataVape,
+							bonusPlan,
+							totalBonus: bonusPlan + bonusAccessories,
+						});
+					} else {
+						let plan = await getPlan(datePlan, db);
+						if (!plan || Object.keys(plan).length === 0) {
+							plan = await c.var.evotor.getPlan(date, productUuidsVape);
+							await updatePlan(plan, datePlan, db);
+						}
+
+						const currentPlan = Number.isFinite(plan[openShopUuid])
+							? plan[openShopUuid]
+							: 0;
+
+						const productsAks = await getProductsByGroup(
+							db,
+							openShopUuid,
+							groupIdsAks,
+						);
+						const salesDataAks = await c.var.evotor.getSalesSum(
+							openShopUuid,
+							since,
+							until,
+							productsAks,
+						);
+						const bonusAccessories = Math.floor(salesDataAks * 0.05);
+
+						const productsVape = await getProductsByGroup(
+							db,
+							openShopUuid,
+							groupIdsVape,
+						);
+						const salesDataVape = await c.var.evotor.getSalesSum(
+							openShopUuid,
+							since,
+							until,
+							productsVape,
+						);
+
+						const bonusPlan =
+							salesDataVape >= currentPlan ? 450 : 0;
+						const missedBonusPlan = bonusPlan > 0 ? 0 : 450;
+
+						Object.assign(dataReport, {
+							bonusAccessories,
+							dataPlan: currentPlan,
+							salesDataVape,
+							missedBonusPlan,
+							bonusPlan,
+							totalBonus: bonusAccessories + bonusPlan,
+						});
 					}
 
-					const currentPlan = Number.isFinite(plan[openShopUuid])
-						? plan[openShopUuid]
-						: 0;
+					return dataReport;
+				}),
+			);
 
-					// Бонусы по аксессуарам
-					const productsAks = await getProductsByGroup(
-						db,
-						openShopUuid,
-						groupIdsAks,
-					);
-					const salesDataAks = await c.var.evotor.getSalesSum(
-						openShopUuid,
-						since,
-						until,
-						productsAks,
-					);
-					const bonusAccessories = Math.floor(salesDataAks * 0.05);
-
-					// Продажи Vape
-					const productsVape = await getProductsByGroup(
-						db,
-						openShopUuid,
-						groupIdsVape,
-					);
-					const salesDataVape = await c.var.evotor.getSalesSum(
-						openShopUuid,
-						since,
-						until,
-						productsVape,
-					);
-
-					const bonusPlan = salesDataVape >= currentPlan ? 450 : 0;
-
-					Object.assign(dataReport, {
-						bonusAccessories,
-						dataPlan: currentPlan,
-						salesDataVape,
-						bonusPlan,
-						totalBonus: bonusAccessories + bonusPlan,
-					});
-				}
-
+			// Собираем итоги
+			for (const dataReport of dayResults) {
+				if (!dataReport) continue;
 				result.push(dataReport);
-
-				// Обновление общего отчета
+				totalReport.totalMissedBonusPlan += dataReport.missedBonusPlan;
 				totalReport.totalBonusAccessories += dataReport.bonusAccessories;
 				totalReport.totalBonusPlan += dataReport.bonusPlan;
 				totalReport.totalBonus += dataReport.totalBonus;
+				totalReport.workingDays += 1;
+				totalReport.totalOklad += okladDaily;
+				totalReport.totalPayout = totalReport.totalOklad + totalReport.totalBonus;
 			}
 
 			return c.json({ result, totalReport });
 		} catch (error) {
 			console.error("Ошибка при разборе JSON:", error);
-			return c.json({ message: "Ошибка обработки данных" }, 400);
+			const msg = error instanceof Error ? error.message : String(error);
+			return c.json({ error: msg, message: "Ошибка обработки данных" }, 400);
 		}
 	})
 
@@ -1828,6 +1903,86 @@ export const api = new Hono<IEnv>()
 	})
 
 	// --- /api/ai/* stubs ---
+	.post("/api/ai/insights", async (c) => {
+		try {
+			const { startDate, endDate, shopUuid } = await c.req.json<{
+				startDate: string;
+				endDate: string;
+				shopUuid?: string;
+			}>();
+			const evo = c.var.evotor;
+
+			// Convert date strings to Evotor ISO range (format: YYYY-MM-DDTHH:mm:ss.sss+0000)
+			const pad = (n: number) => String(n).padStart(2, "0");
+			const fmt = (d: Date, endOfDay: boolean) => {
+				const Y = d.getFullYear();
+				const M = pad(d.getMonth() + 1);
+				const D = pad(d.getDate());
+				const h = endOfDay ? "21" : "03";
+				return `${Y}-${M}-${D}T${h}:00:00.000+0000`;
+			};
+			const since = fmt(new Date(startDate), false);
+			const until = fmt(new Date(endDate), true);
+
+			const docs = await evo.getAllDocumentsByTypes(since, until);
+			let docFiltered = await evo.extractSalesInfo(docs);
+
+			// Filter by shop if shopUuid provided
+			if (shopUuid) {
+				const shopName = await evo.getShopName(shopUuid);
+				docFiltered = docFiltered.filter(
+					(d: any) => d.shopName === shopName,
+				);
+			}
+
+			// Run all three analysis tasks in parallel
+			const [anomaliesResult, insightsResult, patternsResult] =
+				await Promise.all([
+					analyzeDocsAnomaliesTask(c, docFiltered).catch((e) => {
+						console.error("Anomalies task failed:", e);
+						return { anomalies: [] };
+					}),
+					analyzeDocsInsightsTask(c, docFiltered).catch((e) => {
+						console.error("Insights task failed:", e);
+						return { insights: [] };
+					}),
+					analyzeDocsPatternsTask(c, docFiltered).catch((e) => {
+						console.error("Patterns task failed:", e);
+						return { patterns: [] };
+					}),
+				]);
+
+			return c.json({
+				anomalies: (anomaliesResult as any).anomalies?.map((a: any) => ({
+					type: a.reason || "anomaly",
+					reason: a.reason || "",
+					details: a.details,
+					priority: "medium" as const,
+				})) || [],
+				insights: (insightsResult as any).insights?.map((text: string) => ({
+					priority: "medium" as const,
+					action: text,
+					reason: "",
+					expectedResult: "",
+				})) || [],
+				patterns: (patternsResult as any).patterns?.map(
+					(p: any) => ({
+						category: "other" as const,
+						pattern: p.description || "",
+						data: p.evidence || "",
+					}),
+				) || [],
+				documentsCount: docFiltered.length,
+			});
+		} catch (err: any) {
+			console.error("/api/ai/insights error:", err);
+			return c.json(
+				{ error: err?.message || "AI analysis failed" },
+				500,
+			);
+		}
+	})
+
 	.post("/api/ai/dashboard-summary2-insights", async (c) => {
 		return c.json({ insights: [] });
 	})

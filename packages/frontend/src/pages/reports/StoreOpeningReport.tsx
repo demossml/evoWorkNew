@@ -71,7 +71,7 @@ export default function StoreOpeningReport() {
           transition={{ duration: 0.4, ease: "easeOut" }}
           className="flex items-center mb-4"
         >
-          <div className="w-24 h-24 border-8 border-t-transparent border-blue-500 border-solid rounded-full animate-spin" />
+          <div className="w-24 h-24 border-8 border-t-transparent border-primary border-solid rounded-full animate-spin" />
           <h1 className="ml-4 text-xl sm:text-2xl text-gray-800 font-bold" />
         </motion.div>
       </div>
@@ -107,7 +107,7 @@ export default function StoreOpeningReport() {
         <div className="text-left mt-6">
           <a
             href="/"
-            className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 active:bg-blue-700 transition duration-300"
+            className="bg-primary text-primary-foreground py-2 px-4 rounded hover:bg-primary/90 active:bg-primary/80 transition duration-300"
           >
             На главную
           </a>
@@ -133,7 +133,7 @@ export default function StoreOpeningReport() {
           <div className="mb-4">
             <label
               htmlFor="shop"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-sm font-medium text-muted-foreground"
             >
               Выберите магазин:
             </label>
@@ -172,7 +172,7 @@ export default function StoreOpeningReport() {
 
           <motion.button
             type="submit"
-            className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600"
+            className="w-full bg-primary text-primary-foreground py-2 px-4 rounded-md hover:bg-primary/90"
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.97 }}
             initial={{ opacity: 0, y: 10 }}
@@ -244,7 +244,7 @@ export default function StoreOpeningReport() {
       >
         <a
           href="/"
-          className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-700 active:bg-blue-800 transition duration-300"
+          className="bg-primary text-primary-foreground py-2 px-4 rounded hover:bg-primary/90 active:bg-primary/80 transition duration-300"
         >
           На главную
         </a>

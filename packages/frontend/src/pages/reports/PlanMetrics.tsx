@@ -146,7 +146,7 @@ export default function PlanMetrics() {
             <Target className="w-8 h-8 text-blue-600 dark:text-blue-400" />
             Метрики по плану
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2 flex items-center gap-2">
+          <p className="text-muted-foreground mt-2 flex items-center gap-2">
             <Calendar className="w-4 h-4" />
             {new Date().toLocaleDateString("ru-RU", {
               day: "numeric",
@@ -163,11 +163,11 @@ export default function PlanMetrics() {
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.1 }}
-            className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg"
+            className="bg-card rounded-xl p-6 shadow-lg"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                <p className="text-sm text-muted-foreground mb-1">
                   Общий план
                 </p>
                 <p className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -185,11 +185,11 @@ export default function PlanMetrics() {
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg"
+            className="bg-card rounded-xl p-6 shadow-lg"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                <p className="text-sm text-muted-foreground mb-1">
                   Фактическая выручка
                 </p>
                 <p className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -207,11 +207,11 @@ export default function PlanMetrics() {
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg"
+            className="bg-card rounded-xl p-6 shadow-lg"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                <p className="text-sm text-muted-foreground mb-1">
                   Выполнение плана
                 </p>
                 <p className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -247,11 +247,11 @@ export default function PlanMetrics() {
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg"
+            className="bg-card rounded-xl p-6 shadow-lg"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                <p className="text-sm text-muted-foreground mb-1">
                   Магазины
                 </p>
                 <div className="flex gap-2 text-sm mt-2">
@@ -278,7 +278,7 @@ export default function PlanMetrics() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6"
+          className="bg-card rounded-xl shadow-lg p-6"
         >
           <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -302,7 +302,7 @@ export default function PlanMetrics() {
               >
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <Store className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    <Store className="w-5 h-5 text-muted-foreground" />
                     <h3 className="font-bold text-gray-800 dark:text-white">
                       {metric.shopName}
                     </h3>
@@ -327,7 +327,7 @@ export default function PlanMetrics() {
 
                 <div className="grid grid-cols-2 gap-4 mb-3">
                   <div>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    <p className="text-xs text-muted-foreground mb-1">
                       План
                     </p>
                     <p className="text-sm font-bold text-gray-800 dark:text-white">
@@ -335,7 +335,7 @@ export default function PlanMetrics() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    <p className="text-xs text-muted-foreground mb-1">
                       Факт
                     </p>
                     <p className="text-sm font-bold text-gray-800 dark:text-white">
@@ -345,7 +345,7 @@ export default function PlanMetrics() {
                 </div>
 
                 {/* Прогресс бар */}
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-2">
+                <div className="w-full bg-muted rounded-full h-2 mb-2">
                   <div
                     className={`h-2 rounded-full transition-all duration-500 ${
                       metric.status === "success"
@@ -383,7 +383,7 @@ export default function PlanMetrics() {
 
         {/* Время обновления */}
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2">
+          <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
             <Clock className="w-4 h-4" />
             Обновлено:{" "}
             {new Date().toLocaleTimeString("ru-RU", {

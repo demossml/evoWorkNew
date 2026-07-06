@@ -36,11 +36,11 @@ export const ExpensesDetailsUser: React.FC<ExpensesDetailsUserProps> = ({
                 return (
                   <div key={category} className="space-y-1">
                     <div className="flex justify-between items-center text-sm py-1">
-                      <span className="text-gray-700 dark:text-gray-300 font-medium">
+                      <span className="text-foreground font-medium">
                         {category}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-muted-foreground">
                           {percentage.toFixed(1)}%
                         </span>
                         <span className="font-bold text-orange-700 dark:text-orange-400">
@@ -48,7 +48,7 @@ export const ExpensesDetailsUser: React.FC<ExpensesDetailsUserProps> = ({
                         </span>
                       </div>
                     </div>
-                    <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                       <div
                         className="h-full bg-orange-500 transition-all duration-300"
                         style={{ width: `${percentage}%` }}
@@ -67,7 +67,7 @@ export const ExpensesDetailsUser: React.FC<ExpensesDetailsUserProps> = ({
             </div>
           </>
         ) : (
-          <span className="text-sm text-gray-500 dark:text-gray-400">
+          <span className="text-sm text-muted-foreground">
             Нет данных
           </span>
         )}

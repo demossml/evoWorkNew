@@ -126,15 +126,6 @@ export default function DeadSt() {
   useEffect(() => {
     if (!isMiniApp) return;
 
-    // Настройка темы
-    const theme = telegram.WebApp.colorScheme;
-    document.documentElement.classList.toggle("dark", theme === "dark");
-
-    // Установка цвета фона
-    telegram.WebApp.setBackgroundColor(
-      theme === "dark" ? "#111827" : "#f9fafb"
-    );
-
     // Настройка главной кнопки
     telegram.WebApp.MainButton.setText("Сгенерировать отчёт");
     telegram.WebApp.MainButton.setParams({
@@ -258,7 +249,7 @@ export default function DeadSt() {
   // 🔹 Нет магазинов
   if (!Object.keys(shopOptions).length) {
     return (
-      <div className="app-page flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="app-page flex items-center justify-center bg-background">
         <LoadingState />
       </div>
     );
@@ -279,10 +270,10 @@ export default function DeadSt() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="app-page w-full bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 flex flex-col items-center"
+        className="app-page w-full bg-background text-foreground flex flex-col items-center"
       >
         <motion.div
-          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-none shadow-lg p-4 w-full"
+          className="bg-card border border-border rounded-none shadow-lg p-4 w-full"
           initial={{ opacity: 0, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3 }}
@@ -297,7 +288,7 @@ export default function DeadSt() {
             {formatPeriod(shopName, startDate, endDate)}
           </h1>
 
-          {/* <p className="text-gray-600 dark:text-gray-400 mb-4 px-2">
+          {/* <p className="text-muted-foreground mb-4 px-2">
             Общая сумма продаж:{" "}
             <span className="font-semibold text-blue-600 dark:text-blue-400">
               {Object.values(salesData)
@@ -325,7 +316,7 @@ export default function DeadSt() {
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="app-page w-full px-4 sm:px-6 py-6 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 flex flex-col items-center"
+      className="app-page w-full px-4 sm:px-6 py-6 bg-background text-foreground flex flex-col items-center"
     >
       <motion.h1
         className="text-xl sm:text-2xl font-semibold mb-6"
@@ -335,7 +326,7 @@ export default function DeadSt() {
         Запрос товара без продаж
       </motion.h1>
       <motion.div
-        className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg p-4 sm:p-6 w-full max-w-3xl space-y-5"
+        className="bg-card border border-border rounded-2xl shadow-lg p-4 sm:p-6 w-full max-w-3xl space-y-5"
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
       >
@@ -366,8 +357,8 @@ export default function DeadSt() {
             onClick={submitForecast}
             className={`w-full py-3 rounded-xl font-medium text-white transition ${
               isFormValid
-                ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-                : "bg-gray-300 dark:bg-gray-700 cursor-not-allowed"
+                ? "bg-primary hover:bg-primary/90 dark:bg-blue-500 dark:hover:bg-primary"
+                : "bg-muted cursor-not-allowed"
             }`}
             disabled={!isFormValid}
             whileHover={{ scale: isFormValid ? 1.03 : 1 }}

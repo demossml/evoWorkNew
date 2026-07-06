@@ -76,19 +76,19 @@ export const BestShopDetails: React.FC<BestShopDetailsProps> = ({
   const lagging = sorted.slice(-2).reverse();
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 mt-4">
+    <div className="bg-card rounded-xl shadow-lg p-4 mt-4">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white">
           🏆 Топ магазин
         </h3>
-        <div className="inline-flex rounded-md border border-gray-200 dark:border-gray-700 p-0.5">
+        <div className="inline-flex rounded-md border border-border p-0.5">
           <button
             type="button"
             onClick={() => onModeChange("day")}
             className={`rounded px-2 py-1 text-xs ${
               mode === "day"
-                ? "bg-blue-600 text-white"
-                : "text-gray-700 dark:text-gray-300"
+                ? "bg-primary text-white"
+                : "text-foreground"
             }`}
           >
             Лидер дня
@@ -98,8 +98,8 @@ export const BestShopDetails: React.FC<BestShopDetailsProps> = ({
             onClick={() => onModeChange("week")}
             className={`rounded px-2 py-1 text-xs ${
               mode === "week"
-                ? "bg-blue-600 text-white"
-                : "text-gray-700 dark:text-gray-300"
+                ? "bg-primary text-white"
+                : "text-foreground"
             }`}
           >
             Лидер недели
@@ -122,15 +122,15 @@ export const BestShopDetails: React.FC<BestShopDetailsProps> = ({
       )}
 
       {leader && (
-        <div className="mb-4 rounded-lg bg-gray-50 dark:bg-gray-700/40 p-3">
+        <div className="mb-4 rounded-lg bg-muted/40 p-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
             <TrendingUp className="w-4 h-4 text-emerald-500" />
             Лидер vs среднее по сети
           </div>
-          <div className="mt-2 text-sm text-gray-700 dark:text-gray-200">
+          <div className="mt-2 text-sm text-foreground">
             {leader.name}: {formatCurrency(leader.netRevenue)} ₽
           </div>
-          <div className="text-sm text-gray-700 dark:text-gray-200">
+          <div className="text-sm text-foreground">
             Дельта: {deltaRub >= 0 ? "+" : ""}
             {formatCurrency(deltaRub)} ₽ ({deltaRub >= 0 ? "+" : ""}
             {deltaPct}%)
@@ -139,8 +139,8 @@ export const BestShopDetails: React.FC<BestShopDetailsProps> = ({
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 text-center">
+        <div className="bg-muted rounded-lg p-4">
+          <h4 className="text-sm font-semibold text-foreground mb-4 text-center">
             📊 Распределение выручки
           </h4>
           <div className="space-y-2">
@@ -160,7 +160,7 @@ export const BestShopDetails: React.FC<BestShopDetailsProps> = ({
                     <div className={`w-3 h-3 rounded-sm ${colors[index]}`} />
                     <span className="text-gray-900 dark:text-white truncate">{shop.name}</span>
                   </div>
-                  <span className="font-semibold text-gray-700 dark:text-gray-300 ml-2">
+                  <span className="font-semibold text-foreground ml-2">
                     {percentage.toFixed(1)}%
                   </span>
                 </div>
@@ -169,10 +169,10 @@ export const BestShopDetails: React.FC<BestShopDetailsProps> = ({
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-0">
+        <div className="bg-card rounded-lg p-0">
           <div className="flex items-center gap-2 mb-4 justify-center">
             <BarChart3 className="w-5 h-5 text-purple-500" />
-            <h4 className="text-base font-bold text-gray-800 dark:text-gray-100">
+            <h4 className="text-base font-bold text-foreground">
               Рейтинг по нетто
             </h4>
           </div>
@@ -185,7 +185,7 @@ export const BestShopDetails: React.FC<BestShopDetailsProps> = ({
               else if (index === 2) rankIcon = <Medal className="w-5 h-5 text-orange-400 fill-orange-400" />;
               else {
                 rankIcon = (
-                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-bold text-gray-500 dark:text-gray-400">
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-xs font-bold text-muted-foreground">
                     {index + 1}
                   </span>
                 );
@@ -207,7 +207,7 @@ export const BestShopDetails: React.FC<BestShopDetailsProps> = ({
                       </div>
                     </div>
                   </div>
-                  <div className="relative h-2.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div className="relative h-2.5 w-full bg-muted rounded-full overflow-hidden">
                     <div
                       className={`absolute top-0 left-0 h-full rounded-full ${
                         index === 0
@@ -228,39 +228,39 @@ export const BestShopDetails: React.FC<BestShopDetailsProps> = ({
         </div>
       </div>
 
-      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mt-6">
-        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 text-center">
+      <div className="bg-muted rounded-lg p-4 mt-6">
+        <h4 className="text-sm font-semibold text-foreground mb-4 text-center">
           🎯 Сравнение по метрикам
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 text-center mb-3">💰 Нетто</div>
+            <div className="text-xs font-semibold text-muted-foreground text-center mb-3">💰 Нетто</div>
             {sortedTop.map((shop, index) => (
               <div key={`${shop.name}-net`} className="flex items-center gap-2">
-                <div className="w-16 text-xs text-gray-600 dark:text-gray-400 truncate">#{index + 1}</div>
-                <div className="flex-1 h-4 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                <div className="w-16 text-xs text-muted-foreground truncate">#{index + 1}</div>
+                <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
                   <div className="h-full bg-purple-500" style={{ width: `${(shop.netRevenue / maxSales) * 100}%` }} />
                 </div>
               </div>
             ))}
           </div>
           <div className="space-y-2">
-            <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 text-center mb-3">🎫 Средний чек</div>
+            <div className="text-xs font-semibold text-muted-foreground text-center mb-3">🎫 Средний чек</div>
             {sortedTop.map((shop) => (
               <div key={`${shop.name}-avg`} className="flex items-center gap-2">
-                <div className="w-16 text-xs text-gray-600 dark:text-gray-400">{formatCurrency(shop.averageCheck)}</div>
-                <div className="flex-1 h-4 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                <div className="w-16 text-xs text-muted-foreground">{formatCurrency(shop.averageCheck)}</div>
+                <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
                   <div className="h-full bg-cyan-500" style={{ width: `${(shop.averageCheck / maxAvgCheck) * 100}%` }} />
                 </div>
               </div>
             ))}
           </div>
           <div className="space-y-2">
-            <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 text-center mb-3">📋 Кол-во чеков</div>
+            <div className="text-xs font-semibold text-muted-foreground text-center mb-3">📋 Кол-во чеков</div>
             {sortedTop.map((shop) => (
               <div key={`${shop.name}-checks`} className="flex items-center gap-2">
-                <div className="w-16 text-xs text-gray-600 dark:text-gray-400">{shop.checks}</div>
-                <div className="flex-1 h-4 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                <div className="w-16 text-xs text-muted-foreground">{shop.checks}</div>
+                <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
                   <div className="h-full bg-emerald-500" style={{ width: `${(shop.checks / maxChecks) * 100}%` }} />
                 </div>
               </div>

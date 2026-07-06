@@ -44,9 +44,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
       if (variant === "widget") {
         return (
-          <div className="rounded-xl bg-white dark:bg-gray-800 border border-red-200 dark:border-red-900/50 p-4 shadow-sm min-h-[80px] flex flex-col items-center justify-center gap-2">
+          <div className="rounded-xl bg-card border border-red-200 dark:border-red-900/50 p-4 shadow-sm min-h-[80px] flex flex-col items-center justify-center gap-2">
             <AlertTriangle className="w-5 h-5 text-red-400" />
-            <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
+            <span className="text-xs text-muted-foreground text-center">
               {this.props.name || "Виджет"} не загрузился
             </span>
             <button
@@ -63,15 +63,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
       return (
         <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center">
           <div className="text-red-500 dark:text-red-400 text-5xl mb-4">⚠️</div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          <h2 className="text-lg font-semibold text-foreground mb-2">
             Что-то пошло не так
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 max-w-xs">
+          <p className="text-sm text-muted-foreground mb-4 max-w-xs">
             {this.state.error?.message || "Неизвестная ошибка"}
           </p>
           <button
             onClick={this.retry}
-            className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 active:scale-95 transition-all"
+            className="px-5 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 active:scale-95 transition-all"
           >
             Попробовать снова
           </button>

@@ -202,15 +202,6 @@ export default function SalesReport() {
   useEffect(() => {
     if (!isMiniApp) return;
 
-    // Настройка темы
-    const theme = telegram.WebApp.colorScheme;
-    document.documentElement.classList.toggle("dark", theme === "dark");
-
-    // Установка цвета фона
-    telegram.WebApp.setBackgroundColor(
-      theme === "dark" ? "#111827" : "#f9fafb"
-    );
-
     // Настройка главной кнопки
     telegram.WebApp.MainButton.setText("Сгенерировать отчёт");
     telegram.WebApp.MainButton.setParams({
@@ -397,7 +388,7 @@ export default function SalesReport() {
   if (!Object.keys(shopOptions).length) {
     return (
       <div
-        className="app-page flex items-center justify-center bg-gray-50 dark:bg-gray-900"
+        className="app-page flex items-center justify-center bg-background"
         style={{
           paddingTop: "calc(var(--app-top-clearance) + 0.5rem)",
           paddingBottom: "calc(var(--app-bottom-clearance) + 0.5rem)",
@@ -434,7 +425,7 @@ export default function SalesReport() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="app-page w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col items-center"
+        className="app-page w-full bg-background text-foreground flex flex-col items-center"
         style={{
           paddingTop: "var(--app-top-clearance)",
           paddingBottom: "calc(var(--app-bottom-clearance) + 0.5rem)",
@@ -447,7 +438,7 @@ export default function SalesReport() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 shadow-sm border border-slate-200/70 dark:border-slate-800 space-y-3">
+          <div className="rounded-2xl bg-card p-3 sm:p-4 shadow-sm border border-border space-y-3">
             <div className="flex items-start justify-between gap-3">
               <ReportHeader
                 title="Отчёт по продажам"
@@ -459,17 +450,17 @@ export default function SalesReport() {
                   setReportData(null);
                   setShowAiInsights(false);
                 }}
-                className="rounded-lg px-3 py-2 text-sm bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition"
+                className="rounded-lg px-3 py-2 text-sm bg-secondary text-secondary-foreground hover:bg-secondary/80 transition"
               >
                 Изменить фильтры
               </button>
             </div>
 
             <ReportKPIBar items={[
-              { label: "Выручка", value: `${formatMoney(totalRevenue)} ₽`, variant: "blue" },
-              { label: "Продано, шт", value: formatMoney(totalQuantity), variant: "green" },
-              { label: "SKU в отчете", value: formatMoney(skuCount), variant: "purple" },
-              { label: "Среднее на SKU", value: `${formatMoney(avgPerSku)} ₽`, variant: "amber" },
+              { label: "Выручка", value: `${formatMoney(totalRevenue)} ₽`, emphasis: "primary" },
+              { label: "Продано, шт", value: formatMoney(totalQuantity) },
+              { label: "SKU в отчете", value: formatMoney(skuCount) },
+              { label: "Среднее на SKU", value: `${formatMoney(avgPerSku)} ₽` },
             ]} />
           </div>
 
@@ -498,7 +489,7 @@ export default function SalesReport() {
               <ReportShareButton targetRef={reportRef} filename={`sales-report-${startDate}`} />
               <motion.button
                 onClick={runAiAnalysis}
-                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-xl font-medium hover:shadow-lg transition-all"
+                className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-medium hover:shadow-lg transition-all"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -517,7 +508,7 @@ export default function SalesReport() {
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="app-page w-full px-4 sm:px-6 py-6 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col items-center"
+      className="app-page w-full px-4 sm:px-6 py-6 bg-background text-foreground flex flex-col items-center"
       style={{
         paddingTop: "calc(var(--app-top-clearance) + 0.5rem)",
         paddingBottom: "calc(var(--app-bottom-clearance) + 0.5rem)",
@@ -530,11 +521,11 @@ export default function SalesReport() {
       >
         Отчёт по продажам
       </motion.h1>
-      <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+      <p className="text-sm text-muted-foreground mb-6">
         Выберите период, магазин и группы товаров
       </p>
       <motion.div
-        className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4 sm:p-6 w-full max-w-3xl space-y-4 border border-slate-200/70 dark:border-slate-800"
+        className="bg-card rounded-2xl shadow-sm p-4 sm:p-6 w-full max-w-3xl space-y-4 border border-border"
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
       >
@@ -542,7 +533,7 @@ export default function SalesReport() {
           <button
               className={`rounded-lg border px-3 py-2 text-sm transition ${
                 dateMode === "today"
-                ? "border-blue-600 bg-blue-600 text-white"
+                ? "border-blue-600 bg-primary text-white"
                 : "border-slate-300 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             }`}
             onClick={() => setDateMode("today")}
@@ -552,8 +543,8 @@ export default function SalesReport() {
           <button
               className={`rounded-lg border px-3 py-2 text-sm transition ${
                 dateMode === "yesterday"
-                ? "border-blue-600 bg-blue-600 text-white"
-                : "border-slate-300 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-foreground"
             }`}
             onClick={() => setDateMode("yesterday")}
           >
@@ -573,8 +564,8 @@ export default function SalesReport() {
               <button
                 className={`rounded-lg border px-3 py-2 text-sm transition ${
                   dateMode === "period"
-                    ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-slate-300 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-foreground"
                 }`}
                 onClick={() => {
                   setDateMode("period");
@@ -597,7 +588,7 @@ export default function SalesReport() {
               />
               <div className="flex justify-end p-2">
                 <button
-                  className="px-3 py-1 rounded bg-blue-600 text-white"
+                  className="px-3 py-1 rounded bg-primary text-primary-foreground"
                   disabled={!(tempPeriod?.from && tempPeriod?.to)}
                   onClick={() => {
                     setPeriod(tempPeriod);
@@ -612,7 +603,7 @@ export default function SalesReport() {
           </Popover>
         </div>
         {dateMode === "period" && period?.from && period?.to && (
-          <div className="text-sm text-slate-600 dark:text-slate-300">
+          <div className="text-sm text-muted-foreground">
             {formatDate(period.from)} → {formatDate(period.to)}
           </div>
         )}
@@ -636,8 +627,8 @@ export default function SalesReport() {
             onClick={submitForecast}
             className={`w-full py-3 rounded-xl font-medium text-white transition ${
               isFormValid
-                ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-                : "bg-gray-300 dark:bg-gray-700 cursor-not-allowed"
+                ? "bg-primary hover:bg-primary/90"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
             }`}
             disabled={!isFormValid}
             whileHover={{ scale: isFormValid ? 1.03 : 1 }}

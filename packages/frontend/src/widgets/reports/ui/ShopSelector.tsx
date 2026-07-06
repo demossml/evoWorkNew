@@ -97,7 +97,7 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
   const modalContent =
     showAllShops ? (
       <motion.div
-        className="fixed inset-0 z-[70] h-[100dvh] bg-custom-gray dark:bg-gray-900 flex flex-col"
+        className="fixed inset-0 z-[70] h-[100dvh] bg-background flex flex-col"
         style={{
           paddingTop: "calc(max(var(--tg-safe-top, 0px), 4px) + 56px)",
           paddingBottom: "max(var(--tg-safe-bottom, 0px), 4px)",
@@ -107,25 +107,25 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
         transition={{ duration: 0.3, ease: "easeOut" }}
       >
         {/* Заголовок */}
-        <div className="p-2 border-b bg-gray-50 dark:bg-gray-800 flex justify-between items-center shrink-0">
-          <p className="font-semibold text-lg text-gray-900 dark:text-gray-100">
+        <div className="p-2 border-b bg-muted flex justify-between items-center shrink-0">
+          <p className="font-semibold text-lg text-foreground">
             Выберите магазин
           </p>
           <button
             onClick={handleCancelSelection}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="text-gray-500 hover:text-muted-foreground dark:hover:text-gray-200"
           >
             ✕
           </button>
         </div>
 
-        <div className="p-3 border-b bg-gray-50 dark:bg-gray-800 shrink-0">
+        <div className="p-3 border-b bg-muted shrink-0">
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Поиск магазина..."
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
 
@@ -133,10 +133,10 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
         <div className="flex-1 min-h-0 overflow-y-auto p-4">
           {isLoadingShops ? (
             <div className="flex items-center justify-center w-full h-full">
-              <div className="w-8 h-8 border-4 border-t-transparent border-blue-500 border-solid rounded-full animate-spin" />
+              <div className="w-8 h-8 border-4 border-t-transparent border-primary border-solid rounded-full animate-spin" />
             </div>
           ) : filteredShops.length === 0 ? (
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-muted-foreground">
               Ничего не найдено.
             </div>
           ) : (
@@ -148,7 +148,7 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
                 transition={{ duration: 0.3 }}
                 className="mb-4"
               >
-                <h3 className="font-semibold text-gray-700 dark:text-gray-300 bg-custom-gray dark:bg-gray-700 mb-2">
+                <h3 className="font-semibold text-foreground bg-muted mb-2">
                   {letter}
                 </h3>
                 <div className="space-y-2">
@@ -161,11 +161,11 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
                       <div
                         className={`w-4 h-4 rounded-full ${
                           tempSelectedShop === uuid
-                            ? "border-4 border-blue-500 bg-white dark:bg-gray-900"
-                            : "border-2 border-gray-300 dark:border-gray-600 bg-custom-gray dark:bg-gray-800"
+                            ? "border-4 border-primary bg-card"
+                            : "border-2 border-border bg-muted"
                         }`}
                       />
-                      <span className="text-lg ml-2 text-gray-900 dark:text-gray-100">
+                      <span className="text-lg ml-2 text-foreground">
                         {name}
                       </span>
                     </div>
@@ -177,10 +177,10 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
         </div>
 
         {/* Кнопки подтверждения и отмены */}
-        <div className="sticky bottom-0 left-0 right-0 z-10 bg-gray-50 dark:bg-gray-800 border-t p-2 flex gap-2 shrink-0">
+        <div className="sticky bottom-0 left-0 right-0 z-10 bg-muted border-t p-2 flex gap-2 shrink-0">
           <motion.button
             onClick={handleCancelSelection}
-            className="flex-1 p-2 rounded-md text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+            className="flex-1 p-2 rounded-md text-foreground bg-muted hover:bg-gray-300 dark:hover:bg-gray-600"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
@@ -191,8 +191,8 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
             onClick={handleConfirmShopSelection}
             className={`flex-1 p-2 rounded-md text-white ${
               tempSelectedShop
-                ? "bg-blue-500 hover:bg-blue-600"
-                : "bg-gray-300 dark:bg-gray-700 cursor-not-allowed"
+                ? "bg-blue-500 hover:bg-primary"
+                : "bg-muted cursor-not-allowed"
             }`}
             disabled={!tempSelectedShop}
             initial={{ opacity: 0, y: 10 }}
@@ -209,7 +209,7 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
     <div className="shop-selector">
       {/* Заголовок */}
       <div className="flex items-center justify-between w-full mb-4">
-        <span className="text-gray-700 dark:text-gray-400 text-sm">
+        <span className="text-muted-foreground text-sm">
           Магазин
         </span>
         <button
@@ -220,9 +220,9 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
         </button>
       </div>
       {selectedShopName && (
-        <div className="mb-3 text-xs text-gray-600 dark:text-gray-300">
+        <div className="mb-3 text-xs text-muted-foreground">
           Выбран:{" "}
-          <span className="font-semibold text-gray-800 dark:text-gray-100">
+          <span className="font-semibold text-foreground">
             {selectedShopName}
           </span>
         </div>
@@ -232,7 +232,7 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
       <div className="flex flex-wrap gap-2 mb-4">
         {isLoadingShops ? (
           <div className="flex items-center justify-center w-full h-16">
-            <div className="w-8 h-8 border-4 border-t-transparent border-blue-500 border-solid rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-t-transparent border-primary border-solid rounded-full animate-spin" />
           </div>
         ) : (
           sortedShops.slice(0, 5).map(([uuid, name], idx) => (
@@ -250,8 +250,8 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
                 border-2 
                 ${
                   selectedShop === uuid
-                    ? "border-blue-500 dark:border-blue-400"
-                    : "border-gray-300 dark:border-gray-700"
+                    ? "border-primary dark:border-blue-400"
+                    : "border-border"
                 } 
                 transition-colors 
                 duration-300 
@@ -259,7 +259,7 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
                 min-w-max
                 h-7
                 whitespace-nowrap
-                dark:text-gray-300
+                dark:text-foreground
               `}
               onClick={() => {
                 setSelectedShop(uuid);

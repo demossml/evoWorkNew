@@ -46,8 +46,8 @@ export function DateFilter({ value, onChange }: DateFilterProps) {
     <button
       className={`rounded-lg border px-3 py-2 text-sm transition ${
         value.dateMode === mode
-          ? "border-blue-600 bg-blue-600 text-white"
-          : "border-gray-300 bg-white text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+          ? "border-blue-600 bg-primary text-white"
+          : "border-gray-300 bg-white text-gray-800 dark:border-border dark:bg-gray-800 dark:text-foreground"
       }`}
       onClick={mode === "today" ? setToday : mode === "yesterday" ? setYesterday : () => {
         setTempRange(undefined);
@@ -80,7 +80,7 @@ export function DateFilter({ value, onChange }: DateFilterProps) {
           />
           <div className="flex justify-end p-2">
             <button
-              className="px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-40"
+              className="px-3 py-1 rounded bg-primary text-white disabled:opacity-40"
               disabled={!(tempRange?.from && tempRange?.to)}
               onClick={() => {
                 if (tempRange?.from && tempRange?.to) {

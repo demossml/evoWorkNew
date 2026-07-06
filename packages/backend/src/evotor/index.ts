@@ -42,6 +42,8 @@ export class Evotor {
 	};
 
 	private cache: Map<string, any> = new Map(); // Кэш для данных
+	#lastRequestTime = 0; // timestamp последнего запроса (rate-limit)
+	#baseDelay = 500;     // базовая задержка (мс), растёт при 429
 
 	/**
 	 * Конструктор класса Evotor
@@ -422,8 +424,9 @@ export class Evotor {
 		until: string,
 	): Promise<Document[]> {
 		const intervals = generateDateRanges(since, until, "days", 30);
-		// console.log("intervals ->", intervals);
-		const fetchPromises = intervals.map(async ([startDate, endDate]) => {
+		const results: Document[][] = [];
+
+		for (const [startDate, endDate] of intervals) {
 			const start = formatDateWithTime(new Date(startDate), false);
 			const end = formatDateWithTime(new Date(endDate), true);
 			const url = this._replacePlaceholders(this.urls.getDoc, [
@@ -433,17 +436,11 @@ export class Evotor {
 			]);
 			try {
 				const response = await this._fetchData(url);
-				return Array.isArray(response) ? response : [];
+				results.push(Array.isArray(response) ? response : []);
 			} catch (intervalError) {
-				console.error(
-					`Ошибка для интервала ${startDate} - ${endDate}:`,
-					intervalError,
-				);
-				return [];
+				results.push([]);
 			}
-		});
-
-		const results = await Promise.all(fetchPromises);
+		}
 		return results.flat();
 	}
 
@@ -563,13 +560,12 @@ export class Evotor {
 		queries: ShopQuery[],
 	): Promise<IndexDocument[]> {
 		try {
-			const results = await Promise.all(
-				queries.map(({ shopId, since, until }) =>
-					this.getDocumentsIndex(shopId, since, until),
-				),
-			);
+			const results: IndexDocument[][] = [];
+			for (const { shopId, since, until } of queries) {
+				const docs = await this.getDocumentsIndex(shopId, since, until);
+				results.push(docs);
+			}
 
-			// Объединяем все массивы IndexDocument[] в один
 			return results.flat();
 		} catch (error) {
 			this._logError(
@@ -633,16 +629,21 @@ export class Evotor {
 			const currentDate = new Date();
 			let daysBack = 0;
 			const MAX_DAYS = 365; // Защита от бесконечного цикла
+			let consecutive429 = 0;
 
 			while ((!foundDocuments || foundDocuments.length === 0) && daysBack < MAX_DAYS) {
 				const since = formatDateWithTime(currentDate, false);
 				const until = formatDateWithTime(currentDate, true);
 
-				const documents = await this.getDocuments(shopId, since, until);
-
-				foundDocuments = documents.filter((doc) =>
-					["FPRINT"].includes(doc.type),
-				);
+				try {
+					const documents = await this.getDocuments(shopId, since, until);
+					consecutive429 = 0;
+					foundDocuments = documents.filter((doc) => ["FPRINT"].includes(doc.type));
+				} catch (_err) {
+					// 429 и прочие — не останавливаем цикл, но после 3 ошибок подряд выходим
+					consecutive429++;
+					if (consecutive429 >= 3) break;
+				}
 
 				if (!foundDocuments || foundDocuments.length === 0) {
 					currentDate.setDate(currentDate.getDate() - 1);
@@ -2281,20 +2282,34 @@ export class Evotor {
 	}
 
 	private async _fetchData(url: string): Promise<any> {
+		const now = Date.now();
+		const wait = Math.max(0, this.#baseDelay - (now - this.#lastRequestTime));
+		if (wait > 0) {
+			await new Promise((resolve) => setTimeout(resolve, wait));
+		}
+		this.#lastRequestTime = Date.now();
 		try {
-			const response = await fetch(url, { headers: this.headers }); // Выполнение запроса
-			const responseBody = await response.text(); // Получение текста ответа
+			const response = await fetch(url, { headers: this.headers });
+			const responseBody = await response.text();
 
-			if (!response.ok) {
-				throw new Error(
-					`Ошибка HTTP: ${response.status}, тело ответа: ${responseBody}`,
-				); // Обработка ошибки HTTP
+			if (response.status === 429) {
+				const retryAfter = response.headers.get("Retry-After");
+				const retrySec = retryAfter ? parseInt(retryAfter, 10) : 0;
+				this.#baseDelay = Math.min((this.#baseDelay || 100) * 2, 30_000);
+				this.#lastRequestTime = Date.now() + (retrySec > 0 ? retrySec * 1000 : this.#baseDelay);
+				throw new Error(`Ошибка HTTP: 429, тело ответа: ${responseBody}`);
 			}
 
-			return JSON.parse(responseBody); // Парсинг JSON-ответа
+			if (!response.ok) {
+				throw new Error(`Ошибка HTTP: ${response.status}, тело ответа: ${responseBody}`);
+			}
+
+			// Успех — сбрасываем задержку
+			this.#baseDelay = 500;
+			return JSON.parse(responseBody);
 		} catch (error) {
-			this._logError(`Ошибка запроса к URL ${url}`, error); // Логирование ошибки
-			throw error; // Пробрасывание ошибки дальше
+			this._logError(`Ошибка запроса к URL ${url}`, error);
+			throw error;
 		}
 	}
 

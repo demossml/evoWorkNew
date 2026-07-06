@@ -103,11 +103,11 @@ export default function PlanMetricsCard() {
   if (shopsLoading || loading) {
     return (
       <div className="w-full mb-8">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+        <div className="bg-card rounded-2xl shadow-lg p-6">
           <div className="space-y-4">
-            <div className="w-full h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-            <div className="w-2/3 h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-            <div className="w-4/5 h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="w-full h-6 bg-muted rounded animate-pulse" />
+            <div className="w-2/3 h-6 bg-muted rounded animate-pulse" />
+            <div className="w-4/5 h-6 bg-muted rounded animate-pulse" />
           </div>
         </div>
       </div>
@@ -200,7 +200,7 @@ export default function PlanMetricsCard() {
       </div>
 
       {/* Детализация по магазинам - компактная версия */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+      <div className="bg-card rounded-2xl shadow-lg p-6">
         <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">
           Детализация по магазинам
         </h3>
@@ -222,7 +222,7 @@ export default function PlanMetricsCard() {
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Store className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                  <Store className="w-4 h-4 text-muted-foreground" />
                   <h4 className="font-bold text-sm text-gray-800 dark:text-white">
                     {metric.shopName}
                   </h4>
@@ -245,7 +245,7 @@ export default function PlanMetricsCard() {
 
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     План
                   </p>
                   <p className="text-sm font-bold text-gray-800 dark:text-white">
@@ -253,7 +253,7 @@ export default function PlanMetricsCard() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     Факт
                   </p>
                   <p className="text-sm font-bold text-gray-800 dark:text-white">
@@ -263,7 +263,7 @@ export default function PlanMetricsCard() {
               </div>
 
               {/* Прогресс бар */}
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+              <div className="w-full bg-muted rounded-full h-1.5">
                 <div
                   className={`h-1.5 rounded-full transition-all duration-500 ${
                     metric.status === "success"
@@ -279,7 +279,7 @@ export default function PlanMetricsCard() {
           ))}
 
           {metrics.length > 5 && (
-            <p className="text-center text-sm text-gray-500 dark:text-gray-400 pt-2">
+            <p className="text-center text-sm text-muted-foreground pt-2">
               Показаны {5} из {metrics.length} магазинов
             </p>
           )}

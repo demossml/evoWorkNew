@@ -29,7 +29,7 @@ const DownloadTableButton: React.FC<DownloadTableButtonProps> = ({
   return (
     <button
       onClick={handleDownload}
-      className="m-2 px-3 py-1 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-all"
+      className="m-2 px-3 py-1 bg-primary text-primary-foreground font-semibold rounded-lg shadow-md hover:bg-primary/90 transition-all"
     >
       Скачать таблицу (.xlsx)
     </button>

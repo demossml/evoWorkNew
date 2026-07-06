@@ -21,7 +21,7 @@ export const ExpensesDetailsAdmin: React.FC<ExpensesDetailsAdminProps> = ({
     <div>
       {/* Детализация расходов по магазинам */}
       <div className="mb-6">
-        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
+        <h4 className="text-sm font-semibold text-foreground mb-4">
           Расходы по магазинам
         </h4>
         <div className="space-y-3">
@@ -49,7 +49,7 @@ export const ExpensesDetailsAdmin: React.FC<ExpensesDetailsAdminProps> = ({
               return (
                 <div
                   key={shopName}
-                  className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4"
+                  className="bg-muted rounded-lg p-4"
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -62,7 +62,7 @@ export const ExpensesDetailsAdmin: React.FC<ExpensesDetailsAdminProps> = ({
                       <div className="text-sm font-bold text-orange-600 dark:text-orange-400">
                         {formatCurrency(shopTotal)} ₽
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                      <div className="text-xs text-muted-foreground">
                         {shopPercentage.toFixed(1)}% от общих расходов
                       </div>
                     </div>
@@ -79,14 +79,14 @@ export const ExpensesDetailsAdmin: React.FC<ExpensesDetailsAdminProps> = ({
                             key={category}
                             className="flex justify-between items-center text-sm"
                           >
-                            <span className="text-gray-600 dark:text-gray-400">
+                            <span className="text-muted-foreground">
                               {category}
                             </span>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-500 dark:text-gray-500">
+                              <span className="text-xs text-gray-500 dark:text-muted-foreground">
                                 {categoryPercentage.toFixed(0)}%
                               </span>
-                              <span className="font-medium text-gray-700 dark:text-gray-300">
+                              <span className="font-medium text-foreground">
                                 {formatCurrency(amount)} ₽
                               </span>
                             </div>
@@ -95,7 +95,7 @@ export const ExpensesDetailsAdmin: React.FC<ExpensesDetailsAdminProps> = ({
                       })}
                   </div>
                   {/* Progress bar для магазина */}
-                  <div className="mt-3 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                  <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-orange-500 transition-all duration-300"
                       style={{ width: `${shopPercentage}%` }}
@@ -119,7 +119,7 @@ export const ExpensesDetailsAdmin: React.FC<ExpensesDetailsAdminProps> = ({
       </div>
       {/* Разбивка расходов по категориям */}
       <div className="mb-6">
-        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
+        <h4 className="text-sm font-semibold text-foreground mb-4">
           Расходы по категориям
         </h4>
         <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
@@ -150,11 +150,11 @@ export const ExpensesDetailsAdmin: React.FC<ExpensesDetailsAdminProps> = ({
                       return (
                         <div key={category} className="space-y-1">
                           <div className="flex justify-between items-center text-sm py-1">
-                            <span className="text-gray-700 dark:text-gray-300 font-medium">
+                            <span className="text-foreground font-medium">
                               {category}
                             </span>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                              <span className="text-xs text-muted-foreground">
                                 {percentage.toFixed(1)}%
                               </span>
                               <span className="font-bold text-orange-700 dark:text-orange-400">
@@ -163,7 +163,7 @@ export const ExpensesDetailsAdmin: React.FC<ExpensesDetailsAdminProps> = ({
                             </div>
                           </div>
                           {/* Progress bar для каждой категории */}
-                          <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                             <div
                               className="h-full bg-orange-500 transition-all duration-300"
                               style={{ width: `${percentage}%` }}
@@ -182,7 +182,7 @@ export const ExpensesDetailsAdmin: React.FC<ExpensesDetailsAdminProps> = ({
                   </div>
                 </>
               ) : (
-                <span className="text-sm text-gray-500 dark:text-gray-400">
+                <span className="text-sm text-muted-foreground">
                   Нет данных
                 </span>
               );

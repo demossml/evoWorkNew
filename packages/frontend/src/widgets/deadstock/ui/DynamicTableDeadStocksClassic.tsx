@@ -78,7 +78,7 @@ const QuantityPickerModal = ({
           onClick={onClose}
         >
           <motion.div
-            className="bg-white dark:bg-gray-900 rounded-2xl w-64 p-4"
+            className="bg-card rounded-2xl w-64 p-4"
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
@@ -87,7 +87,7 @@ const QuantityPickerModal = ({
             <div className="text-center text-sm mb-2">Выберите количество</div>
 
             <div className="relative h-40 overflow-hidden">
-              <div className="absolute inset-x-0 top-1/2 h-8 -translate-y-1/2 border-y border-blue-500 pointer-events-none" />
+              <div className="absolute inset-x-0 top-1/2 h-8 -translate-y-1/2 border-y border-primary pointer-events-none" />
 
               <div
                 ref={listRef}
@@ -115,7 +115,7 @@ const QuantityPickerModal = ({
 
             <button
               onClick={onClose}
-              className="mt-3 w-full py-1.5 rounded bg-gray-200 dark:bg-gray-700 text-sm"
+              className="mt-3 w-full py-1.5 rounded bg-muted text-sm"
             >
               Отмена
             </button>
@@ -269,7 +269,7 @@ export const DynamicTableDeadStocksClassic = ({
   };
 
   return (
-    <div className="w-full min-h-screen px-2 sm:px-4 bg-custom-gray dark:bg-gray-900 rounded-2xl">
+    <div className="w-full min-h-screen px-2 sm:px-4 bg-background rounded-2xl">
       <motion.div
         style={{ scaleX, transformOrigin: "0%" }}
         className="h-1 bg-blue-500 mb-2 rounded-full"
@@ -277,7 +277,7 @@ export const DynamicTableDeadStocksClassic = ({
 
       <div className="flex gap-2 mb-3 text-xs sm:text-xs">
         <select
-          className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700"
+          className="px-2 py-1 rounded bg-muted"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         >
@@ -291,7 +291,7 @@ export const DynamicTableDeadStocksClassic = ({
         {showSave && (
           <button
             onClick={handleSave}
-            className="px-3 py-1 bg-blue-600 text-white rounded"
+            className="px-3 py-1 bg-primary text-white rounded"
           >
             Сохранить
           </button>
@@ -304,7 +304,7 @@ export const DynamicTableDeadStocksClassic = ({
         className="max-h-[calc(100vh-6rem)] overflow-y-auto"
       >
         <table className="w-full table-auto">
-          <thead className="sticky top-0 bg-gray-100 dark:bg-gray-700 z-10">
+          <thead className="sticky top-0 bg-muted z-10">
             <tr>
               {Object.keys(tableN).map((key) => (
                 <th
@@ -338,7 +338,7 @@ export const DynamicTableDeadStocksClassic = ({
 
                   <td className="text-center">
                     <select
-                      className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-xs"
+                      className="px-1 py-0.5 rounded bg-muted text-xs"
                       value={row.mark ?? ""}
                       onChange={(e) =>
                         updateMark(
@@ -361,13 +361,13 @@ export const DynamicTableDeadStocksClassic = ({
                             setActiveIndex(sourceIndex);
                             setPickerOpen(true);
                           }}
-                          className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-left"
+                          className="px-1 py-0.5 rounded bg-muted text-left"
                         >
                           {row.moveCount ?? "Кол-во"}
                         </button>
 
                         <select
-                          className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800"
+                          className="px-1 py-0.5 rounded bg-muted"
                           value={row.moveToStore ?? ""}
                           onChange={(e) =>
                             updateMoveToStore(sourceIndex, e.target.value)
@@ -392,11 +392,11 @@ export const DynamicTableDeadStocksClassic = ({
           </tbody>
         </table>
         {hasMoreRows && (
-          <div className="sticky bottom-0 z-20 bg-custom-gray dark:bg-gray-900 px-2 py-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="sticky bottom-0 z-20 bg-background px-2 py-2 border-t border-border">
             <button
               type="button"
               onClick={loadMoreRows}
-              className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-600 text-xs text-gray-700 dark:text-gray-300"
+              className="w-full h-10 rounded-lg border border-border text-xs text-foreground"
             >
               Показать еще ({Math.max(sortedData.length - visibleRowsCount, 0)})
             </button>

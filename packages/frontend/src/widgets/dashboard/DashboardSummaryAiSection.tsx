@@ -182,7 +182,7 @@ function AIDetailsPanel({
 }) {
   return (
     <div className="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
-      <h2 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">
+      <h2 className="mb-3 text-sm font-semibold text-foreground">
         {title}
       </h2>
       {children}
@@ -407,7 +407,7 @@ export function DashboardSummaryAiSection({
       case "aiRisk":
         return (
           <AIDetailsPanel title="Риск невыполнения плана">
-            <div className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+            <div className="mb-2 text-xs text-muted-foreground">
               Вероятность срыва по сети: {toPct(aiInsights.risk.networkProbability)}
             </div>
             <div className="space-y-2">
@@ -442,7 +442,7 @@ export function DashboardSummaryAiSection({
       case "aiActions":
         return (
           <AIDetailsPanel title="AI-действия на ближайший час">
-            <ol className="mb-3 list-decimal space-y-1 pl-4 text-sm text-gray-700 dark:text-gray-200">
+            <ol className="mb-3 list-decimal space-y-1 pl-4 text-sm text-foreground">
               {aiText.actions.map((action, idx) => (
                 <li key={`${idx}-${action}`}>{action}</li>
               ))}
@@ -479,16 +479,16 @@ export function DashboardSummaryAiSection({
               {aiInsights.forecast.factors.map((factor) => (
                 <div
                   key={factor.label}
-                  className="flex items-center justify-between rounded-md border border-blue-200 bg-white p-2 text-xs dark:border-blue-900/40 dark:bg-gray-900"
+                  className="flex items-center justify-between rounded-md border border-blue-200 bg-white p-2 text-xs dark:border-blue-900/40 dark:bg-background"
                 >
-                  <span className="text-gray-700 dark:text-gray-200">{factor.label}</span>
+                  <span className="text-foreground">{factor.label}</span>
                   <span
                     className={`font-semibold ${
                       factor.impact === "plus"
                         ? "text-emerald-600 dark:text-emerald-300"
                         : factor.impact === "minus"
                         ? "text-red-600 dark:text-red-300"
-                        : "text-gray-600 dark:text-gray-300"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {factor.value}
@@ -501,7 +501,7 @@ export function DashboardSummaryAiSection({
       case "aiDrop":
         return (
           <AIDetailsPanel title="Разбор просадки день-к-дню">
-            <div className="mb-2 text-xs text-gray-700 dark:text-gray-200">
+            <div className="mb-2 text-xs text-foreground">
               Главная причина: <span className="font-semibold">{aiText.dropMainReason}</span>
             </div>
             <div className="space-y-2">
@@ -526,7 +526,7 @@ export function DashboardSummaryAiSection({
                   </div>
                 ))
               ) : (
-                <div className="rounded-md bg-gray-100 p-2 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                <div className="rounded-md bg-gray-100 p-2 text-xs text-gray-600 dark:bg-gray-700 dark:text-foreground">
                   Нет сравнимых данных по предыдущему периоду.
                 </div>
               )}
@@ -565,7 +565,7 @@ export function DashboardSummaryAiSection({
       case "aiLosses":
         return (
           <AIDetailsPanel title="Потери из-за отсутствия товара">
-            <div className="mb-2 text-xs text-gray-700 dark:text-gray-200">
+            <div className="mb-2 text-xs text-foreground">
               Оценка упущенной выручки:{" "}
               <span className="font-semibold">{formatMoney(aiInsights.losses.totalLoss)} ₽</span>
             </div>
@@ -586,7 +586,7 @@ export function DashboardSummaryAiSection({
                   </div>
                 ))
               ) : (
-                <div className="rounded-md bg-gray-100 p-2 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                <div className="rounded-md bg-gray-100 p-2 text-xs text-gray-600 dark:bg-gray-700 dark:text-foreground">
                   Данных по потерям недостаточно.
                 </div>
               )}
@@ -609,13 +609,13 @@ export function DashboardSummaryAiSection({
   return (
     <>
       <div className="mb-2">
-        <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+        <div className="text-sm font-semibold text-foreground">
           AI-аналитика
         </div>
-        <div className="text-xs text-gray-500 dark:text-gray-400">
+        <div className="text-xs text-muted-foreground">
           Риски, действия, прогноз и инциденты по сети и магазинам.
         </div>
-        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <div className="mt-1 text-xs text-muted-foreground">
           {cloudflareAiStatus}
         </div>
       </div>

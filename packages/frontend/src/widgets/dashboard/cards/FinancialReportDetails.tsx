@@ -40,7 +40,7 @@ export const FinancialReportDetails: React.FC<FinancialReportDetailsProps> = ({
 
   return (
     <div className="space-y-3">
-      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+      <h4 className="text-sm font-semibold text-foreground">
         Сводный финансовый отчёт
       </h4>
 
@@ -66,7 +66,7 @@ export const FinancialReportDetails: React.FC<FinancialReportDetailsProps> = ({
           return (
             <div
               key={shopName}
-              className="rounded-lg bg-gray-50 dark:bg-gray-700 p-3"
+              className="rounded-lg bg-muted p-3"
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold text-gray-900 dark:text-white">
@@ -76,22 +76,22 @@ export const FinancialReportDetails: React.FC<FinancialReportDetailsProps> = ({
                   Нетто: {fmt(net)} ₽
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs text-gray-700 dark:text-gray-300">
+              <div className="grid grid-cols-2 gap-2 text-xs text-foreground">
                 <div>Продажи: {fmt(sell)} ₽</div>
                 <div>Возвраты: {fmt(refund)} ₽</div>
                 <div>Расходы: {fmt(expenses)} ₽</div>
                 <div>Наличные в кассе: {fmt(cash)} ₽</div>
               </div>
               {expenseCategories.length > 0 && (
-                <div className="mt-2 rounded-md bg-white/60 dark:bg-gray-800/60 p-2">
-                  <div className="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                <div className="mt-2 rounded-md bg-card/60 p-2">
+                  <div className="text-xs font-semibold text-foreground mb-1">
                     Детализация расходов
                   </div>
                   <div className="space-y-1">
                     {expenseCategories.map(([category, amount]) => (
                       <div
                         key={`${shopName}-${category}`}
-                        className="flex justify-between text-xs text-gray-700 dark:text-gray-300"
+                        className="flex justify-between text-xs text-foreground"
                       >
                         <span>{category}</span>
                         <span className="font-medium">{fmt(amount)} ₽</span>

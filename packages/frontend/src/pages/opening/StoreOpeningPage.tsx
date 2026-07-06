@@ -51,12 +51,11 @@ export default function StoreOpeningPage() {
   useEffect(() => {
     if (!isMiniApp) return;
     telegram.WebApp.MainButton.hide();
-    telegram.WebApp.setBackgroundColor("#f9fafb");
   }, [isMiniApp]);
 
   return (
     <motion.div
-      className="app-page w-full px-5 py-4 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200"
+      className="app-page w-full px-5 py-4 bg-background text-foreground"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       style={{
@@ -83,9 +82,9 @@ export default function StoreOpeningPage() {
         />
 
         {currentStep !== "shop" && selectedShop && (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2">
             <div className="text-sm">
-              <span className="text-gray-500 dark:text-gray-400">Магазин: </span>
+              <span className="text-muted-foreground">Магазин: </span>
               <span className="font-medium">
                 {selectedShopName || selectedShop}
               </span>
@@ -93,7 +92,7 @@ export default function StoreOpeningPage() {
             <button
               type="button"
               onClick={() => setCurrentStep("shop")}
-              className="text-xs px-2 py-1 rounded-md bg-gray-200 dark:bg-gray-700"
+              className="text-xs px-2 py-1 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80"
             >
               Сменить
             </button>
@@ -101,7 +100,7 @@ export default function StoreOpeningPage() {
         )}
 
         {!userId ? (
-          <div className="p-4 rounded-lg bg-amber-50 text-amber-800 text-sm">
+          <div className="p-4 rounded-lg bg-warning/10 text-warning text-sm">
             Не удалось определить пользователя. Перезапустите Mini App.
           </div>
         ) : currentStep === "shop" ? (

@@ -160,7 +160,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
     if (key === "sum" && typeof value === "number" && value < 0) {
       return "text-red-600 dark:text-red-400";
     }
-    return "text-gray-700 dark:text-gray-300";
+    return "text-foreground";
   };
 
   const reasonBadgeClass = (code: string) => {
@@ -188,7 +188,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
           </span>
         ))
       ) : (
-        <span className="text-gray-400 dark:text-gray-500 text-xs">—</span>
+        <span className="text-muted-foreground text-xs">—</span>
       )}
     </div>
   );
@@ -210,7 +210,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
       : Object.keys(data[0] || {});
   if (columns.length === 0) {
     return (
-      <div className="w-full rounded-xl bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+      <div className="w-full rounded-xl bg-card px-4 py-3 text-sm text-muted-foreground">
         Нет данных для отображения.
       </div>
     );
@@ -219,7 +219,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
   const mobileSortColumns = columns.filter((key) => key !== "productName");
 
   return (
-    <div className="w-full rounded-2xl min-h-screen bg-white dark:bg-gray-900 px-2 sm:px-4">
+    <div className="w-full rounded-2xl min-h-screen bg-card px-2 sm:px-4">
       <motion.div
         style={{ scaleX, transformOrigin: "0%" }}
         className="h-1 bg-blue-500 mb-2 rounded-full"
@@ -231,7 +231,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
         onScroll={handleContainerScroll}
       >
         {/* Sort chips — bigger, better spacing */}
-        <div className="sticky top-0 z-20 -mx-2 px-2 py-2.5 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-800">
+        <div className="sticky top-0 z-20 -mx-2 px-2 py-2.5 bg-card/95 backdrop-blur-sm border-b border-border">
           <div className="flex gap-2 overflow-x-auto no-scrollbar">
             {mobileSortColumns.map((key) => {
               const isActive = sortConfig.key === key;
@@ -243,7 +243,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
                   className={`rounded-full px-3.5 py-2 text-xs font-medium border transition shrink-0 ${
                     isActive
                       ? "border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-700"
-                      : "border-gray-300 text-gray-600 dark:border-gray-700 dark:text-gray-400"
+                      : "border-gray-300 text-gray-600 dark:border-border dark:text-muted-foreground"
                   }`}
                 >
                   {tableN[key] || key}
@@ -270,21 +270,21 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.18, delay: animationDelay }}
-              className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm px-4 py-3.5"
+              className="rounded-xl border border-border bg-card shadow-sm px-4 py-3.5"
             >
               {/* Shop name + product */}
               {row.shopName && typeof row.shopName === "string" && (
-                <p className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
                   {row.shopName}
                 </p>
               )}
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-[15px] leading-snug font-semibold text-gray-900 dark:text-gray-100">
+                <h3 className="text-[15px] leading-snug font-semibold text-foreground">
                   {productName}
                 </h3>
                 {typeof row.confidencePct === "number" && (
                   <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold bg-gray-100 dark:bg-gray-800 ${valueToneClass("confidencePct", row.confidencePct)}`}
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold bg-muted ${valueToneClass("confidencePct", row.confidencePct)}`}
                   >
                     {formatCellValue("confidencePct", row.confidencePct)}
                   </span>
@@ -292,12 +292,12 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
               </div>
 
               {/* KPI grid — bigger numbers, clearer labels */}
-              <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/40 px-3.5 py-3">
+              <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl border border-border bg-muted/40 px-3.5 py-3">
                 {mobilePriorityColumns.map((key) => {
                   const value = row[key];
                   return (
                     <div key={key} className={key === "sum" ? "text-right" : ""}>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">
+                      <p className="text-xs text-muted-foreground mb-0.5">
                         {tableN[key]}
                       </p>
                       <p
@@ -323,7 +323,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
             <button
               type="button"
               onClick={loadMoreRows}
-              className="w-full h-12 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+              className="w-full h-12 rounded-xl border border-border bg-card text-foreground text-sm font-medium hover:bg-accent transition"
             >
               Показать еще ({Math.max(sortedData.length - visibleRowsCount, 0)})
             </button>
@@ -333,8 +333,8 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
 
       {/* === DESKTOP LAYOUT (V2) === */}
       <div className="relative hidden lg:block">
-        <table className="w-full table-auto bg-white dark:bg-gray-900 rounded-lg shadow-sm">
-          <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+        <table className="w-full table-auto bg-card rounded-lg shadow-sm">
+          <thead className="bg-muted sticky top-0 z-10">
             <tr>
               {columns.map((key) => {
                 const alignClass = isNumericColumn(key)
@@ -349,7 +349,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
                 return (
                   <th
                     key={key}
-                    className={`px-3 sm:px-4 py-2.5 text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer bg-gray-50 dark:bg-gray-800 ${alignClass}`}
+                    className={`px-3 sm:px-4 py-2.5 text-xs font-medium text-muted-foreground cursor-pointer bg-muted ${alignClass}`}
                     onClick={() => handleSort(key)}
                   >
                     <span className="inline-flex items-center gap-1">
@@ -361,7 +361,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
                         className={`text-xs ${
                           isActive
                             ? "text-blue-600 dark:text-blue-400"
-                            : "text-gray-400 dark:text-gray-500"
+                            : "text-muted-foreground"
                         }`}
                       >
                         {indicator}
@@ -384,13 +384,13 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
             overflowX: "auto",
           }}
         >
-          <table className="w-full table-auto bg-white dark:bg-gray-900 rounded-lg shadow-sm">
+          <table className="w-full table-auto bg-card rounded-lg shadow-sm">
             <tbody>
               {renderedRows.map((row, rowIndex) => {
                 const zebraClass =
                   rowIndex % 2 === 0
-                    ? "bg-white dark:bg-gray-900"
-                    : "bg-gray-50/50 dark:bg-gray-850/50";
+                    ? "bg-card"
+                    : "bg-muted/50";
                 const hoverClass =
                   "hover:bg-blue-50/50 dark:hover:bg-blue-900/10";
                 const animationDelay = rowIndex < 20 ? rowIndex * 0.012 : 0;
@@ -410,7 +410,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
                       className={`${zebraClass} ${hoverClass} transition-colors`}
                     >
                       <td
-                        className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm text-left text-gray-800 dark:text-gray-200 font-medium"
+                        className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm text-left text-foreground font-medium"
                         colSpan={columns.length}
                         style={{
                           wordWrap: "break-word",
@@ -432,7 +432,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
                         delay: animationDelay,
                         ease: "easeInOut",
                       }}
-                      className={`${zebraClass} ${hoverClass} border-b border-gray-100 dark:border-gray-800 transition-colors`}
+                      className={`${zebraClass} ${hoverClass} border-b border-border transition-colors`}
                     >
                       <td className="px-3 sm:px-4 py-1.5" />
                       {columns.map((key) => {
@@ -474,11 +474,11 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
           </table>
 
           {hasMoreRows && (
-            <div className="sticky bottom-0 z-20 bg-white dark:bg-gray-900 px-2 py-2.5 border-t border-gray-200 dark:border-gray-700">
+            <div className="sticky bottom-0 z-20 bg-card px-2 py-2.5 border-t border-border">
               <button
                 type="button"
                 onClick={loadMoreRows}
-                className="w-full h-11 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                className="w-full h-11 rounded-lg border border-border text-sm text-muted-foreground font-medium hover:bg-accent transition"
               >
                 Показать еще ({Math.max(sortedData.length - visibleRowsCount, 0)})
               </button>

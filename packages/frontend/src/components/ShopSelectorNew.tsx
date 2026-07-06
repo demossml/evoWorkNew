@@ -62,7 +62,7 @@ export const ShopSelectorNew: React.FC<ShopSelectorProps> = ({
       }}
     >
       <div className="flex items-center justify-between w-full mb-4">
-        <span className="text-gray-700 dark:text-gray-400 text-sm">
+        <span className="text-muted-foreground text-sm">
           Магазин
         </span>
       </div>
@@ -70,7 +70,7 @@ export const ShopSelectorNew: React.FC<ShopSelectorProps> = ({
       <div>
         {isLoadingShops ? (
           <div className="flex items-center justify-center w-full h-16">
-            <div className="w-8 h-8 border-4 border-t-transparent border-blue-500 dark:border-blue-400 border-solid rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-t-transparent border-primary dark:border-blue-400 border-solid rounded-full animate-spin" />
           </div>
         ) : (
           <div className="flex gap-2 mb-4">
@@ -86,12 +86,12 @@ export const ShopSelectorNew: React.FC<ShopSelectorProps> = ({
                   rounded-md 
                   text-center 
                   text-gray-700
-                  dark:text-gray-400
+                  dark:text-muted-foreground
                   border-2 
                   ${
                     selectedShop === uuid
-                      ? "border-blue-500 dark:border-blue-400"
-                      : "border-gray-300 dark:border-gray-700"
+                      ? "border-primary dark:border-blue-400"
+                      : "border-border"
                   } 
                   transition-colors duration-200 ease-in-out
                   w-auto

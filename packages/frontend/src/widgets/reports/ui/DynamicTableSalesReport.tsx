@@ -17,12 +17,12 @@ export const DynamicTableSalesReport: React.FC<DynamicTableSalesReportProps> = (
   return (
     <div>
       <div className="flex items-center justify-end gap-2 px-2 pb-2">
-        <span className={`text-xs ${v === "v2" ? "text-gray-900 dark:text-gray-100 font-semibold" : "text-gray-400 dark:text-gray-500"}`}>Новый</span>
+        <span className={`text-xs ${v === "v2" ? "text-foreground font-semibold" : "text-muted-foreground"}`}>Новый</span>
         <button type="button" onClick={() => setV(p => p === "v2" ? "classic" : "v2")}
-          className={`relative inline-flex h-6 w-11 rounded-full border-2 border-transparent transition-colors ${v === "classic" ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-700"}`}>
+          className={`relative inline-flex h-6 w-11 rounded-full border-2 border-transparent transition-colors ${v === "classic" ? "bg-primary" : "bg-muted"}`}>
           <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition ${v === "classic" ? "translate-x-5" : "translate-x-0"}`} />
         </button>
-        <span className={`text-xs ${v === "classic" ? "text-gray-900 dark:text-gray-100 font-semibold" : "text-gray-400 dark:text-gray-500"}`}>Старый</span>
+        <span className={`text-xs ${v === "classic" ? "text-foreground font-semibold" : "text-muted-foreground"}`}>Старый</span>
       </div>
       {v === "v2" ? <DynamicTableSalesReportV2 {...props} /> : <DynamicTableSalesReportClassic {...props} />}
     </div>

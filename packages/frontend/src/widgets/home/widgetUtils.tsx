@@ -15,7 +15,7 @@ export function LoadingTile({ title, Icon, tone = "blue" }: {
     indigo: "bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-300",
   };
   return (
-    <div className="animate-pulse rounded-xl bg-white dark:bg-gray-800 p-4 shadow min-h-[120px] flex flex-col items-center justify-center gap-2">
+    <div className="animate-pulse rounded-xl bg-card p-4 shadow min-h-[120px] flex flex-col items-center justify-center gap-2">
       <Icon className={`w-6 h-6 ${toneMap[tone]?.split(" ").slice(2).join(" ") || "text-gray-400"}`} />
       <span className="text-xs text-gray-400">{title}</span>
     </div>
@@ -28,8 +28,8 @@ export function EmptyTile({ title, Icon, tone = "gray" }: {
   tone?: string;
 }) {
   return (
-    <div className="rounded-xl bg-white dark:bg-gray-800 p-4 shadow min-h-[120px] flex flex-col items-center justify-center gap-2 opacity-60">
-      <Icon className="w-6 h-6 text-gray-300 dark:text-gray-600" />
+    <div className="rounded-xl bg-card p-4 shadow min-h-[120px] flex flex-col items-center justify-center gap-2 opacity-60">
+      <Icon className="w-6 h-6 text-muted-foreground" />
       <span className="text-xs text-gray-400">{title}</span>
     </div>
   );
@@ -51,15 +51,15 @@ export function SkeletonCard({ tone = "blue" }: { tone?: string }) {
   };
   const borderClass = borderMap[tone] || borderMap["blue"];
   return (
-    <div className={`rounded-xl bg-white dark:bg-gray-800 p-4 shadow animate-pulse border-l-4 ${borderClass}`}>
+    <div className={`rounded-xl bg-card p-4 shadow animate-pulse border-l-4 ${borderClass}`}>
       <div className="flex items-center gap-3 mb-2">
-        <div className="w-10 h-10 rounded-lg bg-gray-200 dark:bg-gray-700" />
+        <div className="w-10 h-10 rounded-lg bg-muted" />
         <div className="flex-1">
-          <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded mb-1" />
-          <div className="h-7 w-28 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="h-3 w-20 bg-muted rounded mb-1" />
+          <div className="h-7 w-28 bg-muted rounded" />
         </div>
       </div>
-      <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full" />
+      <div className="h-1.5 bg-muted rounded-full" />
     </div>
   );
 }
@@ -67,16 +67,16 @@ export function SkeletonCard({ tone = "blue" }: { tone?: string }) {
 /** List skeleton — mimics a list/table widget (Accessories, Tempo) */
 export function SkeletonList({ rows = 3 }: { rows?: number }) {
   return (
-    <div className="rounded-xl bg-white dark:bg-gray-800 p-4 shadow animate-pulse">
+    <div className="rounded-xl bg-card p-4 shadow animate-pulse">
       <div className="flex items-center gap-2 mb-3">
-        <div className="w-5 h-5 rounded bg-gray-200 dark:bg-gray-700" />
-        <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="w-5 h-5 rounded bg-muted" />
+        <div className="h-4 w-24 bg-muted rounded" />
       </div>
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 py-2 border-t border-gray-100 dark:border-gray-750">
-          <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700" />
-          <div className="flex-1 h-3 bg-gray-200 dark:bg-gray-700 rounded" />
-          <div className="h-3 w-14 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div key={i} className="flex items-center gap-3 py-2 border-t border-border">
+          <div className="w-6 h-6 rounded-full bg-muted" />
+          <div className="flex-1 h-3 bg-muted rounded" />
+          <div className="h-3 w-14 bg-muted rounded" />
         </div>
       ))}
     </div>
@@ -88,17 +88,17 @@ export function SkeletonShopCards({ count = 3 }: { count?: number }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 animate-pulse">
+        <div key={i} className="bg-card rounded-xl shadow-sm border border-border p-4 animate-pulse">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 rounded-full bg-gray-200 dark:bg-gray-700" />
-            <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
-            <div className="ml-auto h-5 w-12 bg-gray-200 dark:bg-gray-700 rounded" />
+            <div className="w-2 h-2 rounded-full bg-muted" />
+            <div className="h-4 w-24 bg-muted rounded" />
+            <div className="ml-auto h-5 w-12 bg-muted rounded" />
           </div>
-          <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mb-3" />
+          <div className="h-1.5 bg-muted rounded-full mb-3" />
           <div className="flex justify-between">
-            <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
-            <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
-            <div className="h-3 w-14 bg-gray-200 dark:bg-gray-700 rounded" />
+            <div className="h-3 w-16 bg-muted rounded" />
+            <div className="h-3 w-16 bg-muted rounded" />
+            <div className="h-3 w-14 bg-muted rounded" />
           </div>
         </div>
       ))}

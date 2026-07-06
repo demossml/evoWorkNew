@@ -67,15 +67,15 @@ const ScheduleTableView: React.FC<ScheduleTableProps> = ({ scheduleTable }) => {
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="overflow-x-auto w-full bg-custom-gray dark:bg-gray-900 rounded-t-lg"
+      className="overflow-x-auto w-full bg-background rounded-t-lg"
     >
-      <table className="min-w-full table-auto bg-custom-gray dark:bg-gray-900 rounded-lg shadow-md">
-        <thead className="bg-gray-100 dark:bg-gray-700">
+      <table className="min-w-full table-auto bg-background rounded-lg shadow-md">
+        <thead className="bg-muted">
           <tr>
             {Object.keys(tableHeaders).map((key) => (
               <th
                 key={key}
-                className="sticky top-0 z-10 px-4 py-3 text-left text-xs sm:text-sm text-gray-700 dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600"
+                className="sticky top-0 z-10 px-4 py-3 text-left text-xs sm:text-sm text-muted-foreground cursor-pointer hover:bg-muted"
                 onClick={() => handleSort(key)}
               >
                 <div className="flex items-center">
@@ -102,7 +102,7 @@ const ScheduleTableView: React.FC<ScheduleTableProps> = ({ scheduleTable }) => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.22, delay: rowIndex * 0.03 }}
-              className="border-t border-gray-200 dark:border-gray-700"
+              className="border-t border-border"
             >
               {Object.keys(tableHeaders).map((key) => {
                 const value = row[key as keyof typeof row];
@@ -123,7 +123,7 @@ const ScheduleTableView: React.FC<ScheduleTableProps> = ({ scheduleTable }) => {
                     className={`px-4 py-3 text-xs sm:text-sm ${
                       isWeekend
                         ? "text-red-500 dark:text-red-400 font-bold"
-                        : "text-gray-700 dark:text-gray-400"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {key === "date" ? (

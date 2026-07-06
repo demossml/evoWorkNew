@@ -143,7 +143,7 @@ export default function QuantityTableProps() {
     return (
       <div className="app-page flex flex-col items-center justify-center bg-custom-gray p-4">
         <div className="flex items-center mb-4">
-          <div className="w-24 h-24 border-8 border-t-transparent border-blue-500 border-solid rounded-full animate-spin" />
+          <div className="w-24 h-24 border-8 border-t-transparent border-primary border-solid rounded-full animate-spin" />
         </div>
       </div>
     );
@@ -160,9 +160,9 @@ export default function QuantityTableProps() {
       })
     );
     return (
-      <div className="p-4 flex flex-col items-start bg-custom-gray dark:bg-gray-900 gap-4 max-w-md mx-auto">
+      <div className="p-4 flex flex-col items-start bg-background gap-4 max-w-md mx-auto">
         {/* Заголовок с информацией */}
-        <div className="text-sm text-gray-700 dark:text-gray-400">
+        <div className="text-sm text-muted-foreground">
           <p className="font-semibold">{shopName}</p>
         </div>
         {/* Таблица */}
@@ -172,7 +172,7 @@ export default function QuantityTableProps() {
   }
 
   return (
-    <div className="app-page-scroll px-4 bg-custom-gray dark:text-gray-400 dark:bg-gray-900">
+    <div className="app-page-scroll px-4 bg-custom-gray dark:text-muted-foreground dark:bg-background">
       <h1 className="text-xl font-bold"> Товарные остатки</h1>
 
       <div className="w-full">
@@ -200,8 +200,8 @@ export default function QuantityTableProps() {
         onClick={submitForecast} // Вызываем функцию отправки данных
         className={`w-full p-2 rounded-md text-white mt-8 ${
           selectedShop && selectedGroups.length
-            ? "bg-blue-500 hover:bg-blue-600 dark:bg-blue-400 dark:hover:bg-blue-500"
-            : "bg-gray-300 dark:bg-gray-700"
+            ? "bg-blue-500 hover:bg-primary dark:bg-blue-400 dark:hover:bg-blue-500"
+            : "bg-muted"
         }`}
         disabled={
           !(selectedShop && selectedGroups.length) // Блокируем кнопку, если не выбраны все параметры

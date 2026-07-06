@@ -112,7 +112,7 @@ function ConfidencePill({ value }: { value: number }) {
 function AbcBadge({ abc }: { abc: string }) {
   const tone =
     abc === "A"
-      ? "bg-blue-600 text-white"
+      ? "bg-primary text-white"
       : abc === "B"
         ? "bg-slate-300 text-slate-700"
         : "bg-slate-100 text-slate-500";
@@ -371,7 +371,7 @@ export function OrderForecastCards({
         </div>
         <button
           onClick={onNewForecast}
-          className="mt-2 w-full rounded-xl bg-blue-600 py-2 text-[13px] font-semibold text-white active:bg-blue-700"
+          className="mt-2 w-full rounded-xl bg-primary py-2 text-[13px] font-semibold text-white active:bg-primary/80"
         >
           Сформировать новый прогноз
         </button>
@@ -415,7 +415,7 @@ export function OrderForecastCards({
             }}
             className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors ${
               sortKey === s.key
-                ? "bg-blue-600 text-white"
+                ? "bg-primary text-white"
                 : "bg-white text-slate-500 ring-1 ring-slate-200"
             }`}
           >

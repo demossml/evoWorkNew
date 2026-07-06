@@ -61,13 +61,13 @@ export default function PhotoUpload({
   const isDisabled = loading || files.length >= maxFiles;
 
   return (
-    <div className="p-5 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
+    <div className="p-5 rounded-2xl bg-card border border-border shadow-sm space-y-4">
       {/* Заголовок */}
       <div className="flex justify-between items-center">
-        <div className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+        <div className="text-sm text-foreground font-medium">
           {label}
         </div>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+        <span className="text-xs text-muted-foreground">
           {files.length}/{maxFiles}
         </span>
       </div>
@@ -81,8 +81,8 @@ export default function PhotoUpload({
             active:scale-[0.97]
             ${
               isDisabled
-                ? "border-gray-300 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                : "border-gray-400 dark:border-gray-500 hover:border-gray-500 dark:hover:border-gray-400 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 cursor-pointer"
+                ? "border-border bg-muted text-muted-foreground cursor-not-allowed"
+                : "border-muted-foreground/40 hover:border-muted-foreground/70 bg-secondary text-secondary-foreground cursor-pointer"
             }
           `}
         >
@@ -125,7 +125,7 @@ export default function PhotoUpload({
             return (
               <div
                 key={i}
-                className="relative rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 shadow-sm"
+                className="relative rounded-xl overflow-hidden bg-secondary border border-border shadow-sm"
               >
                 <img
                   src={preview}
@@ -138,14 +138,14 @@ export default function PhotoUpload({
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                     {isCompressing && (
                       <div className="text-center text-white">
-                        <div className="w-10 h-10 border-4 border-gray-200 border-t-white rounded-full animate-spin mx-auto mb-1" />
+                        <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-1" />
                         <div className="text-xs font-medium">Сжатие...</div>
                       </div>
                     )}
 
                     {isUploading && (
                       <div className="text-center text-white">
-                        <div className="w-10 h-10 border-4 border-gray-200 border-t-white rounded-full animate-spin mx-auto mb-1" />
+                        <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-1" />
                         <div className="text-xs font-medium">
                           {Math.round(status.progress)}%
                         </div>
@@ -170,9 +170,9 @@ export default function PhotoUpload({
 
                 {/* Прогресс-бар - показываем только для загрузки, не для сжатия */}
                 {isUploading && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-gray-400 dark:bg-gray-600 h-1">
+                  <div className="absolute bottom-0 left-0 right-0 bg-white/30 h-1">
                     <div
-                      className="h-1 bg-blue-500 transition-all"
+                      className="h-1 bg-primary transition-all"
                       style={{ width: `${status.progress}%` }}
                     />
                   </div>
@@ -189,8 +189,8 @@ export default function PhotoUpload({
                     shadow-md
                     ${
                       isCompressing
-                        ? "bg-gray-400 dark:bg-gray-500 cursor-not-allowed"
-                        : "bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700"
+                        ? "bg-muted-foreground/50 cursor-not-allowed"
+                        : "bg-destructive hover:bg-destructive/90"
                     }
                   `}
                 >
@@ -212,7 +212,7 @@ export default function PhotoUpload({
 
       {/* Лимит */}
       {files.length >= maxFiles && (
-        <div className="text-xs text-orange-600 dark:text-orange-400 text-center">
+        <div className="text-xs text-warning text-center">
           Достигнут лимит фото
         </div>
       )}

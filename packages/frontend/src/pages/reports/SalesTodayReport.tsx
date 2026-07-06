@@ -31,7 +31,7 @@ export default function SalesTodayReport() {
   }, []);
 
   if (error) {
-    return <div className="text-red-500 text-center mt-4">Ошибка: {error}</div>;
+    return <div className="text-destructive text-center mt-4">Ошибка: {error}</div>;
   }
 
   if (!salesData) {
@@ -57,10 +57,10 @@ export default function SalesTodayReport() {
       <ReportHeader title="Отчёт о продажах за сегодня" />
       <ul className="mt-4 space-y-4">
         {Object.entries(salesData).map(([shopName, paymentTypes]) => (
-          <li key={shopName} className="bg-white shadow-md rounded-lg p-4">
+          <li key={shopName} className="bg-card border border-border shadow-sm rounded-lg p-4">
             <div className="flex items-center justify-between">
               <strong className="text-lg">{shopName}</strong>
-              <span className="bg-blue-500 text-white rounded-full px-3 py-1 text-xs font-semibold">
+              <span className="bg-primary text-primary-foreground rounded-full px-3 py-1 text-xs font-semibold">
                 Всего:{" "}
                 {Object.values(paymentTypes).reduce(
                   (sum, amount) => sum + amount,
@@ -73,7 +73,7 @@ export default function SalesTodayReport() {
               {Object.entries(paymentTypes).map(([paymentType, amount]) => (
                 <li
                   key={paymentType}
-                  className="flex justify-between text-gray-700 mt-1"
+                  className="flex justify-between text-muted-foreground mt-1"
                 >
                   <span>{paymentType}</span>
                   <span className="font-bold">{amount} ₽</span>
@@ -89,11 +89,11 @@ export default function SalesTodayReport() {
         <h3 className="text-xl font-bold text-center">
           Общий итог по всем магазинам
         </h3>
-        <ul className="bg-white shadow-md rounded-lg p-4 mt-4 space-y-2">
+        <ul className="bg-card border border-border shadow-sm rounded-lg p-4 mt-4 space-y-2">
           {Object.entries(totalSales).map(([paymentType, totalAmount]) => (
             <li
               key={paymentType}
-              className="flex justify-between text-gray-700 mt-1"
+              className="flex justify-between text-muted-foreground mt-1"
             >
               <span>{paymentType}</span>
               <span className="font-bold">
@@ -113,7 +113,7 @@ export default function SalesTodayReport() {
       <div className="text-left mt-6">
         <a
           href="/"
-          className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 active:bg-blue-700 transition duration-300"
+          className="bg-primary text-primary-foreground py-2 px-4 rounded hover:bg-primary/90 active:bg-primary/80 transition duration-300"
         >
           На главную
         </a>

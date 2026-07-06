@@ -83,13 +83,13 @@ export const TopProductsDetails: React.FC<TopProductsDetailsProps> = ({
   const avgPrice = totalQuantity > 0 ? totalRevenue / totalQuantity : 0;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 mt-4">
+    <div className="bg-card rounded-xl shadow-lg p-4 mt-4">
       <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
         🏆 Топ-10 продуктов
       </h3>
       <div className="flex items-center gap-2 mb-6 justify-center">
         <BarChart3 className="w-5 h-5 text-pink-500" />
-        <h4 className="text-base font-bold text-gray-800 dark:text-gray-100">
+        <h4 className="text-base font-bold text-foreground">
           Рейтинг товаров
         </h4>
       </div>
@@ -123,7 +123,7 @@ export const TopProductsDetails: React.FC<TopProductsDetailsProps> = ({
             );
           else
             rankIcon = (
-              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-bold text-gray-500 dark:text-gray-400">
+              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-xs font-bold text-muted-foreground">
                 {index + 1}
               </span>
             );
@@ -151,21 +151,21 @@ export const TopProductsDetails: React.FC<TopProductsDetailsProps> = ({
                         ? `${product.marginPct.toFixed(1)}%`
                         : `${formatCurrency(product.netRevenue)} ₽`}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                  <div className="text-xs text-muted-foreground">
                     выручка: {formatCurrency(product.netRevenue)} ₽
                   </div>
                 </div>
               </div>
-              <div className="mb-1 text-xs text-gray-500 dark:text-gray-400 flex flex-wrap gap-2">
+              <div className="mb-1 text-xs text-muted-foreground flex flex-wrap gap-2">
                 <span>маржа: {product.marginPct.toFixed(1)}%</span>
                 <span>шт: {Math.round(product.netQuantity)}</span>
                 <span>доля: {totalRevenue > 0 ? ((product.netRevenue / totalRevenue) * 100).toFixed(1) : "0.0"}%</span>
                 <span>возвраты: {product.refundRate.toFixed(1)}%</span>
               </div>
               <div className="mb-2 flex items-center justify-between text-xs">
-                <span className="text-gray-500 dark:text-gray-400">
+                <span className="text-muted-foreground">
                   Доля в топ-10:{" "}
-                  <span className="font-medium text-gray-700 dark:text-gray-300">
+                  <span className="font-medium text-foreground">
                     {totalRevenue > 0
                       ? ((product.netRevenue / totalRevenue) * 100).toFixed(1)
                       : "0.0"}
@@ -184,11 +184,11 @@ export const TopProductsDetails: React.FC<TopProductsDetailsProps> = ({
                 )}
               </div>
               {index < 5 && (
-                <div className="mb-2 rounded-md bg-gray-50 dark:bg-gray-700/40 p-1.5 inline-flex">
+                <div className="mb-2 rounded-md bg-muted/40 p-1.5 inline-flex">
                   <Sparkline values={product.dailyNetRevenue7 || []} />
                 </div>
               )}
-              <div className="relative h-2.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div className="relative h-2.5 w-full bg-muted rounded-full overflow-hidden">
                 <div
                   className="absolute top-0 left-0 h-full rounded-full bg-gradient-to-r from-pink-400 to-pink-600"
                   style={{ width: `${widthPercent}%` }}
@@ -200,17 +200,17 @@ export const TopProductsDetails: React.FC<TopProductsDetailsProps> = ({
       </div>
 
       {/* Summary Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-gray-100 dark:border-gray-700 mt-6">
-        <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-border mt-6">
+        <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
           <Package className="w-5 h-5 text-blue-500 mb-2" />
           <div className="text-lg font-bold text-gray-900 dark:text-white">
             {topProducts.length}
           </div>
-          <div className="text-xs uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
+          <div className="text-xs uppercase tracking-wider font-medium text-muted-foreground">
             Всего товаров
           </div>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
+        <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
           <Percent className="w-5 h-5 text-purple-500 mb-2" />
           <div className="text-lg font-bold text-gray-900 dark:text-white">
             {(
@@ -220,25 +220,25 @@ export const TopProductsDetails: React.FC<TopProductsDetailsProps> = ({
             ).toFixed(0)}
             %
           </div>
-          <div className="text-xs uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
+          <div className="text-xs uppercase tracking-wider font-medium text-muted-foreground">
             Доля топ-10
           </div>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
+        <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
           <Tags className="w-5 h-5 text-green-500 mb-2" />
           <div className="text-lg font-bold text-gray-900 dark:text-white">
             {formatCurrency(avgPrice)}
           </div>
-          <div className="text-xs uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
+          <div className="text-xs uppercase tracking-wider font-medium text-muted-foreground">
             Ср. цена
           </div>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
+        <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
           <ShoppingCart className="w-5 h-5 text-orange-500 mb-2" />
           <div className="text-lg font-bold text-gray-900 dark:text-white">
             {totalQuantity}
           </div>
-          <div className="text-xs uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
+          <div className="text-xs uppercase tracking-wider font-medium text-muted-foreground">
             Продано шт
           </div>
         </div>

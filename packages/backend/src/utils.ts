@@ -100,10 +100,9 @@ export function formatDateWithTime(date: Date, isEndOfDay = false): string {
 	const minutes: string = pad(isEndOfDay ? 59 : 0);
 	const seconds: string = pad(isEndOfDay ? 59 : 0);
 	const milliseconds: string = pad(date.getUTCMilliseconds(), 3); // Получаем миллисекунды (три знака)
-	const fractionalSeconds: string = `${milliseconds}000`.slice(0, 6); // Добавляем недостающие знаки для точности до 6
 
-	// Формируем строку в нужном формате
-	return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${fractionalSeconds}+00:00`;
+	// Формируем строку в нужном формате (Evotor API требует .sss+0000)
+	return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}+0000`;
 }
 
 /**

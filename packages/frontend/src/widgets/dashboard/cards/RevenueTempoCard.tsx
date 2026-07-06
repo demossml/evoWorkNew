@@ -345,11 +345,11 @@ export function RevenueTempoDetails({
     <div className="mt-3 space-y-4">
       <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-600 dark:bg-gray-800">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+          <div className="text-sm font-semibold text-foreground">
             Сравнение с прошлым периодом
           </div>
           <select
-            className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+            className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-foreground"
             value={shopFilter}
             onChange={(event) => setShopFilter(event.target.value)}
           >
@@ -391,7 +391,7 @@ export function RevenueTempoDetails({
             </div>
           </div>
         </div>
-        <div className="mt-2 text-xs text-gray-600 dark:text-gray-300">Причина: {mainReason}</div>
+        <div className="mt-2 text-xs text-muted-foreground">Причина: {mainReason}</div>
         <div className="mt-3 rounded bg-indigo-50 p-2 text-xs dark:bg-indigo-900/30">
           <div className="font-semibold text-indigo-800 dark:text-indigo-200">
             Высокомаржинальные аксессуары
@@ -421,7 +421,7 @@ export function RevenueTempoDetails({
             ).map((row) => (
               <div
                 key={row.shopName}
-                className="flex items-center justify-between rounded bg-white/70 px-2 py-1 dark:bg-gray-900/40"
+                className="flex items-center justify-between rounded bg-white/70 px-2 py-1 dark:bg-background/40"
               >
                 <span className="truncate text-indigo-900 dark:text-indigo-100">
                   {row.shopName}
@@ -443,7 +443,7 @@ export function RevenueTempoDetails({
 
       <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-600 dark:bg-gray-800">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+          <div className="text-sm font-semibold text-foreground">
             План-факт по часам
           </div>
           <div className="inline-flex rounded-md border border-gray-200 bg-white p-0.5 text-xs dark:border-gray-600 dark:bg-gray-700">
@@ -452,7 +452,7 @@ export function RevenueTempoDetails({
               className={`rounded px-2 py-1 ${
                 tempoViewMode === "summary"
                   ? "bg-slate-700 text-white"
-                  : "text-gray-600 dark:text-gray-300"
+                  : "text-muted-foreground"
               }`}
               onClick={() => setTempoViewMode("summary")}
             >
@@ -463,7 +463,7 @@ export function RevenueTempoDetails({
               className={`rounded px-2 py-1 ${
                 tempoViewMode === "hours"
                   ? "bg-slate-700 text-white"
-                  : "text-gray-600 dark:text-gray-300"
+                  : "text-muted-foreground"
               }`}
               onClick={() => setTempoViewMode("hours")}
             >
@@ -474,7 +474,7 @@ export function RevenueTempoDetails({
               className={`rounded px-2 py-1 ${
                 tempoViewMode === "detail"
                   ? "bg-slate-700 text-white"
-                  : "text-gray-600 dark:text-gray-300"
+                  : "text-muted-foreground"
               }`}
               onClick={() => setTempoViewMode("detail")}
             >
@@ -488,8 +488,8 @@ export function RevenueTempoDetails({
               type="button"
               className={`rounded px-2 py-1 ${
                 hourlyViewMode === "cumulative"
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-600 dark:text-gray-300"
+                  ? "bg-primary text-white"
+                  : "text-muted-foreground"
               }`}
               onClick={() => setHourlyViewMode("cumulative")}
             >
@@ -499,8 +499,8 @@ export function RevenueTempoDetails({
               type="button"
               className={`rounded px-2 py-1 ${
                 hourlyViewMode === "hourly"
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-600 dark:text-gray-300"
+                  ? "bg-primary text-white"
+                  : "text-muted-foreground"
               }`}
               onClick={() => setHourlyViewMode("hourly")}
             >
@@ -512,7 +512,7 @@ export function RevenueTempoDetails({
             className={`rounded border px-2 py-1 text-xs ${
               showGapSeries
                 ? "border-red-400 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200"
-                : "border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300"
+                : "border-gray-300 text-gray-600 dark:border-gray-600 dark:text-foreground"
             }`}
             onClick={() => setShowGapSeries((prev) => !prev)}
           >
@@ -523,7 +523,7 @@ export function RevenueTempoDetails({
             className={`rounded border px-2 py-1 text-xs ${
               showAccessoriesSeries
                 ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700 dark:border-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-200"
-                : "border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300"
+                : "border-gray-300 text-gray-600 dark:border-gray-600 dark:text-foreground"
             }`}
             onClick={() => setShowAccessoriesSeries((prev) => !prev)}
           >
@@ -654,7 +654,7 @@ export function RevenueTempoDetails({
               </div>
             </div>
             <div className="space-y-1">
-              <div className="grid grid-cols-6 gap-2 border-b border-gray-200 pb-1 text-xs font-semibold text-gray-500 dark:border-gray-700 dark:text-gray-400">
+              <div className="grid grid-cols-6 gap-2 border-b border-gray-200 pb-1 text-xs font-semibold text-gray-500 dark:border-border dark:text-muted-foreground">
                 <div>Час</div>
                 <div className="text-blue-600 dark:text-blue-300">Факт</div>
                 <div className="text-slate-600 dark:text-slate-300">План общий</div>

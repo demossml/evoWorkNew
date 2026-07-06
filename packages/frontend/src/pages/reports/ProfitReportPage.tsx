@@ -214,8 +214,8 @@ export default function ProfitReportPage() {
 
   if (isLoading)
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="w-10 h-10 border-4 border-t-transparent border-blue-500 dark:border-blue-400 border-solid rounded-full animate-spin" />
+      <div className="flex justify-center items-center h-screen bg-background">
+        <div className="w-10 h-10 border-4 border-t-transparent border-primary dark:border-blue-400 border-solid rounded-full animate-spin" />
       </div>
     );
 
@@ -228,20 +228,20 @@ export default function ProfitReportPage() {
 
   return (
     <motion.div
-      className="app-page-scroll p-4 bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200"
+      className="app-page-scroll p-4 bg-background text-foreground"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
     >
       <ReportHeader title="Отчёт по прибыли" />
 
-      <div className="w-full mb-6 bg-white dark:bg-gray-800 rounded-md shadow-sm p-4">
+      <div className="w-full mb-6 bg-card rounded-md shadow-sm p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold text-base">История отчетов</h2>
           <button
             type="button"
             onClick={() => void loadSnapshots()}
-            className="text-sm px-3 py-1 rounded-md bg-gray-200 dark:bg-gray-700"
+            className="text-sm px-3 py-1 rounded-md bg-muted"
           >
             Обновить
           </button>
@@ -257,7 +257,7 @@ export default function ProfitReportPage() {
                 key={item.id}
                 type="button"
                 onClick={() => void handleLoadSnapshot(item.id)}
-                className="w-full text-left p-3 rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="w-full text-left p-3 rounded-md border border-border hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 <div className="font-medium text-sm">
                   {formatMonthFromIso(item.since)} ({item.since} - {item.until})
@@ -275,14 +275,14 @@ export default function ProfitReportPage() {
         <>
           {/* Фильтр по месяцу */}
           <div className="w-full mb-6">
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-md shadow-sm">
+            <div className="bg-card p-4 rounded-md shadow-sm">
               <label className="block text-sm font-medium mb-2">
                 Месяц отчета
               </label>
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-full p-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 rounded-md border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Выберите месяц</option>
                 {monthOptions.map((option) => (
@@ -300,7 +300,7 @@ export default function ProfitReportPage() {
               {data?.shopsNameAndUuid.map((shop) => (
                 <div
                   key={shop.uuid}
-                  className="bg-white dark:bg-gray-800 p-4 rounded-md shadow-sm"
+                  className="bg-card p-4 rounded-md shadow-sm"
                 >
                   <h3 className="font-semibold text-lg mb-2">{shop.name}</h3>
                   <div className="space-y-3">
@@ -317,7 +317,7 @@ export default function ProfitReportPage() {
                           handleChange(shop.uuid, "expenses", e.target.value)
                         }
                         onWheel={(e) => e.currentTarget.blur()}
-                        className="w-full p-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-2 rounded-md border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
                     <div>
@@ -333,7 +333,7 @@ export default function ProfitReportPage() {
                           handleChange(shop.uuid, "grossProfit", e.target.value)
                         }
                         onWheel={(e) => e.currentTarget.blur()}
-                        className="w-full p-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-2 rounded-md border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
                   </div>
@@ -347,7 +347,7 @@ export default function ProfitReportPage() {
                 className={`w-full p-3 rounded-md text-white mt-4 ${
                   !isFormValid || loadingReport
                     ? "bg-blue-400 cursor-not-allowed"
-                    : "bg-blue-500 hover:bg-blue-600 dark:bg-blue-400 dark:hover:bg-blue-500"
+                    : "bg-blue-500 hover:bg-primary dark:bg-blue-400 dark:hover:bg-blue-500"
                 } transition-colors duration-200 ease-in-out`}
                 whileHover={{ scale: !isFormValid || loadingReport ? 1 : 1.04 }}
                 whileTap={{ scale: !isFormValid || loadingReport ? 1 : 0.97 }}
@@ -378,7 +378,7 @@ export default function ProfitReportPage() {
             <button
               type="button"
               onClick={() => setReport(null)}
-              className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-700"
+              className="px-4 py-2 rounded-md bg-muted"
             >
               Новый расчет
             </button>

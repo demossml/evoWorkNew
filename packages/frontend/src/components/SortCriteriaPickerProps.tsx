@@ -26,7 +26,7 @@ export const SortCriteriaPicker: React.FC<SortCriteriaPickerProps> = ({
   return (
     <div>
       <div className="flex items-center justify-between w-full mb-4">
-        <span className="text-gray-700 dark:text-gray-400 text-sm">
+        <span className="text-muted-foreground text-sm">
           Критерий сортировки
         </span>
       </div>
@@ -42,12 +42,12 @@ export const SortCriteriaPicker: React.FC<SortCriteriaPickerProps> = ({
                 py-2 
                 rounded-md 
                 text-center
-                dark:text-gray-400 
+                dark:text-muted-foreground 
                 border-2 
             ${
               sortCriteria === option.value
-                ? "border-blue-500 dark:border-blue-400"
-                : "border-gray-300 dark:border-gray-700"
+                ? "border-primary dark:border-blue-400"
+                : "border-border"
             } 
             transition-colors 
                 duration-300 

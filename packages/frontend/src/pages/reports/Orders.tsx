@@ -242,7 +242,7 @@ export default function Orders() {
   if (!Object.keys(shopOptions).length && isLoadingShops) {
     return (
       <div className="app-page flex min-h-[60vh] items-center justify-center">
-        <div className="w-16 h-16 border-4 border-t-transparent border-blue-500 border-solid rounded-full animate-spin" />
+        <div className="w-16 h-16 border-4 border-t-transparent border-primary border-solid rounded-full animate-spin" />
       </div>
     );
   }
@@ -329,7 +329,7 @@ export default function Orders() {
                   Отмена
                 </button>
                 <button
-                  className="flex-1 rounded-xl bg-blue-600 py-2 text-[13px] font-semibold text-white active:bg-blue-700"
+                  className="flex-1 rounded-xl bg-primary py-2 text-[13px] font-semibold text-white active:bg-primary/80"
                   onClick={() => {
                     if (tempPeriod?.from && tempPeriod?.to) setPeriod(tempPeriod);
                     setShowPeriodPicker(false);
@@ -361,7 +361,7 @@ export default function Orders() {
                 onClick={() => toggleShop(uuid)}
                 className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition ${
                   selectedShops.includes(uuid)
-                    ? "bg-blue-600 text-white"
+                    ? "bg-primary text-white"
                     : "bg-white text-slate-500 ring-1 ring-slate-200 active:bg-slate-50"
                 }`}
               >
@@ -382,7 +382,7 @@ export default function Orders() {
                 onClick={() => setAnalysisWeeks(n)}
                 className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition ${
                   analysisWeeks === n
-                    ? "bg-blue-600 text-white"
+                    ? "bg-primary text-white"
                     : "bg-white text-slate-500 ring-1 ring-slate-200 active:bg-slate-50"
                 }`}
               >
@@ -404,7 +404,7 @@ export default function Orders() {
           onClick={submitForecast}
           className={`rounded-xl py-2.5 text-[13px] font-semibold transition ${
             isFormValid
-              ? "bg-blue-600 text-white active:bg-blue-700"
+              ? "bg-primary text-white active:bg-primary/80"
               : "bg-slate-200 text-slate-400 cursor-not-allowed"
           }`}
           disabled={!isFormValid}

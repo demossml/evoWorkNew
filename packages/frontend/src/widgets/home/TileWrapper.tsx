@@ -1,43 +1,35 @@
 import { AnimatePresence, motion } from "framer-motion";
 import type { ReactNode } from "react";
 
-type RingTone = "blue" | "orange" | "purple" | "pink" | "cyan" | "indigo" | "slate" | "green" | "red";
-
-const ringMap: Record<RingTone, string> = {
-  blue:   "ring-2 ring-blue-500 scale-[1.01]",
-  orange: "ring-2 ring-orange-500 scale-[1.01]",
-  purple: "ring-2 ring-purple-500 scale-[1.01]",
-  pink:   "ring-2 ring-pink-500 scale-[1.01]",
-  cyan:   "ring-2 ring-cyan-500 scale-[1.01]",
-  indigo: "ring-2 ring-indigo-500 scale-[1.01]",
-  slate:  "ring-2 ring-slate-500 scale-[1.01]",
-  green:  "ring-2 ring-green-500 scale-[1.01]",
-  red:    "ring-2 ring-red-500 scale-[1.01]",
-};
-
 interface TileWrapperProps {
   /** Whether the details panel is shown */
   expanded: boolean;
   /** Called when the card is clicked */
   onToggle: () => void;
-  /** Color tone for the ring accent when expanded */
-  ringTone: RingTone;
   /** The collapsed card content (always visible) */
   card: ReactNode;
   /** The expanded detail content (shown/hidden with animation) */
   detail?: ReactNode;
 }
 
-export function TileWrapper({ expanded, onToggle, ringTone, card, detail }: TileWrapperProps) {
-  const ringClass = ringMap[ringTone] || ringMap["blue"];
-
+/**
+ * Previously each caller passed its own `ringTone` (blue/orange/purple/pink/
+ * cyan/indigo/slate/green/red) purely to visually tell tiles apart once
+ * expanded. Since the tint only appeared after a tile was already opened —
+ * at which point the user already knows which widget they're looking at —
+ * it wasn't actually building any at-a-glance recognition, just adding
+ * unrelated colors with no shared meaning. One consistent accent for
+ * "this tile is expanded" is clearer and keeps color meaningful elsewhere
+ * (status, confidence, etc.) rather than spent on decoration here.
+ */
+export function TileWrapper({ expanded, onToggle, card, detail }: TileWrapperProps) {
   return (
     <div>
       <div
         onClick={onToggle}
         className={`rounded-xl transition-all duration-300 ${
           expanded
-            ? ringClass
+            ? "ring-2 ring-primary scale-[1.01]"
             : "hover:-translate-y-0.5 cursor-pointer"
         }`}
       >

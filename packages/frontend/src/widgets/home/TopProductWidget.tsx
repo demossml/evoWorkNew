@@ -28,7 +28,6 @@ export function TopProductWidget({ since, until, expanded, onToggle }: Props) {
     <TileWrapper
       expanded={expanded}
       onToggle={onToggle}
-      ringTone="pink"
       card={<TopProductCard topProducts={filtered.topProducts} previousTopProducts={[]} metricMode={metricMode} refundFilter={refundFilter} onClick={() => {}} />}
       detail={<TopProductsDetails topProducts={filtered.topProducts} metricMode={metricMode} refundFilter={refundFilter} />}
     />

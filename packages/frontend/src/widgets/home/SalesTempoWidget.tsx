@@ -41,7 +41,6 @@ export function SalesTempoWidget({ since, until, expanded, onToggle }: Props) {
     <TileWrapper
       expanded={expanded}
       onToggle={onToggle}
-      ringTone="slate"
       card={<RevenueTempoCard salesDeltaPct={salesDeltaPct} onClick={() => {}} pace={0} />}
       detail={
         <RevenueTempoDetails since={since} currentData={filtered} previousData={prevFiltered} accessoriesData={accessories.data} />

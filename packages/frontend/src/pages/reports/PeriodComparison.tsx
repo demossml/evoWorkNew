@@ -66,7 +66,7 @@ export default function PeriodComparisonPage() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="pb-24">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-4">
+      <div className="bg-card border-b border-border px-4 py-4">
         <ReportHeader title="Сравнение периодов" />
         <div className="flex gap-2 mt-3">
           {[
@@ -80,8 +80,8 @@ export default function PeriodComparisonPage() {
               onClick={() => setDays(d)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 days === d
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  ? "bg-primary text-white"
+                  : "bg-muted text-foreground"
               }`}
             >
               {label}
@@ -95,19 +95,19 @@ export default function PeriodComparisonPage() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-3 gap-3 px-4 py-4">
-        <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 text-center">
+        <div className="bg-card rounded-xl p-4 border border-border text-center">
           <div className="text-xs text-gray-500 mb-1">Выручка</div>
           <div className="text-lg font-bold">{formatRub(t.revenue.current)}</div>
           <Delta value={t.revenue.change} />
           <div className="text-xs text-gray-400 mt-1">{formatRub(t.revenue.previous)} пред.</div>
         </div>
-        <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 text-center">
+        <div className="bg-card rounded-xl p-4 border border-border text-center">
           <div className="text-xs text-gray-500 mb-1">Чеки</div>
           <div className="text-lg font-bold">{t.checks.current} шт</div>
           <Delta value={t.checks.change} />
           <div className="text-xs text-gray-400 mt-1">{t.checks.previous} шт пред.</div>
         </div>
-        <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 text-center">
+        <div className="bg-card rounded-xl p-4 border border-border text-center">
           <div className="text-xs text-gray-500 mb-1">Средний чек</div>
           <div className="text-lg font-bold">{formatRub(avgCheck)}</div>
           <Delta value={avgCheckChange} />
@@ -125,7 +125,7 @@ export default function PeriodComparisonPage() {
           return (
             <div
               key={store.name}
-              className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden"
+              className="bg-card rounded-xl border border-border overflow-hidden"
             >
               <button
                 onClick={() => toggle(store.name)}
@@ -134,7 +134,7 @@ export default function PeriodComparisonPage() {
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold truncate">{store.name}</div>
                   <div className="flex gap-3 mt-1 text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">{formatRub(store.currentRevenue)}</span>
+                    <span className="text-muted-foreground">{formatRub(store.currentRevenue)}</span>
                     <Delta value={store.revenueChange} />
                   </div>
                 </div>
@@ -152,7 +152,7 @@ export default function PeriodComparisonPage() {
                     transition={{ duration: 0.3 }}
                     className="overflow-hidden"
                   >
-                    <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-800">
+                    <div className="px-4 pb-4 border-t border-border">
                       <table className="w-full text-sm mt-3">
                         <thead>
                           <tr className="text-xs text-gray-500">
@@ -173,7 +173,7 @@ export default function PeriodComparisonPage() {
                             const fmt = (v: number) => unit === "rub" ? (v > 100 ? formatRub(v) : String(v)) : `${v} шт`;
                             return (
                               <tr key={String(label)}>
-                                <td className="py-2 text-gray-600 dark:text-gray-400">{label}</td>
+                                <td className="py-2 text-muted-foreground">{label}</td>
                                 <td className="py-2 text-right font-medium">
                                   {fmt(c)}
                                 </td>
@@ -199,12 +199,12 @@ export default function PeriodComparisonPage() {
       {data.topProducts?.length > 0 && (
         <div className="px-4 pt-6">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Топ товаров</h2>
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800">
+          <div className="bg-card rounded-xl border border-border divide-y divide-gray-100 dark:divide-gray-800">
             {data.topProducts.map((p: any, i: number) => (
               <div key={p.productName} className="p-3">
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0 mr-3">
-                    <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                    <div className="text-sm font-medium text-foreground truncate">
                       <span className="text-gray-400 text-xs mr-1">#{i + 1}</span>
                       {p.productName}
                     </div>

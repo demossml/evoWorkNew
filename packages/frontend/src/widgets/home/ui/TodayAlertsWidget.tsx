@@ -65,12 +65,12 @@ export function TodayAlertsWidget() {
   if (isLoading) {
     return (
       <div className="mb-6">
-        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-3 animate-pulse" />
+        <div className="h-4 bg-muted rounded w-32 mb-3 animate-pulse" />
         <div className="space-y-2">
           {[1, 2].map((i) => (
             <div
               key={i}
-              className="h-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"
+              className="h-16 bg-muted rounded animate-pulse"
             />
           ))}
         </div>
@@ -82,7 +82,7 @@ export function TodayAlertsWidget() {
 
   return (
     <div className="mb-6">
-      <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+      <h2 className="text-sm font-semibold text-foreground mb-3">
         Оповещения
       </h2>
       <div className="space-y-2">

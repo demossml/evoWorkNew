@@ -67,7 +67,6 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
     <TileWrapper
       expanded={expanded}
       onToggle={onToggle}
-      ringTone="blue"
       card={<RevenueCard value={netSales} percentPlan={planPct} onClick={() => {}} />}
       detail={detail}
     />

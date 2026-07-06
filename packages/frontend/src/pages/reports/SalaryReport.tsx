@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
-import { Card, CardContent, CardHeader, CardTitle, Button } from "@shared/ui";
+import { Card, CardContent, CardHeader, CardTitle, Button, ReportShareButton } from "@shared/ui";
 import { Label } from "../../components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -24,6 +24,7 @@ interface DayResult {
   dataPlan: number;
   salesDataVape: number;
   bonusPlan: number;
+  missedBonusPlan: number;
   totalBonus: number;
   okladDaily?: number;
 }
@@ -36,6 +37,7 @@ interface TotalReport {
   totalOklad?: number;
   totalBonusAccessories: number;
   totalBonusPlan: number;
+  totalMissedBonusPlan?: number;
   totalBonus: number;
   totalPayout?: number;
 }
@@ -75,6 +77,7 @@ export default function SalaryReport() {
   const [error, setError] = useState<string | null>(null);
   const [responseData, setResponseData] = useState<ResponseData | null>(null);
   const [loading, setLoading] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   useTelegramBackButton();
 
@@ -102,7 +105,7 @@ export default function SalaryReport() {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const response = await client.api.employees.nameUuid.$get();
+        const response = await client.api.employee["name-uuid"].$get();
         if (!response.ok) throw new Error(`Ошибка: ${response.status}`);
         const data = await response.json();
         if (data.employeeNameAndUuid) {
@@ -212,96 +215,115 @@ export default function SalaryReport() {
           <motion.div
             initial={{ scale: 0.7, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="w-24 h-24 border-8 border-t-transparent border-blue-500 rounded-full animate-spin"
+            className="w-24 h-24 border-8 border-t-transparent border-primary rounded-full animate-spin"
           />
         </div>
       ) : responseData ? (
-        <SaveAsJpegButton fileName="salary-report.jpeg">
-          <div className="w-full max-w-3xl space-y-4">
-            {/* Total summary card */}
-            {responseData.totalReport && (
-              <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl shadow-lg border-0">
-                <CardContent className="space-y-3 py-5">
-                  <div className="text-lg font-semibold">
-                    {responseData.totalReport.employeeName || "Сотрудник"}
-                  </div>
-                  <div className="text-sm opacity-80">
-                    {responseData.totalReport.startDate} → {responseData.totalReport.endDate}
-                    {" · "}
-                    {responseData.totalReport.workingDays ?? 0} дн.
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="opacity-70">Оклад: </span>
-                      <span className="font-bold">{responseData.totalReport.totalOklad ?? 0} ₽</span>
+        <>
+          <SaveAsJpegButton fileName="salary-report.jpeg">
+            <div className="w-full max-w-3xl space-y-4">
+              {/* Total summary card */}
+              {responseData.totalReport && (
+                <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl shadow-lg border-0">
+                  <CardContent className="space-y-3 py-5">
+                    <div className="text-lg font-semibold">
+                      {responseData.totalReport.employeeName || "Сотрудник"}
                     </div>
-                    <div>
-                      <span className="opacity-70">Бонус аксессуары: </span>
-                      <span className="font-bold">{responseData.totalReport.totalBonusAccessories} ₽</span>
+                    <div className="text-sm opacity-80">
+                      {responseData.totalReport.startDate} → {responseData.totalReport.endDate}
+                      {" · "}
+                      {responseData.totalReport.workingDays ?? 0} дн.
                     </div>
-                    <div>
-                      <span className="opacity-70">Бонус план: </span>
-                      <span className="font-bold">{responseData.totalReport.totalBonusPlan} ₽</span>
-                    </div>
-                    <div>
-                      <span className="opacity-70">Итого бонус: </span>
-                      <span className="font-bold">{responseData.totalReport.totalBonus} ₽</span>
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t border-white/20 text-2xl font-bold">
-                    К выплате: {responseData.totalReport.totalPayout ?? 0} ₽
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Daily details */}
-            {responseData.result?.map((item, idx) => (
-              <Card
-                key={idx}
-                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/70 dark:border-slate-800 shadow-sm"
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex justify-between">
-                    <span>{item.date}</span>
-                    <span className="text-slate-500">{item.shopName}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 dark:text-gray-300">
-                  {/* Vape plan progress */}
-                  <ProgressBar
-                    value={item.salesDataVape}
-                    max={item.dataPlan}
-                    label={`План по вейпам: ${item.salesDataVape} ₽ / ${item.dataPlan} ₽`}
-                  />
-
-                  <div className="grid grid-cols-2 gap-1 text-sm pt-1">
-                    <div>
-                      <span className="text-slate-500">Бонус аксессуары: </span>
-                      <span className="font-semibold">{item.bonusAccessories} ₽</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Бонус план: </span>
-                      <span className={`font-semibold ${item.bonusPlan > 0 ? "text-emerald-600" : "text-slate-400"}`}>
-                        {item.bonusPlan > 0 ? "✓" : "✗"} {item.bonusPlan} ₽
-                      </span>
-                    </div>
-                    {item.okladDaily ? (
+                    <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <span className="text-slate-500">Оклад/день: </span>
-                        <span className="font-semibold">{item.okladDaily} ₽</span>
+                        <span className="opacity-70">Оклад: </span>
+                        <span className="font-bold">{responseData.totalReport.totalOklad ?? 0} ₽</span>
                       </div>
-                    ) : null}
-                    <div>
-                      <span className="text-slate-500">Итого: </span>
-                      <span className="font-bold text-blue-600">{item.totalBonus + (item.okladDaily || 0)} ₽</span>
+                      <div>
+                        <span className="opacity-70">Бонус аксессуары: </span>
+                        <span className="font-bold">{responseData.totalReport.totalBonusAccessories} ₽</span>
+                      </div>
+                      <div>
+                        <span className="opacity-70">Бонус план: </span>
+                        <span className="font-bold">{responseData.totalReport.totalBonusPlan} ₽</span>
+                      </div>
+                      <div>
+                        <span className="opacity-70">Итого бонус: </span>
+                        <span className="font-bold">{responseData.totalReport.totalBonus} ₽</span>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    {((responseData.totalReport.totalMissedBonusPlan ?? 0) > 0) && (
+                      <div className="pt-2 border-t border-white/20 flex items-center gap-2 text-sm">
+                        <span className="opacity-70">Мог заработать больше:</span>
+                        <span className="font-bold text-amber-300">
+                          {responseData.totalReport.totalMissedBonusPlan} ₽
+                        </span>
+                      </div>
+                    )}
+                    <div className="pt-2 border-t border-white/20 text-2xl font-bold">
+                      К выплате: {responseData.totalReport.totalPayout ?? 0} ₽
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Daily details */}
+              {responseData.result?.map((item, idx) => (
+                <Card
+                  key={idx}
+                  className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/70 dark:border-slate-800 shadow-sm"
+                >
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex justify-between">
+                      <span>{item.date}</span>
+                      <span className="text-slate-500">{item.shopName}</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 dark:text-foreground">
+                    {/* Vape plan progress */}
+                    <ProgressBar
+                      value={item.salesDataVape}
+                      max={item.dataPlan}
+                      label={`План по вейпам: ${item.salesDataVape} ₽ / ${item.dataPlan} ₽`}
+                    />
+
+                    <div className="grid grid-cols-2 gap-1 text-sm pt-1">
+                      <div>
+                        <span className="text-slate-500">Бонус аксессуары: </span>
+                        <span className="font-semibold">{item.bonusAccessories} ₽</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Бонус план: </span>
+                        <span className={`font-semibold ${item.bonusPlan > 0 ? "text-emerald-600" : "text-slate-400"}`}>
+                          {item.bonusPlan > 0 ? "✓" : "✗"} {item.bonusPlan} ₽
+                        </span>
+                      </div>
+                      {item.missedBonusPlan > 0 && (
+                        <div>
+                          <span className="text-slate-500">Мог заработать ещё: </span>
+                          <span className="font-semibold text-amber-600">{item.missedBonusPlan} ₽</span>
+                        </div>
+                      )}
+                      {item.okladDaily ? (
+                        <div>
+                          <span className="text-slate-500">Оклад/день: </span>
+                          <span className="font-semibold">{item.okladDaily} ₽</span>
+                        </div>
+                      ) : null}
+                      <div>
+                        <span className="text-slate-500">Итого: </span>
+                        <span className="font-bold text-blue-600">{item.totalBonus + (item.okladDaily || 0)} ₽</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </SaveAsJpegButton>
+          <div ref={reportRef} className="w-full max-w-3xl mt-4">
+            <ReportShareButton targetRef={reportRef} filename="salary-report" />
           </div>
-        </SaveAsJpegButton>
+        </>
       ) : (
         <motion.form
           onSubmit={handleSubmit}
@@ -315,7 +337,7 @@ export default function SalaryReport() {
               type="button"
               className={`rounded-lg border px-3 py-2 text-sm transition ${
                 dateMode === "lastWeek"
-                  ? "border-blue-600 bg-blue-600 text-white"
+                  ? "border-blue-600 bg-primary text-white"
                   : "border-slate-300 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               }`}
               onClick={() => setDateMode("lastWeek")}
@@ -328,7 +350,7 @@ export default function SalaryReport() {
                   type="button"
                   className={`rounded-lg border px-3 py-2 text-sm transition ${
                     dateMode === "period"
-                      ? "border-blue-600 bg-blue-600 text-white"
+                      ? "border-blue-600 bg-primary text-white"
                       : "border-slate-300 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                   }`}
                   onClick={() => { setDateMode("period"); setTempPeriod(period); setShowPeriodPicker(true); }}
@@ -347,7 +369,7 @@ export default function SalaryReport() {
                 />
                 <div className="flex justify-end p-2">
                   <button
-                    className="px-3 py-1 rounded bg-blue-600 text-white"
+                    className="px-3 py-1 rounded bg-primary text-white"
                     disabled={!(tempPeriod?.from && tempPeriod?.to)}
                     onClick={() => { setPeriod(tempPeriod); setShowPeriodPicker(false); }}
                   >
@@ -366,7 +388,7 @@ export default function SalaryReport() {
           {/* Employee selector (only if multiple) */}
           {showEmployeeSelect && (
             <div>
-              <Label htmlFor="employee" className="dark:text-gray-300">Сотрудник:</Label>
+              <Label htmlFor="employee" className="dark:text-foreground">Сотрудник:</Label>
               <Select onValueChange={setSelectedEmployee} value={selectedEmployee || ""}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Выберите сотрудника" />

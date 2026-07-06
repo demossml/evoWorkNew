@@ -54,6 +54,7 @@ export async function updateProducts(env: SyncEnv): Promise<void> {
   const evo = new Evotor(token);
 
   await createProductsTableIfNotExists(env.DB);
+  await createShopProductTable(env.DB);
 
   const shopUuids = await evo.getShopUuids();
 
@@ -62,6 +63,10 @@ export async function updateProducts(env: SyncEnv): Promise<void> {
     console.log(`Fetching products for shop: ${shopUuid}`);
     const products = await evo.getProductsUuid(shopUuid);
     await updateOrInsertData(products, env.DB);
+
+    // Also populate shopProduct table for frontend queries
+    const productsFull = await evo.getProductsShopUuidsT(shopUuid);
+    await updateOrInsertDataS(productsFull, env.DB);
   }
 
   console.log("Product update task completed");
@@ -93,15 +98,16 @@ export async function updateProductsShope(env: SyncEnv): Promise<void> {
 //   2. Всегда синхронизируем свежие документы за последние 24 часа
 // ============================================================================
 
-async function ensure90DaysOfDocuments(
+async function ensureDaysOfDocuments(
 	evo: Evotor,
 	db: D1Database,
+	daysBack = 30,
 ): Promise<void> {
 	const today = new Date();
-	const ninetyDaysAgo = new Date(today);
-	ninetyDaysAgo.setDate(today.getDate() - 90);
+	const startDate = new Date(today);
+	startDate.setDate(today.getDate() - daysBack);
 
-	const since90 = formatDateWithTime(ninetyDaysAgo, false);
+	const since = formatDateWithTime(startDate, false);
 	const untilToday = formatDateWithTime(today, true);
 
 	// Получаем все дни, за которые уже есть документы
@@ -111,7 +117,7 @@ async function ensure90DaysOfDocuments(
 			FROM index_documents
 			WHERE close_date >= ? AND close_date <= ?
 		`)
-		.bind(since90, untilToday)
+		.bind(since, untilToday)
 		.all<{ d: string }>();
 
 	const existingDays = new Set((existing.results || []).map((r) => r.d));
@@ -120,7 +126,7 @@ async function ensure90DaysOfDocuments(
 	const missingRanges: { since: Date; until: Date }[] = [];
 	let rangeStart: Date | null = null;
 
-	for (let i = 0; i <= 90; i++) {
+	for (let i = 0; i <= daysBack; i++) {
 		const d = new Date(today);
 		d.setDate(d.getDate() - i);
 		const dateStr = d.toISOString().slice(0, 10);
@@ -128,24 +134,22 @@ async function ensure90DaysOfDocuments(
 		if (!existingDays.has(dateStr)) {
 			if (!rangeStart) rangeStart = new Date(d);
 		} else if (rangeStart) {
-			// Закрываем диапазон пропусков: от rangeStart до d (невключительно)
 			missingRanges.push({ since: new Date(rangeStart), until: new Date(d) });
 			rangeStart = null;
 		}
 	}
 
-	// Хвост: пропуски в самом конце (ближе к today)
 	if (rangeStart) {
 		missingRanges.push({ since: new Date(rangeStart), until: new Date(today) });
 	}
 
 	if (missingRanges.length === 0) {
-		console.log("[ensure90Days] Пробелов нет, все 90 дней на месте");
+		console.log(`[ensureDays] Пробелов нет, все ${daysBack} дней на месте`);
 		return;
 	}
 
 	console.log(
-		`[ensure90Days] Найдено пробелов: ${missingRanges.length}. Заполняем...`,
+		`[ensureDays] Найдено пробелов: ${missingRanges.length}. Заполняем...`,
 	);
 
 	const shops = await evo.getShopUuids();
@@ -161,18 +165,18 @@ async function ensure90DaysOfDocuments(
 		}));
 
 		console.log(
-			`[ensure90Days] Загружаем ${sinceStr.slice(0, 10)} → ${untilStr.slice(0, 10)}...`,
+			`[ensureDays] Загружаем ${sinceStr.slice(0, 10)} → ${untilStr.slice(0, 10)}...`,
 		);
 
 		const docs = await evo.getDocumentsIndexForShops(queries);
 		console.log(
-			`[ensure90Days]   Получено ${docs.length} документов`,
+			`[ensureDays]   Получено ${docs.length} документов`,
 		);
 
 		await saveNewIndexDocuments(db, docs);
 	}
 
-	console.log("[ensure90Days] Все пробелы заполнены");
+	console.log("[ensureDays] Все пробелы заполнены");
 }
 
 export async function syncDocuments(env: SyncEnv): Promise<void> {
@@ -181,8 +185,8 @@ export async function syncDocuments(env: SyncEnv): Promise<void> {
 
 	await createIndexDocumentsTable(env.DB);
 
-	// 1. Проверяем и заполняем пробелы за 90 дней
-	await ensure90DaysOfDocuments(evo, env.DB);
+	// 1. Проверяем и заполняем пробелы за последние N дней
+	await ensureDaysOfDocuments(evo, env.DB);
 
 	// 2. Всегда синхронизируем свежие документы за последние 24 часа
 	const now = new Date();

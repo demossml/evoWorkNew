@@ -78,7 +78,7 @@ const QuantityPickerModal = ({
           onClick={onClose}
         >
           <motion.div
-            className="bg-white dark:bg-gray-900 rounded-2xl w-64 p-4"
+            className="bg-card rounded-2xl w-64 p-4"
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
@@ -87,7 +87,7 @@ const QuantityPickerModal = ({
             <div className="text-center text-sm mb-2">Выберите количество</div>
 
             <div className="relative h-40 overflow-hidden">
-              <div className="absolute inset-x-0 top-1/2 h-8 -translate-y-1/2 border-y border-blue-500 pointer-events-none" />
+              <div className="absolute inset-x-0 top-1/2 h-8 -translate-y-1/2 border-y border-primary pointer-events-none" />
 
               <div
                 ref={listRef}
@@ -115,7 +115,7 @@ const QuantityPickerModal = ({
 
             <button
               onClick={onClose}
-              className="mt-3 w-full py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm font-medium"
+              className="mt-3 w-full py-2 rounded-lg bg-muted text-sm font-medium"
             >
               Отмена
             </button>
@@ -270,7 +270,7 @@ export const DynamicTableDeadStocksV2 = ({
   };
 
   return (
-    <div className="w-full min-h-screen px-2 sm:px-4 bg-white dark:bg-gray-900 rounded-2xl">
+    <div className="w-full min-h-screen px-2 sm:px-4 bg-card rounded-2xl">
       <motion.div
         style={{ scaleX, transformOrigin: "0%" }}
         className="h-1 bg-blue-500 mb-2 rounded-full"
@@ -279,7 +279,7 @@ export const DynamicTableDeadStocksV2 = ({
       {/* Filter + Save bar */}
       <div className="flex gap-2 mb-3 text-xs">
         <select
-          className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200"
+          className="px-3 py-2 rounded-lg border border-border bg-card text-sm text-foreground"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         >
@@ -293,7 +293,7 @@ export const DynamicTableDeadStocksV2 = ({
         {showSave && (
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+            className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition"
           >
             Сохранить
           </button>
@@ -306,13 +306,13 @@ export const DynamicTableDeadStocksV2 = ({
         className="max-h-[calc(100vh-6rem)] overflow-y-auto"
       >
         <table className="w-full table-auto">
-          <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800 z-10">
+          <thead className="sticky top-0 bg-muted z-10">
             <tr>
               {Object.keys(tableN).map((key) => (
                 <th
                   key={key}
                   onClick={() => handleSort(key as keyof DeadStockItem)}
-                  className="px-3 py-2.5 text-left cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+                  className="px-3 py-2.5 text-left cursor-pointer text-xs font-medium text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400"
                 >
                   {tableN[key]}{" "}
                   {sortConfig.key === key
@@ -322,7 +322,7 @@ export const DynamicTableDeadStocksV2 = ({
                     : "↕"}
                 </th>
               ))}
-              <th className="px-3 py-2.5 text-xs font-medium text-gray-600 dark:text-gray-300">
+              <th className="px-3 py-2.5 text-xs font-medium text-muted-foreground">
                 Отметка
               </th>
             </tr>
@@ -334,27 +334,27 @@ export const DynamicTableDeadStocksV2 = ({
                 <tr>
                   <td
                     colSpan={5}
-                    className="px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100"
+                    className="px-3 py-2 text-sm font-semibold text-foreground"
                   >
                     {row.name}
                   </td>
                 </tr>
 
-                <tr className="border-b border-gray-100 dark:border-gray-800">
+                <tr className="border-b border-border">
                   <td />
-                  <td className="text-center text-sm font-medium text-gray-800 dark:text-gray-200">
+                  <td className="text-center text-sm font-medium text-foreground">
                     {row.quantity}
                   </td>
-                  <td className="text-center text-sm text-gray-700 dark:text-gray-300">
+                  <td className="text-center text-sm text-foreground">
                     {row.sold}
                   </td>
-                  <td className="text-center text-xs text-gray-500 dark:text-gray-400">
+                  <td className="text-center text-xs text-muted-foreground">
                     {row.lastSaleDate ?? "—"}
                   </td>
 
                   <td className="text-center">
                     <select
-                      className="px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"
+                      className="px-2 py-1.5 rounded-lg border border-border bg-card text-sm"
                       value={row.mark ?? ""}
                       onChange={(e) =>
                         updateMark(
@@ -377,13 +377,13 @@ export const DynamicTableDeadStocksV2 = ({
                             setActiveIndex(sourceIndex);
                             setPickerOpen(true);
                           }}
-                          className="px-2 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-left text-sm"
+                          className="px-2 py-1.5 rounded-lg bg-muted text-left text-sm"
                         >
                           {row.moveCount ?? "Кол-во"}
                         </button>
 
                         <select
-                          className="px-2 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm"
+                          className="px-2 py-1.5 rounded-lg bg-muted text-sm"
                           value={row.moveToStore ?? ""}
                           onChange={(e) =>
                             updateMoveToStore(sourceIndex, e.target.value)
@@ -407,11 +407,11 @@ export const DynamicTableDeadStocksV2 = ({
           </tbody>
         </table>
         {hasMoreRows && (
-          <div className="sticky bottom-0 z-20 bg-white dark:bg-gray-900 px-2 py-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="sticky bottom-0 z-20 bg-card px-2 py-3 border-t border-border">
             <button
               type="button"
               onClick={loadMoreRows}
-              className="w-full h-11 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+              className="w-full h-11 rounded-lg border border-border text-sm text-muted-foreground font-medium hover:bg-accent transition"
             >
               Показать еще ({Math.max(sortedData.length - visibleRowsCount, 0)})
             </button>

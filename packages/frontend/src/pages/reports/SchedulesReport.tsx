@@ -16,7 +16,7 @@ export default function SchedulesReport() {
         className="app-page flex flex-col items-center justify-center bg-custom-gray p-4"
       >
         <div className="flex items-center mb-4">
-          <div className="w-24 h-24 border-8 border-t-transparent border-blue-500 border-solid rounded-full animate-spin" />
+          <div className="w-24 h-24 border-8 border-t-transparent border-primary border-solid rounded-full animate-spin" />
           <h1 className="ml-4 text-xl sm:text-2xl text-gray-800 font-bold" />
         </div>
       </motion.div>
@@ -46,13 +46,13 @@ export default function SchedulesReport() {
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="app-page flex flex-col items-center justify-center bg-custom-gray p-4"
       >
-        <h1 className="mb-4 text-xl sm:text-2xl text-gray-800 font-bold">
+        <h1 className="mb-4 text-xl sm:text-2xl text-foreground font-bold">
           Нет данных для отображения.
         </h1>
         <div className="text-left mt-6">
           <a
             href="/"
-            className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 active:bg-blue-700 transition duration-300"
+            className="bg-primary text-primary-foreground py-2 px-4 rounded hover:bg-primary/90 active:bg-primary/80 transition duration-300"
           >
             На главную
           </a>
@@ -68,9 +68,9 @@ export default function SchedulesReport() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="app-page w-full px-4 bg-custom-gray dark:text-gray-400 dark:bg-gray-900"
+      className="app-page w-full px-4 bg-background text-foreground"
     >
-      <h2 className="text-xl font-bold text-gray-800 dark:text-gray-300 mb-4">
+      <h2 className="text-xl font-bold text-foreground mb-4">
         Отчёт о времени открытия
       </h2>
       <div className="space-y-4">
@@ -80,12 +80,12 @@ export default function SchedulesReport() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: idx * 0.07, ease: "easeInOut" }}
-            className="p-4 bg-custom-gray dark:bg-gray-700 rounded-lg shadow-md"
+            className="p-4 bg-card border border-border rounded-lg shadow-sm"
           >
-            <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+            <p className="text-sm font-semibold text-muted-foreground">
               {key}:
             </p>
-            <p className="text-base text-gray-800 dark:text-gray-200">
+            <p className="text-base text-foreground">
               {String(value)}
             </p>
           </motion.div>

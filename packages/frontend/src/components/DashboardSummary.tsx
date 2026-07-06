@@ -144,12 +144,12 @@ export default function DashboardSummary() {
   ) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center p-8 bg-gray-50 dark:bg-gray-800 rounded-xl shadow-lg max-w-md">
+        <div className="text-center p-8 bg-muted rounded-xl shadow-lg max-w-md">
           <Store className="w-16 h-16 mx-auto mb-4 text-gray-400" />
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
             Сегодня у вас выходной
           </h3>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-muted-foreground">
             Данные по продажам доступны только в дни работы
           </p>
         </div>
@@ -166,10 +166,10 @@ export default function DashboardSummary() {
           {(isSuperAdmin ? [1, 2, 3, 4, 5, 6] : [1, 2, 3]).map((i) => (
             <div
               key={i}
-              className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow animate-pulse"
+              className="bg-card p-4 rounded-xl shadow animate-pulse"
             >
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3 mb-2" />
-              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-full" />
+              <div className="h-4 bg-muted rounded w-2/3 mb-2" />
+              <div className="h-8 bg-muted rounded w-full" />
             </div>
           ))}
         </div>
@@ -238,7 +238,7 @@ export default function DashboardSummary() {
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">
             Сводка за день
           </h2>
-          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Clock className="w-3 h-3" />
             <span>Обновлено: {formatTime(lastUpdate)}</span>
           </div>
@@ -296,7 +296,7 @@ export default function DashboardSummary() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
-            className="col-span-2 sm:col-span-2 lg:col-span-4 xl:col-span-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4"
+            className="col-span-2 sm:col-span-2 lg:col-span-4 xl:col-span-6 bg-card rounded-xl shadow-lg p-4"
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -304,7 +304,7 @@ export default function DashboardSummary() {
               </h3>
               <button
                 onClick={() => setExpandedCard(null)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="text-gray-500 hover:text-muted-foreground dark:hover:text-gray-200"
               >
                 ✕
               </button>
@@ -327,7 +327,7 @@ export default function DashboardSummary() {
                   return (
                     <div
                       key={shopName}
-                      className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                      className="bg-muted rounded-lg p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
@@ -336,14 +336,14 @@ export default function DashboardSummary() {
                             {shopName}
                           </span>
                         </div>
-                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        <span className="text-sm font-medium text-muted-foreground">
                           {percentOfTotal.toFixed(1)}%
                         </span>
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                         <div>
-                          <div className="text-gray-500 dark:text-gray-400">
+                          <div className="text-muted-foreground">
                             Продажи
                           </div>
                           <div className="font-semibold text-green-600 dark:text-green-400">
@@ -351,7 +351,7 @@ export default function DashboardSummary() {
                           </div>
                         </div>
                         <div>
-                          <div className="text-gray-500 dark:text-gray-400">
+                          <div className="text-muted-foreground">
                             Возвраты
                           </div>
                           <div className="font-semibold text-red-600 dark:text-red-400">
@@ -359,7 +359,7 @@ export default function DashboardSummary() {
                           </div>
                         </div>
                         <div>
-                          <div className="text-gray-500 dark:text-gray-400">
+                          <div className="text-muted-foreground">
                             Чистая
                           </div>
                           <div className="font-semibold text-blue-600 dark:text-blue-400">
@@ -367,14 +367,14 @@ export default function DashboardSummary() {
                           </div>
                         </div>
                         <div>
-                          <div className="text-gray-500 dark:text-gray-400">
+                          <div className="text-muted-foreground">
                             % возвратов
                           </div>
                           <div
                             className={`font-semibold ${
                               refundRate > 10
                                 ? "text-red-600 dark:text-red-400"
-                                : "text-gray-600 dark:text-gray-300"
+                                : "text-muted-foreground"
                             }`}
                           >
                             {refundRate.toFixed(1)}%
@@ -383,11 +383,11 @@ export default function DashboardSummary() {
                       </div>
 
                       {/* Разбивка по формам оплаты */}
-                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                      <div className="mt-3 pt-3 border-t border-border">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {/* Продажи по формам оплаты */}
                           <div>
-                            <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
+                            <div className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1">
                               <DollarSign className="w-3 h-3" />
                               Продажи по типу оплаты:
                             </div>
@@ -400,7 +400,7 @@ export default function DashboardSummary() {
                                       key={paymentType}
                                       className="flex justify-between items-center text-xs"
                                     >
-                                      <span className="text-gray-600 dark:text-gray-400">
+                                      <span className="text-muted-foreground">
                                         {paymentType}
                                       </span>
                                       <span className="font-medium text-green-600 dark:text-green-400">
@@ -409,7 +409,7 @@ export default function DashboardSummary() {
                                     </div>
                                   ))
                               ) : (
-                                <span className="text-xs text-gray-400 dark:text-gray-500">
+                                <span className="text-xs text-muted-foreground">
                                   Нет данных
                                 </span>
                               )}
@@ -418,7 +418,7 @@ export default function DashboardSummary() {
 
                           {/* Возвраты по формам оплаты */}
                           <div>
-                            <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
+                            <div className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1">
                               <RotateCcw className="w-3 h-3" />
                               Возвраты по типу оплаты:
                             </div>
@@ -431,7 +431,7 @@ export default function DashboardSummary() {
                                       key={paymentType}
                                       className="flex justify-between items-center text-xs"
                                     >
-                                      <span className="text-gray-600 dark:text-gray-400">
+                                      <span className="text-muted-foreground">
                                         {paymentType}
                                       </span>
                                       <span className="font-medium text-red-600 dark:text-red-400">
@@ -440,7 +440,7 @@ export default function DashboardSummary() {
                                     </div>
                                   ))
                               ) : (
-                                <span className="text-xs text-gray-400 dark:text-gray-500">
+                                <span className="text-xs text-muted-foreground">
                                   Нет данных
                                 </span>
                               )}
@@ -450,7 +450,7 @@ export default function DashboardSummary() {
                       </div>
 
                       {/* Progress bar */}
-                      <div className="mt-3 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                      <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
                         <div
                           className="h-full bg-blue-500 transition-all duration-300"
                           style={{ width: `${percentOfTotal}%` }}
@@ -461,10 +461,10 @@ export default function DashboardSummary() {
                 })}
 
               {/* Итоговая сводка */}
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+              <div className="mt-4 pt-4 border-t border-border">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                   <div className="text-center">
-                    <div className="text-gray-500 dark:text-gray-400 mb-1">
+                    <div className="text-muted-foreground mb-1">
                       Общие продажи
                     </div>
                     <div className="text-lg font-bold text-gray-900 dark:text-white">
@@ -472,7 +472,7 @@ export default function DashboardSummary() {
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-gray-500 dark:text-gray-400 mb-1">
+                    <div className="text-muted-foreground mb-1">
                       Общие возвраты
                     </div>
                     <div className="text-lg font-bold text-red-600 dark:text-red-400">
@@ -480,7 +480,7 @@ export default function DashboardSummary() {
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-gray-500 dark:text-gray-400 mb-1">
+                    <div className="text-muted-foreground mb-1">
                       Чистая выручка
                     </div>
                     <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
@@ -488,7 +488,7 @@ export default function DashboardSummary() {
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-gray-500 dark:text-gray-400 mb-1">
+                    <div className="text-muted-foreground mb-1">
                       Средний чек
                     </div>
                     <div className="text-lg font-bold text-green-600 dark:text-green-400">
@@ -498,8 +498,8 @@ export default function DashboardSummary() {
                 </div>
 
                 {/* Разбивка по формам оплаты */}
-                <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
-                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
+                <div className="mt-6 pt-4 border-t border-border">
+                  <h4 className="text-sm font-semibold text-foreground mb-4">
                     Итоги по формам оплаты
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -536,7 +536,7 @@ export default function DashboardSummary() {
                                     key={paymentType}
                                     className="flex justify-between items-center text-sm py-1"
                                   >
-                                    <span className="text-gray-700 dark:text-gray-300 font-medium">
+                                    <span className="text-foreground font-medium">
                                       {paymentType}
                                     </span>
                                     <span className="font-bold text-green-700 dark:text-green-400">
@@ -554,7 +554,7 @@ export default function DashboardSummary() {
                               </div>
                             </>
                           ) : (
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                            <span className="text-sm text-muted-foreground">
                               Нет данных
                             </span>
                           );
@@ -595,7 +595,7 @@ export default function DashboardSummary() {
                                     key={paymentType}
                                     className="flex justify-between items-center text-sm py-1"
                                   >
-                                    <span className="text-gray-700 dark:text-gray-300 font-medium">
+                                    <span className="text-foreground font-medium">
                                       {paymentType}
                                     </span>
                                     <span className="font-bold text-red-700 dark:text-red-400">
@@ -613,7 +613,7 @@ export default function DashboardSummary() {
                               </div>
                             </>
                           ) : (
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                            <span className="text-sm text-muted-foreground">
                               Нет данных
                             </span>
                           );
@@ -633,7 +633,7 @@ export default function DashboardSummary() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
-            className="col-span-full mt-3 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4"
+            className="col-span-full mt-3 bg-card rounded-xl shadow-lg p-4"
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -641,7 +641,7 @@ export default function DashboardSummary() {
               </h3>
               <button
                 onClick={() => setExpandedCard(null)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="text-gray-500 hover:text-muted-foreground dark:hover:text-gray-200"
               >
                 ✕
               </button>
@@ -650,7 +650,7 @@ export default function DashboardSummary() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                 <div className="text-center">
-                  <div className="text-gray-500 dark:text-gray-400 mb-1">
+                  <div className="text-muted-foreground mb-1">
                     Продажи
                   </div>
                   <div className="text-lg font-bold text-green-600 dark:text-green-400">
@@ -658,7 +658,7 @@ export default function DashboardSummary() {
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-gray-500 dark:text-gray-400 mb-1">
+                  <div className="text-muted-foreground mb-1">
                     Возвраты
                   </div>
                   <div className="text-lg font-bold text-red-600 dark:text-red-400">
@@ -666,7 +666,7 @@ export default function DashboardSummary() {
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-gray-500 dark:text-gray-400 mb-1">
+                  <div className="text-muted-foreground mb-1">
                     Чистая выручка
                   </div>
                   <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
@@ -674,7 +674,7 @@ export default function DashboardSummary() {
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-gray-500 dark:text-gray-400 mb-1">
+                  <div className="text-muted-foreground mb-1">
                     Средний чек
                   </div>
                   <div className="text-lg font-bold text-green-600 dark:text-green-400">
@@ -703,7 +703,7 @@ export default function DashboardSummary() {
                               key={paymentType}
                               className="flex justify-between items-center text-sm py-1"
                             >
-                              <span className="text-gray-700 dark:text-gray-300 font-medium">
+                              <span className="text-foreground font-medium">
                                 {paymentType}
                               </span>
                               <span className="font-bold text-green-700 dark:text-green-400">
@@ -712,7 +712,7 @@ export default function DashboardSummary() {
                             </div>
                           ))
                       ) : (
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                        <span className="text-sm text-muted-foreground">
                           Нет данных
                         </span>
                       );
@@ -739,7 +739,7 @@ export default function DashboardSummary() {
                               key={paymentType}
                               className="flex justify-between items-center text-sm py-1"
                             >
-                              <span className="text-gray-700 dark:text-gray-300 font-medium">
+                              <span className="text-foreground font-medium">
                                 {paymentType}
                               </span>
                               <span className="font-bold text-red-700 dark:text-red-400">
@@ -748,7 +748,7 @@ export default function DashboardSummary() {
                             </div>
                           ))
                       ) : (
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                        <span className="text-sm text-muted-foreground">
                           Нет данных
                         </span>
                       );
@@ -798,7 +798,7 @@ export default function DashboardSummary() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
-            className="col-span-2 sm:col-span-2 lg:col-span-4 xl:col-span-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4"
+            className="col-span-2 sm:col-span-2 lg:col-span-4 xl:col-span-6 bg-card rounded-xl shadow-lg p-4"
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -806,7 +806,7 @@ export default function DashboardSummary() {
               </h3>
               <button
                 onClick={() => setExpandedCard(null)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="text-gray-500 hover:text-muted-foreground dark:hover:text-gray-200"
               >
                 ✕
               </button>
@@ -814,7 +814,7 @@ export default function DashboardSummary() {
 
             {/* Детализация расходов по магазинам */}
             <div className="mb-6">
-              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
+              <h4 className="text-sm font-semibold text-foreground mb-4">
                 Расходы по магазинам
               </h4>
               <div className="space-y-3">
@@ -843,7 +843,7 @@ export default function DashboardSummary() {
                     return (
                       <div
                         key={shopName}
-                        className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4"
+                        className="bg-muted rounded-lg p-4"
                       >
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
@@ -856,7 +856,7 @@ export default function DashboardSummary() {
                             <div className="text-sm font-bold text-orange-600 dark:text-orange-400">
                               {formatCurrency(shopTotal)} ₽
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                            <div className="text-xs text-muted-foreground">
                               {shopPercentage.toFixed(1)}% от общих расходов
                             </div>
                           </div>
@@ -875,14 +875,14 @@ export default function DashboardSummary() {
                                   key={category}
                                   className="flex justify-between items-center text-sm"
                                 >
-                                  <span className="text-gray-600 dark:text-gray-400">
+                                  <span className="text-muted-foreground">
                                     {category}
                                   </span>
                                   <div className="flex items-center gap-2">
-                                    <span className="text-xs text-gray-500 dark:text-gray-500">
+                                    <span className="text-xs text-gray-500 dark:text-muted-foreground">
                                       {categoryPercentage.toFixed(0)}%
                                     </span>
-                                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                                    <span className="font-medium text-foreground">
                                       {formatCurrency(amount)} ₽
                                     </span>
                                   </div>
@@ -892,7 +892,7 @@ export default function DashboardSummary() {
                         </div>
 
                         {/* Progress bar для магазина */}
-                        <div className="mt-3 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                        <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
                           <div
                             className="h-full bg-orange-500 transition-all duration-300"
                             style={{ width: `${shopPercentage}%` }}
@@ -918,7 +918,7 @@ export default function DashboardSummary() {
 
             {/* Разбивка расходов по категориям */}
             <div className="mb-6">
-              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
+              <h4 className="text-sm font-semibold text-foreground mb-4">
                 Расходы по категориям
               </h4>
               <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
@@ -957,11 +957,11 @@ export default function DashboardSummary() {
                             return (
                               <div key={category} className="space-y-1">
                                 <div className="flex justify-between items-center text-sm py-1">
-                                  <span className="text-gray-700 dark:text-gray-300 font-medium">
+                                  <span className="text-foreground font-medium">
                                     {category}
                                   </span>
                                   <div className="flex items-center gap-2">
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    <span className="text-xs text-muted-foreground">
                                       {percentage.toFixed(1)}%
                                     </span>
                                     <span className="font-bold text-orange-700 dark:text-orange-400">
@@ -970,7 +970,7 @@ export default function DashboardSummary() {
                                   </div>
                                 </div>
                                 {/* Progress bar для каждой категории */}
-                                <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                                   <div
                                     className="h-full bg-orange-500 transition-all duration-300"
                                     style={{ width: `${percentage}%` }}
@@ -989,7 +989,7 @@ export default function DashboardSummary() {
                         </div>
                       </>
                     ) : (
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                      <span className="text-sm text-muted-foreground">
                         Нет данных
                       </span>
                     );
@@ -1006,7 +1006,7 @@ export default function DashboardSummary() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
-            className="col-span-full mt-3 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4"
+            className="col-span-full mt-3 bg-card rounded-xl shadow-lg p-4"
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -1014,7 +1014,7 @@ export default function DashboardSummary() {
               </h3>
               <button
                 onClick={() => setExpandedCard(null)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="text-gray-500 hover:text-muted-foreground dark:hover:text-gray-200"
               >
                 ✕
               </button>
@@ -1045,11 +1045,11 @@ export default function DashboardSummary() {
                           return (
                             <div key={category} className="space-y-1">
                               <div className="flex justify-between items-center text-sm py-1">
-                                <span className="text-gray-700 dark:text-gray-300 font-medium">
+                                <span className="text-foreground font-medium">
                                   {category}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  <span className="text-xs text-muted-foreground">
                                     {percentage.toFixed(1)}%
                                   </span>
                                   <span className="font-bold text-orange-700 dark:text-orange-400">
@@ -1057,7 +1057,7 @@ export default function DashboardSummary() {
                                   </span>
                                 </div>
                               </div>
-                              <div className="h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                                 <div
                                   className="h-full bg-orange-500 transition-all duration-300"
                                   style={{ width: `${percentage}%` }}
@@ -1076,7 +1076,7 @@ export default function DashboardSummary() {
                       </div>
                     </>
                   ) : (
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                    <span className="text-sm text-muted-foreground">
                       Нет данных
                     </span>
                   );
@@ -1125,7 +1125,7 @@ export default function DashboardSummary() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
-            className="col-span-2 sm:col-span-2 lg:col-span-4 xl:col-span-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4"
+            className="col-span-2 sm:col-span-2 lg:col-span-4 xl:col-span-6 bg-card rounded-xl shadow-lg p-4"
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -1133,7 +1133,7 @@ export default function DashboardSummary() {
               </h3>
               <button
                 onClick={() => setExpandedCard(null)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="text-gray-500 hover:text-muted-foreground dark:hover:text-gray-200"
               >
                 ✕
               </button>
@@ -1168,8 +1168,8 @@ export default function DashboardSummary() {
                   {/* Круговая диаграмма + Столбцы */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Круговая диаграмма доли выручки */}
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 text-center">
+                    <div className="bg-muted rounded-lg p-4">
+                      <h4 className="text-sm font-semibold text-foreground mb-4 text-center">
                         📊 Распределение выручки
                       </h4>
                       <div className="relative w-full aspect-square max-w-xs mx-auto">
@@ -1250,7 +1250,7 @@ export default function DashboardSummary() {
                                   {shop.name}
                                 </span>
                               </div>
-                              <span className="font-semibold text-gray-700 dark:text-gray-300 ml-2">
+                              <span className="font-semibold text-foreground ml-2">
                                 {percentage.toFixed(1)}%
                               </span>
                             </div>
@@ -1260,10 +1260,10 @@ export default function DashboardSummary() {
                     </div>
 
                     {/* Анимированная столбчатая диаграмма */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-0">
+                    <div className="bg-card rounded-lg p-0">
                       <div className="flex items-center gap-2 mb-4 justify-center">
                         <BarChart3 className="w-5 h-5 text-purple-500" />
-                        <h4 className="text-base font-bold text-gray-800 dark:text-gray-100">
+                        <h4 className="text-base font-bold text-foreground">
                           Рейтинг по выручке
                         </h4>
                       </div>
@@ -1287,7 +1287,7 @@ export default function DashboardSummary() {
                             );
                           else
                             rankIcon = (
-                              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-bold text-gray-500 dark:text-gray-400">
+                              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-xs font-bold text-muted-foreground">
                                 {index + 1}
                               </span>
                             );
@@ -1313,7 +1313,7 @@ export default function DashboardSummary() {
                                   <div className="font-bold text-gray-900 dark:text-white">
                                     {formatCurrency(shop.netSales)} ₽
                                   </div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  <div className="text-xs text-muted-foreground">
                                     {(
                                       (shop.netSales / totalNetSales) *
                                       100
@@ -1324,7 +1324,7 @@ export default function DashboardSummary() {
                               </div>
 
                               {/* Progress Track */}
-                              <div className="relative h-2.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <div className="relative h-2.5 w-full bg-muted rounded-full overflow-hidden">
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: `${widthPercent}%` }}
@@ -1352,14 +1352,14 @@ export default function DashboardSummary() {
                   </div>
 
                   {/* Многомерное сравнение метрик */}
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 text-center">
+                  <div className="bg-muted rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-foreground mb-4 text-center">
                       🎯 Сравнение по метрикам
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Выручка */}
                       <div className="space-y-2">
-                        <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 text-center mb-3">
+                        <div className="text-xs font-semibold text-muted-foreground text-center mb-3">
                           💰 Выручка
                         </div>
                         {sortedShops.map((shop, index) => {
@@ -1376,10 +1376,10 @@ export default function DashboardSummary() {
                               key={shop.name}
                               className="flex items-center gap-2"
                             >
-                              <div className="w-16 text-xs text-gray-600 dark:text-gray-400 truncate">
+                              <div className="w-16 text-xs text-muted-foreground truncate">
                                 #{index + 1}
                               </div>
-                              <div className="flex-1 h-4 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                              <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: `${percent}%` }}
@@ -1397,7 +1397,7 @@ export default function DashboardSummary() {
 
                       {/* Средний чек */}
                       <div className="space-y-2">
-                        <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 text-center mb-3">
+                        <div className="text-xs font-semibold text-muted-foreground text-center mb-3">
                           🎫 Средний чек
                         </div>
                         {sortedShops.map((shop, index) => {
@@ -1426,10 +1426,10 @@ export default function DashboardSummary() {
                               key={shop.name}
                               className="flex items-center gap-2"
                             >
-                              <div className="w-16 text-xs text-gray-600 dark:text-gray-400">
+                              <div className="w-16 text-xs text-muted-foreground">
                                 {formatCurrency(avgCheck)}
                               </div>
-                              <div className="flex-1 h-4 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                              <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: `${percent}%` }}
@@ -1447,7 +1447,7 @@ export default function DashboardSummary() {
 
                       {/* Количество чеков */}
                       <div className="space-y-2">
-                        <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 text-center mb-3">
+                        <div className="text-xs font-semibold text-muted-foreground text-center mb-3">
                           📋 Кол-во чеков
                         </div>
                         {sortedShops.map((shop, index) => {
@@ -1464,10 +1464,10 @@ export default function DashboardSummary() {
                               key={shop.name}
                               className="flex items-center gap-2"
                             >
-                              <div className="w-16 text-xs text-gray-600 dark:text-gray-400">
+                              <div className="w-16 text-xs text-muted-foreground">
                                 {shop.checksCount}
                               </div>
-                              <div className="flex-1 h-4 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                              <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: `${percent}%` }}
@@ -1486,18 +1486,18 @@ export default function DashboardSummary() {
                   </div>
 
                   {/* Компактная итоговая панель */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-gray-100 dark:border-gray-700 mt-6">
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-border mt-6">
+                    <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
                       <Store className="w-5 h-5 text-blue-500 mb-2" />
                       <div className="text-lg font-bold text-gray-900 dark:text-white">
                         {Object.keys(filteredData.salesDataByShopName).length}
                       </div>
-                      <div className="text-xs uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
+                      <div className="text-xs uppercase tracking-wider font-medium text-muted-foreground">
                         Магазинов
                       </div>
                     </div>
 
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
+                    <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
                       <Percent className="w-5 h-5 text-purple-500 mb-2" />
                       <div className="text-lg font-bold text-gray-900 dark:text-white">
                         {(
@@ -1510,12 +1510,12 @@ export default function DashboardSummary() {
                         ).toFixed(0)}
                         %
                       </div>
-                      <div className="text-xs uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
+                      <div className="text-xs uppercase tracking-wider font-medium text-muted-foreground">
                         Топ-5 от сети
                       </div>
                     </div>
 
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
+                    <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
                       <TrendingUp className="w-5 h-5 text-orange-500 mb-2" />
                       <div className="text-lg font-bold text-gray-900 dark:text-white">
                         {formatCurrency(
@@ -1524,12 +1524,12 @@ export default function DashboardSummary() {
                             : 0
                         )}
                       </div>
-                      <div className="text-xs uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
+                      <div className="text-xs uppercase tracking-wider font-medium text-muted-foreground">
                         Разрыв 1-2
                       </div>
                     </div>
 
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
+                    <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
                       <DollarSign className="w-5 h-5 text-green-500 mb-2" />
                       <div className="text-lg font-bold text-gray-900 dark:text-white">
                         {formatCurrency(
@@ -1543,7 +1543,7 @@ export default function DashboardSummary() {
                             )
                         )}
                       </div>
-                      <div className="text-xs uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
+                      <div className="text-xs uppercase tracking-wider font-medium text-muted-foreground">
                         Ср. чек топ-5
                       </div>
                     </div>
@@ -1598,7 +1598,7 @@ export default function DashboardSummary() {
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.3 }}
-              className="col-span-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4"
+              className="col-span-full bg-card rounded-xl shadow-lg p-4"
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -1606,7 +1606,7 @@ export default function DashboardSummary() {
                 </h3>
                 <button
                   onClick={() => setExpandedCard(null)}
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  className="text-gray-500 hover:text-muted-foreground dark:hover:text-gray-200"
                 >
                   ✕
                 </button>
@@ -1625,10 +1625,10 @@ export default function DashboardSummary() {
 
                 return (
                   <div className="space-y-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-0">
+                    <div className="bg-card rounded-lg p-0">
                       <div className="flex items-center gap-2 mb-6 justify-center">
                         <BarChart3 className="w-5 h-5 text-pink-500" />
-                        <h4 className="text-base font-bold text-gray-800 dark:text-gray-100">
+                        <h4 className="text-base font-bold text-foreground">
                           Рейтинг по выручке
                         </h4>
                       </div>
@@ -1654,7 +1654,7 @@ export default function DashboardSummary() {
                             );
                           else
                             rankIcon = (
-                              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-bold text-gray-500 dark:text-gray-400">
+                              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-muted text-xs font-bold text-muted-foreground">
                                 {index + 1}
                               </span>
                             );
@@ -1689,14 +1689,14 @@ export default function DashboardSummary() {
                                   <div className="font-bold text-gray-900 dark:text-white">
                                     {formatCurrency(product.netRevenue)} ₽
                                   </div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  <div className="text-xs text-muted-foreground">
                                     {product.netQuantity} шт
                                   </div>
                                 </div>
                               </div>
 
                               {/* Progress Track */}
-                              <div className="relative h-2.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <div className="relative h-2.5 w-full bg-muted rounded-full overflow-hidden">
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: `${widthPercent}%` }}
@@ -1723,28 +1723,28 @@ export default function DashboardSummary() {
                     </div>
 
                     {/* Summary Stat Cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-gray-100 dark:border-gray-700 mt-6">
-                      <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-border mt-6">
+                      <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
                         <Package className="w-5 h-5 text-blue-500 mb-2" />
                         <div className="text-lg font-bold text-gray-900 dark:text-white">
                           {filteredData.topProducts.length}
                         </div>
-                        <div className="text-xs uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
+                        <div className="text-xs uppercase tracking-wider font-medium text-muted-foreground">
                           Всего товаров
                         </div>
                       </div>
 
-                      <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
+                      <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
                         <Percent className="w-5 h-5 text-purple-500 mb-2" />
                         <div className="text-lg font-bold text-gray-900 dark:text-white">
                           {((totalRevenue / netSales) * 100).toFixed(0)}%
                         </div>
-                        <div className="text-xs uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
+                        <div className="text-xs uppercase tracking-wider font-medium text-muted-foreground">
                           Доля топ-10
                         </div>
                       </div>
 
-                      <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
+                      <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
                         <Tags className="w-5 h-5 text-green-500 mb-2" />
                         <div className="text-lg font-bold text-gray-900 dark:text-white">
                           {formatCurrency(
@@ -1752,17 +1752,17 @@ export default function DashboardSummary() {
                               topProducts.reduce((s, p) => s + p.netQuantity, 0)
                           )}
                         </div>
-                        <div className="text-xs uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
+                        <div className="text-xs uppercase tracking-wider font-medium text-muted-foreground">
                           Ср. цена
                         </div>
                       </div>
 
-                      <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
+                      <div className="bg-muted/50 p-3 rounded-xl flex flex-col items-center justify-center text-center">
                         <ShoppingCart className="w-5 h-5 text-orange-500 mb-2" />
                         <div className="text-lg font-bold text-gray-900 dark:text-white">
                           {topProducts.reduce((s, p) => s + p.netQuantity, 0)}
                         </div>
-                        <div className="text-xs uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400">
+                        <div className="text-xs uppercase tracking-wider font-medium text-muted-foreground">
                           Продано шт
                         </div>
                       </div>

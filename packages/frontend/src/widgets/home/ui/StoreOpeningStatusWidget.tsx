@@ -46,7 +46,7 @@ export function StoreOpeningStatusWidget() {
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-16 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse"
+              className="h-16 bg-muted rounded-xl animate-pulse"
             />
           ))}
         </div>
@@ -70,7 +70,7 @@ export function StoreOpeningStatusWidget() {
       return {
         label: "Не открыт",
         color:
-          "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600",
+          "bg-muted text-muted-foreground border-border",
         icon: <Clock className="w-3.5 h-3.5 text-gray-400" />,
       };
     }
@@ -125,14 +125,14 @@ export function StoreOpeningStatusWidget() {
                       {shop.openedTime || "—"}
                     </span>
                     {shop.openedByName && (
-                      <span className="text-gray-500 dark:text-gray-400 ml-1 flex items-center gap-0.5">
+                      <span className="text-muted-foreground ml-1 flex items-center gap-0.5">
                         <User className="w-2.5 h-2.5 inline" />
                         {shop.openedByName.split(" ")[0]}
                       </span>
                     )}
                   </>
                 ) : (
-                  <span className="text-gray-400 dark:text-gray-500">
+                  <span className="text-muted-foreground">
                     ещё не открыт
                   </span>
                 )}

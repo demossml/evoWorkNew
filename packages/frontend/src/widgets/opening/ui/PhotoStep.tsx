@@ -815,7 +815,7 @@ export default function PhotoStep({
           <button
             type="button"
             onClick={handleResetAll}
-            className="px-4 py-2 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+            className="px-4 py-2 rounded-xl bg-destructive/10 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors"
           >
             🗑️ Сбросить всё и начать заново
           </button>
@@ -824,20 +824,20 @@ export default function PhotoStep({
 
       {/* Статус загрузки */}
       {Object.keys(fileUploadStatus).length > 0 && (
-        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+        <div className="p-4 bg-primary/10 rounded-lg">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-medium text-blue-900 dark:text-blue-100">
+            <h3 className="font-medium text-primary">
               Статус загрузки
             </h3>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-sm text-muted-foreground">
               {uploadStats.success} / {uploadStats.total}
             </div>
           </div>
 
           {/* Прогресс бар */}
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-3">
+          <div className="w-full bg-muted rounded-full h-2 mb-3">
             <motion.div
-              className="bg-blue-600 h-2 rounded-full"
+              className="bg-primary h-2 rounded-full"
               initial={{ width: 0 }}
               animate={{
                 width: `${
@@ -849,10 +849,10 @@ export default function PhotoStep({
             />
           </div>
 
-          <div className="text-xs text-gray-700 dark:text-gray-300 space-y-1">
+          <div className="text-xs text-muted-foreground space-y-1">
             {uploadStats.uploading > 0 && <div>⏳ Идет загрузка: {uploadStats.uploading}</div>}
             {uploadStats.error > 0 && (
-              <div className="text-red-600">❌ Ошибок: {uploadStats.error}</div>
+              <div className="text-destructive">❌ Ошибок: {uploadStats.error}</div>
             )}
           </div>
 
@@ -860,7 +860,7 @@ export default function PhotoStep({
             <button
               type="button"
               onClick={handleRetryFailed}
-              className="mt-3 px-3 py-2 rounded-lg bg-amber-500 text-white text-xs"
+              className="mt-3 px-3 py-2 rounded-lg bg-warning text-warning-foreground text-xs"
             >
               Повторить ошибки
             </button>
@@ -868,7 +868,7 @@ export default function PhotoStep({
 
           {/* Информация о фоне */}
           {!allRequiredPhotosUploaded && minRequirementsMet && (
-            <div className="text-xs text-amber-600 dark:text-amber-400">
+            <div className="text-xs text-warning">
               ⚠️ Некоторые фото еще загружаются. Вы можете продолжить - загрузка
               продолжится в фоне.
             </div>
@@ -877,30 +877,30 @@ export default function PhotoStep({
       )}
 
       {queueStats && (
-        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="p-4 bg-muted rounded-lg border border-border">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-medium text-gray-900 dark:text-gray-100">
+            <h3 className="font-medium text-foreground">
               Очередь фоновой загрузки
             </h3>
             <button
               type="button"
               onClick={handleRetryQueue}
-              className="text-xs px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+              className="text-xs px-3 py-1 rounded bg-secondary text-secondary-foreground"
             >
               Повторить
             </button>
           </div>
           {queueError && (
-            <div className="text-xs text-red-600 dark:text-red-400 mb-2">
+            <div className="text-xs text-destructive mb-2">
               {queueError}
             </div>
           )}
           {queueProgress && (
-            <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+            <div className="text-xs text-muted-foreground mb-2">
               Отправлено: {queueProgress.uploaded} / {queueProgress.total}
             </div>
           )}
-          <div className="text-xs text-gray-700 dark:text-gray-300 space-y-1">
+          <div className="text-xs text-muted-foreground space-y-1">
             <div>Всего в очереди: {queueStats.total}</div>
             <div>Ожидают: {queueStats.pending}</div>
             <div>Загружаются: {queueStats.uploading}</div>
@@ -909,13 +909,13 @@ export default function PhotoStep({
         </div>
       )}
 
-      <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <div className="p-3 bg-muted rounded-lg">
         <h3 className="text-sm font-medium mb-2">Слоты фото</h3>
         <div className="grid grid-cols-2 gap-2 text-xs">
           {slotMeta.map((slot) => (
             <div
               key={slot.key}
-              className="flex items-center justify-between px-2 py-1 rounded bg-white dark:bg-gray-700"
+              className="flex items-center justify-between px-2 py-1 rounded bg-card"
             >
               <span>{slot.label}</span>
               <span>{renderSlotStatus(slotStatuses[slot.key])}</span>
@@ -924,12 +924,12 @@ export default function PhotoStep({
         </div>
       </div>
 
-      <div className="sticky z-20 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur supports-[backdrop-filter]:bg-gray-50/80 supports-[backdrop-filter]:dark:bg-gray-900/80 py-2 -mx-1 px-1" style={{ bottom: "var(--app-bottom-clearance, 72px)" }}>
+      <div className="sticky z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-2 -mx-1 px-1" style={{ bottom: "var(--app-bottom-clearance, 72px)" }}>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={() => setCurrentStep("initial")}
-            className="flex-1 py-3 rounded-xl shadow font-medium bg-gray-200 text-gray-800"
+            className="flex-1 py-3 rounded-xl shadow font-medium bg-secondary text-secondary-foreground"
           >
             Назад
           </button>
@@ -940,8 +940,8 @@ export default function PhotoStep({
               disabled={!canProceed}
               className={`flex-1 py-3 rounded-xl shadow font-medium transition-colors ${
                 canProceed
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "bg-muted text-muted-foreground cursor-not-allowed"
               }`}
               whileTap={canProceed ? { scale: 0.97 } : {}}
               initial={{ opacity: 0, y: 10 }}
@@ -959,7 +959,7 @@ export default function PhotoStep({
       </div>
 
       {!minRequirementsMet && (
-        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm text-amber-700 dark:text-amber-300">
+        <div className="p-3 bg-warning/10 rounded-lg text-sm text-warning">
           📸 Загрузите минимум: 1 фото территории, 2 фото витрины, 1 фото кассы,
           1 фото МРЦ
         </div>
@@ -967,7 +967,7 @@ export default function PhotoStep({
 
       {/* Индикатор активной загрузки */}
       {isUploading && (
-        <div className="fixed right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg" style={{ bottom: "calc(var(--app-bottom-clearance, 72px) + 0.5rem)" }}>
+        <div className="fixed right-4 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg" style={{ bottom: "calc(var(--app-bottom-clearance, 72px) + 0.5rem)" }}>
           ⏳ Идет загрузка фото...
         </div>
       )}

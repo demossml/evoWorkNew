@@ -34,15 +34,15 @@ const renderKeyValueList = (
   if (loading) {
     return (
       <div className="space-y-2">
-        <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-        <div className="w-2/3 h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-        <div className="w-4/5 h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        <div className="w-full h-3 bg-muted rounded animate-pulse" />
+        <div className="w-2/3 h-3 bg-muted rounded animate-pulse" />
+        <div className="w-4/5 h-3 bg-muted rounded animate-pulse" />
       </div>
     );
   }
   if (!data || Object.keys(data).length === 0) {
     return (
-      <p className="text-sm text-gray-500 dark:text-gray-400">{emptyMessage}</p>
+      <p className="text-sm text-muted-foreground">{emptyMessage}</p>
     );
   }
   return (
@@ -50,7 +50,7 @@ const renderKeyValueList = (
       {Object.entries(data).map(([key, value]) => (
         <li
           key={key}
-          className="flex justify-between items-center text-gray-800 dark:text-gray-200 text-sm py-2 border-b border-gray-100 dark:border-gray-700 last:border-0"
+          className="flex justify-between items-center text-foreground text-sm py-2 border-b border-border last:border-0"
         >
           <span className="font-medium">{key}</span>
           <span className="font-bold text-blue-600 dark:text-blue-400">
@@ -83,15 +83,6 @@ export default function PlanSalesFinancialReport() {
   // Инициализация Telegram WebApp
   useEffect(() => {
     if (isMiniApp) {
-      // Устанавливаем цвет фона
-      const theme = telegram.WebApp.colorScheme;
-      telegram.WebApp.setBackgroundColor(
-        theme === "dark" ? "#1f2937" : "#2563eb"
-      );
-
-      // Включаем подтверждение закрытия
-      telegram.WebApp.enableClosingConfirmation();
-
       // Отслеживаем изменение размера окна
       const handleViewportChanged = () => {
         setIsExpanded(telegram.WebApp.isExpanded);
@@ -102,7 +93,6 @@ export default function PlanSalesFinancialReport() {
 
       return () => {
         telegram.WebApp.offEvent("viewportChanged", handleViewportChanged);
-        telegram.WebApp.disableClosingConfirmation();
       };
     }
   }, []);
@@ -255,7 +245,7 @@ export default function PlanSalesFinancialReport() {
           return (
             <motion.li
               key={shopName}
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
+              className="bg-card rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
               whileHover={{ scale: 1.02, y: -4 }}
               whileTap={{ scale: 0.98 }}
             >
@@ -272,7 +262,7 @@ export default function PlanSalesFinancialReport() {
                       {shopName}
                     </strong>
                     {openTimes.data?.[shopName] && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Clock className="w-3 h-3" /> {openTimes.data[shopName]}
                       </p>
                     )}
@@ -291,12 +281,12 @@ export default function PlanSalesFinancialReport() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-3 mt-2">
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <div className="bg-muted/50 rounded-lg p-2">
+                    <p className="text-xs text-muted-foreground mb-1">
                       План:
                     </p>
                     {loading || shopsLoading ? (
-                      <div className="w-full h-5 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
+                      <div className="w-full h-5 bg-muted rounded animate-pulse" />
                     ) : (
                       <p className="font-bold text-sm text-gray-900 dark:text-white">
                         {plan !== null ? formatAmount(plan) : "-"} ₽
@@ -304,12 +294,12 @@ export default function PlanSalesFinancialReport() {
                     )}
                   </div>
 
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <div className="bg-muted/50 rounded-lg p-2">
+                    <p className="text-xs text-muted-foreground mb-1">
                       Продажи:
                     </p>
                     {loading ? (
-                      <div className="w-full h-5 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
+                      <div className="w-full h-5 bg-muted rounded animate-pulse" />
                     ) : (
                       <p className="font-bold text-sm text-gray-900 dark:text-white">
                         {planSales !== null
@@ -319,12 +309,12 @@ export default function PlanSalesFinancialReport() {
                     )}
                   </div>
 
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  <div className="bg-muted/50 rounded-lg p-2">
+                    <p className="text-xs text-muted-foreground mb-1">
                       Выручка:
                     </p>
                     {loading ? (
-                      <div className="w-full h-5 bg-gray-200 dark:bg-gray-600 rounded animate-pulse" />
+                      <div className="w-full h-5 bg-muted rounded animate-pulse" />
                     ) : (
                       <p className="font-bold text-sm text-gray-900 dark:text-white">
                         {formatAmount(data.totalSell)} ₽
@@ -341,10 +331,10 @@ export default function PlanSalesFinancialReport() {
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.3, ease: "easeInOut" }}
-                    className="border-t border-gray-200 dark:border-gray-700"
+                    className="border-t border-border"
                   >
-                    <div className="p-5 space-y-5 bg-gray-50 dark:bg-gray-700/30">
-                      <section className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                    <div className="p-5 space-y-5 bg-muted/30">
+                      <section className="bg-card rounded-xl p-4 shadow-sm">
                         <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                           <DollarSign className="w-4 h-4" /> Продажи по типам
                           оплаты
@@ -352,7 +342,7 @@ export default function PlanSalesFinancialReport() {
                         {renderKeyValueList(data.sell, loading)}
                       </section>
 
-                      <section className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                      <section className="bg-card rounded-xl p-4 shadow-sm">
                         <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                           <Banknote className="w-4 h-4" /> Выплаты
                         </h4>
@@ -363,7 +353,7 @@ export default function PlanSalesFinancialReport() {
                       </section>
 
                       {Object.keys(data.refund).length > 0 && (
-                        <section className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                        <section className="bg-card rounded-xl p-4 shadow-sm">
                           <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                             <RotateCcw className="w-4 h-4" /> Возвраты
                           </h4>
@@ -371,7 +361,7 @@ export default function PlanSalesFinancialReport() {
                         </section>
                       )}
 
-                      <section className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                      <section className="bg-card rounded-xl p-4 shadow-sm">
                         <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                           <Package className="w-4 h-4" /> План по товарам
                         </h4>
@@ -380,7 +370,7 @@ export default function PlanSalesFinancialReport() {
                             {planQuantityArray.map((item) => (
                               <li
                                 key={`${shopName}-${item.productName}`}
-                                className="flex justify-between text-gray-800 dark:text-gray-200 text-sm py-2 border-b border-gray-100 dark:border-gray-700 last:border-0"
+                                className="flex justify-between text-foreground text-sm py-2 border-b border-border last:border-0"
                               >
                                 <span className="font-medium">
                                   {item.productName}
@@ -392,13 +382,13 @@ export default function PlanSalesFinancialReport() {
                             ))}
                           </ul>
                         ) : (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                          <p className="text-sm text-muted-foreground">
                             Данные отсутствуют
                           </p>
                         )}
                       </section>
 
-                      <section className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                      <section className="bg-card rounded-xl p-4 shadow-sm">
                         <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                           <BarChart3 className="w-4 h-4" /> График продаж
                         </h4>
@@ -420,7 +410,7 @@ export default function PlanSalesFinancialReport() {
                             />
                           </div>
                         ) : (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                          <p className="text-sm text-muted-foreground">
                             Нет данных
                           </p>
                         )}
@@ -439,7 +429,7 @@ export default function PlanSalesFinancialReport() {
         <div className="fixed bottom-4 right-4">
           <button
             onClick={showLoadingNotification}
-            className="bg-blue-500 text-white p-3 rounded-full shadow-lg hover:bg-blue-600 transition-colors"
+            className="bg-primary text-primary-foreground p-3 rounded-full shadow-lg hover:bg-primary/90 transition-colors"
           >
             ⏳
           </button>

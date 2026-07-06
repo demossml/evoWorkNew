@@ -25,10 +25,10 @@ export default function ProgressSteps({ current, onStepClick }: ProgressStepsPro
             onClick={() => onStepClick?.(s.id)}
             className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-semibold transition-colors ${
               index < currentIndex
-                ? "bg-green-600 text-white"
+                ? "bg-success text-success-foreground"
                 : current === s.id
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
             } ${!onStepClick || index > currentIndex ? "cursor-default" : "cursor-pointer"}`}
           >
             {index < currentIndex ? "✓" : index + 1}

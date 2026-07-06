@@ -138,28 +138,28 @@ export default function InitialStep({
       <h1 className="text-xl font-semibold">Утреннее открытие магазина</h1>
 
       {!selectedShop && (
-        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+        <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 text-sm text-warning">
           Выберите магазин на первом шаге.
         </div>
       )}
 
       {errorMessage && (
-        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm text-destructive">
           {errorMessage}
         </div>
       )}
 
       {isLoading ? (
-        <div className="text-gray-500">Загрузка данных…</div>
+        <div className="text-muted-foreground">Загрузка данных…</div>
       ) : isError ? (
         <div className="space-y-2">
-          <div className="text-sm text-red-600">
+          <div className="text-sm text-destructive">
             Не удалось получить статус открытия магазина.
           </div>
           <button
             type="button"
             onClick={() => refetch()}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm"
+            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm"
           >
             Повторить
           </button>
@@ -171,31 +171,31 @@ export default function InitialStep({
           className="space-y-4"
         >
           {/* Статус открытия */}
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+          <div className="bg-success/10 border border-success/30 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Check className="w-5 h-5 text-green-600" />
-              <span className="font-medium text-green-700 dark:text-green-300">
+              <Check className="w-5 h-5 text-success" />
+              <span className="font-medium text-success">
                 Магазин открыт
               </span>
             </div>
             {details.openTime && (
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 Время открытия: {formatTime(details.openTime)}
               </p>
             )}
           </div>
 
           {/* Прогресс выполнения */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <div className="bg-card border border-border rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium">Прогресс выполнения</span>
-              <span className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="text-sm text-muted-foreground">
                 {details.completionPercent || 0}%
               </span>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div className="w-full bg-muted rounded-full h-2">
               <motion.div
-                className="bg-blue-600 h-2 rounded-full"
+                className="bg-primary h-2 rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: `${details.completionPercent || 0}%` }}
                 transition={{ duration: 0.5 }}
@@ -209,14 +209,14 @@ export default function InitialStep({
             <div
               className={`flex items-center justify-between p-3 rounded-lg border ${
                 details.hasPhotos
-                  ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-                  : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+                  ? "bg-success/10 border-success/30"
+                  : "bg-warning/10 border-warning/30"
               }`}
             >
               <div className="flex items-center gap-2">
                 <Camera
                   className={`w-4 h-4 ${
-                    details.hasPhotos ? "text-green-600" : "text-amber-600"
+                    details.hasPhotos ? "text-success" : "text-warning"
                   }`}
                 />
                 <span className="text-sm">Фотографии</span>
@@ -224,17 +224,17 @@ export default function InitialStep({
               <div className="flex items-center gap-2">
                 {details.hasPhotos ? (
                   <>
-                    <span className="text-xs text-green-700 dark:text-green-300">
+                    <span className="text-xs text-success">
                       {details.photoCount || 0} / 7
                     </span>
-                    <Check className="w-4 h-4 text-green-600" />
+                    <Check className="w-4 h-4 text-success" />
                   </>
                 ) : (
                   <>
-                    <span className="text-xs text-amber-700 dark:text-amber-300">
+                    <span className="text-xs text-warning">
                       Не загружены
                     </span>
-                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                    <AlertCircle className="w-4 h-4 text-warning" />
                   </>
                 )}
               </div>
@@ -244,22 +244,22 @@ export default function InitialStep({
             <div
               className={`flex items-center justify-between p-3 rounded-lg border ${
                 details.hasCashCheck
-                  ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-                  : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+                  ? "bg-success/10 border-success/30"
+                  : "bg-warning/10 border-warning/30"
               }`}
             >
               <div className="flex items-center gap-2">
                 <DollarSign
                   className={`w-4 h-4 ${
-                    details.hasCashCheck ? "text-green-600" : "text-amber-600"
+                    details.hasCashCheck ? "text-success" : "text-warning"
                   }`}
                 />
                 <span className="text-sm">Проверка кассы</span>
               </div>
               {details.hasCashCheck ? (
-                <Check className="w-4 h-4 text-green-600" />
+                <Check className="w-4 h-4 text-success" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-amber-600" />
+                <AlertCircle className="w-4 h-4 text-warning" />
               )}
             </div>
           </div>
@@ -269,7 +269,7 @@ export default function InitialStep({
             {nextStep && (
               <motion.button
                 onClick={() => setCurrentStep(nextStep.step)}
-                className="w-full py-3 bg-blue-600 text-white rounded-xl shadow hover:bg-blue-700"
+                className="w-full py-3 bg-primary text-primary-foreground rounded-xl shadow hover:bg-primary/90"
                 whileTap={{ scale: 0.97 }}
               >
                 {nextStep.label}
@@ -279,7 +279,7 @@ export default function InitialStep({
             {!details.hasPhotos && (
               <motion.button
                 onClick={handleContinuePhotos}
-                className="w-full py-3 bg-gray-200 text-gray-800 rounded-xl shadow"
+                className="w-full py-3 bg-secondary text-secondary-foreground rounded-xl shadow"
                 whileTap={{ scale: 0.97 }}
               >
                 📸 К шагу фото
@@ -289,7 +289,7 @@ export default function InitialStep({
             {details.hasPhotos && (details.photoCount || 0) < 7 && (
               <motion.button
                 onClick={handleContinuePhotos}
-                className="w-full py-3 bg-gray-200 text-gray-800 rounded-xl shadow"
+                className="w-full py-3 bg-secondary text-secondary-foreground rounded-xl shadow"
                 whileTap={{ scale: 0.97 }}
               >
                 📸 Открыть фото ({7 - (details.photoCount || 0)} осталось)
@@ -299,7 +299,7 @@ export default function InitialStep({
             {!details.hasCashCheck && (
               <motion.button
                 onClick={handleCashCheck}
-                className="w-full py-3 bg-gray-200 text-gray-800 rounded-xl shadow"
+                className="w-full py-3 bg-secondary text-secondary-foreground rounded-xl shadow"
                 whileTap={{ scale: 0.97 }}
               >
                 💰 К шагу кассы
@@ -307,15 +307,15 @@ export default function InitialStep({
             )}
 
             {details.completionPercent === 100 && (
-              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg text-center">
-                <span className="text-green-700 dark:text-green-300 text-sm font-medium">
+              <div className="p-3 bg-success/15 rounded-lg text-center">
+                <span className="text-success text-sm font-medium">
                   ✅ Все задачи выполнены!
                 </span>
                 <div className="mt-2">
                   <button
                     type="button"
                     onClick={clearProgress}
-                    className="text-xs text-green-700 underline"
+                    className="text-xs text-success underline"
                   >
                     Сбросить прогресс на сегодня
                   </button>
@@ -328,7 +328,7 @@ export default function InitialStep({
         <motion.button
           onClick={handleStart}
           disabled={isStarting}
-          className="w-full py-3 bg-blue-600 text-white rounded-xl shadow hover:bg-blue-700"
+          className="w-full py-3 bg-primary text-primary-foreground rounded-xl shadow hover:bg-primary/90"
           whileTap={{ scale: 0.97 }}
         >
           {isStarting ? "Открываю..." : "Открыть магазин"}

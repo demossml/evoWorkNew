@@ -18,17 +18,17 @@ export function ReportHeader({ title, subtitle, onBack }: ReportHeaderProps) {
           <button
             type="button"
             onClick={handleBack}
-            className="shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
+            className="shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-muted-foreground"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
         )}
-        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100">
+        <h1 className="text-xl sm:text-2xl font-semibold text-foreground">
           {title}
         </h1>
       </div>
       {subtitle && (
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           {subtitle}
         </p>
       )}

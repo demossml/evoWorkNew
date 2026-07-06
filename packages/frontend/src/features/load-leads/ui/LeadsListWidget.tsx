@@ -6,11 +6,11 @@ export function LeadsListWidget() {
 
   return (
     <Card className="p-4">
-      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Лиды</h3>
+      <h3 className="text-sm font-semibold text-foreground">Лиды</h3>
       {loading && <div className="mt-2 text-xs text-gray-500">Загрузка...</div>}
       {error && <div className="mt-2 text-xs text-red-600">{error}</div>}
       {!loading && !error && (
-        <ul className="mt-2 space-y-1 text-xs text-gray-700 dark:text-gray-200">
+        <ul className="mt-2 space-y-1 text-xs text-foreground">
           {items.slice(0, 10).map((lead) => (
             <li key={lead.id}>{lead.fullName || lead.phone || lead.id}</li>
           ))}

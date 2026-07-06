@@ -65,7 +65,7 @@ export const DynamicTableProfitV2: React.FC<DynamicTableProfitV2Props> = ({
 
   const renderCategories = (byCategory: Record<string, number>, rowIdx: number) => {
     const entries = Object.entries(byCategory);
-    if (entries.length === 0) return <span className="text-gray-400 dark:text-gray-500 text-xs">&mdash;</span>;
+    if (entries.length === 0) return <span className="text-muted-foreground text-xs">&mdash;</span>;
     const isExpanded = expandedCategories.has(rowIdx);
     const visible = isExpanded ? entries : entries.slice(0, INITIAL_CATEGORIES);
     const hiddenCount = entries.length - INITIAL_CATEGORIES;
@@ -134,17 +134,17 @@ export const DynamicTableProfitV2: React.FC<DynamicTableProfitV2Props> = ({
   const tableKeys: (keyof TableRow)[] = ["shopName", "totalEvoExpenses", "expenses1C", "grossProfit", "netProfit", "byCategory"];
 
   return (
-    <div className="w-full min-h-screen bg-white dark:bg-gray-900 px-2 sm:px-4 py-2 rounded-2xl">
+    <div className="w-full min-h-screen bg-card px-2 sm:px-4 py-2 rounded-2xl">
       <motion.div style={{ scaleX, transformOrigin: "0%" }} className="h-1 bg-blue-500 mb-2 rounded-full" />
 
       {/* === ДЕСКТОП === */}
       <div className="hidden sm:block relative" ref={scrollRef} style={{ maxHeight: "calc(100vh - 4rem)", overflowY: "auto", overflowX: "auto" }}>
-        <table className="w-full table-auto bg-white dark:bg-gray-900 rounded-lg shadow-sm">
-          <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+        <table className="w-full table-auto bg-card rounded-lg shadow-sm">
+          <thead className="bg-muted sticky top-0 z-10">
             <tr>
               {tableKeys.map((key) => (
                 <th key={key}
-                  className={`px-3 sm:px-4 py-2.5 text-left text-xs font-medium text-gray-600 dark:text-gray-300 ${key !== "byCategory" ? "cursor-pointer hover:text-blue-600 dark:hover:text-blue-400" : ""}`}
+                  className={`px-3 sm:px-4 py-2.5 text-left text-xs font-medium text-muted-foreground ${key !== "byCategory" ? "cursor-pointer hover:text-blue-600 dark:hover:text-blue-400" : ""}`}
                   onClick={() => { if (key !== "byCategory") handleSort(key); }}>
                   {tableTranslations[key] || key}{" "}
                   {key !== "byCategory" && sortConfig.key === key ? (sortConfig.direction === "asc" ? "▲" : "▼") : key !== "byCategory" ? "↕" : null}
@@ -159,13 +159,13 @@ export const DynamicTableProfitV2: React.FC<DynamicTableProfitV2Props> = ({
                 <Fragment key={idx}>
                   <motion.tr initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.25, delay: idx < 12 ? idx * 0.03 : 0, ease: "easeInOut" }}
-                    className={`border-b border-gray-100 dark:border-gray-800 ${isTotalRow ? "font-bold bg-blue-50 dark:bg-blue-900/20" : "hover:bg-gray-50 dark:hover:bg-gray-800/50"}`}>
-                    <td className="px-3 sm:px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-gray-100">{row.shopName}</td>
-                    <td className="px-3 sm:px-4 py-2.5 text-right text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">{row.totalEvoExpenses.toLocaleString()} ₽</td>
-                    <td className="px-3 sm:px-4 py-2.5 text-right text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">{row.expenses1C.toLocaleString()} ₽</td>
-                    <td className="px-3 sm:px-4 py-2.5 text-right text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">{row.grossProfit.toLocaleString()} ₽</td>
-                    <td className="px-3 sm:px-4 py-2.5 text-right text-sm font-semibold text-gray-800 dark:text-gray-200 whitespace-nowrap">{row.netProfit.toLocaleString()} ₽</td>
-                    <td className="px-3 sm:px-4 py-2.5 text-xs text-gray-600 dark:text-gray-400">{renderCategories(row.byCategory, idx)}</td>
+                    className={`border-b border-border ${isTotalRow ? "font-bold bg-blue-50 dark:bg-blue-900/20" : "hover:bg-accent/50"}`}>
+                    <td className="px-3 sm:px-4 py-2.5 text-sm font-medium text-foreground">{row.shopName}</td>
+                    <td className="px-3 sm:px-4 py-2.5 text-right text-sm font-semibold text-foreground whitespace-nowrap">{row.totalEvoExpenses.toLocaleString()} ₽</td>
+                    <td className="px-3 sm:px-4 py-2.5 text-right text-sm font-semibold text-foreground whitespace-nowrap">{row.expenses1C.toLocaleString()} ₽</td>
+                    <td className="px-3 sm:px-4 py-2.5 text-right text-sm font-semibold text-foreground whitespace-nowrap">{row.grossProfit.toLocaleString()} ₽</td>
+                    <td className="px-3 sm:px-4 py-2.5 text-right text-sm font-semibold text-foreground whitespace-nowrap">{row.netProfit.toLocaleString()} ₽</td>
+                    <td className="px-3 sm:px-4 py-2.5 text-xs text-muted-foreground">{renderCategories(row.byCategory, idx)}</td>
                   </motion.tr>
                 </Fragment>
               );
@@ -181,27 +181,27 @@ export const DynamicTableProfitV2: React.FC<DynamicTableProfitV2Props> = ({
           return (
             <motion.div key={idx} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: idx < 12 ? idx * 0.03 : 0 }}
-              className={`p-4 rounded-xl shadow-sm ${isTotalRow ? "bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-400 dark:border-blue-600" : "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800"}`}>
-              <div className="mb-3 text-[15px] font-semibold text-gray-900 dark:text-gray-100">{row.shopName}</div>
+              className={`p-4 rounded-xl shadow-sm ${isTotalRow ? "bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-400 dark:border-blue-600" : "bg-card border border-border"}`}>
+              <div className="mb-3 text-[15px] font-semibold text-foreground">{row.shopName}</div>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{tableTranslations.totalEvoExpenses}</span>
-                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{row.totalEvoExpenses.toLocaleString()} ₽</span>
+                  <span className="text-xs text-muted-foreground">{tableTranslations.totalEvoExpenses}</span>
+                  <span className="text-sm font-semibold text-foreground">{row.totalEvoExpenses.toLocaleString()} ₽</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{tableTranslations.expenses1C}</span>
-                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{row.expenses1C.toLocaleString()} ₽</span>
+                  <span className="text-xs text-muted-foreground">{tableTranslations.expenses1C}</span>
+                  <span className="text-sm font-semibold text-foreground">{row.expenses1C.toLocaleString()} ₽</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{tableTranslations.grossProfit}</span>
-                  <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{row.grossProfit.toLocaleString()} ₽</span>
+                  <span className="text-xs text-muted-foreground">{tableTranslations.grossProfit}</span>
+                  <span className="text-sm font-semibold text-foreground">{row.grossProfit.toLocaleString()} ₽</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{tableTranslations.netProfit}</span>
-                  <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{row.netProfit.toLocaleString()} ₽</span>
+                  <span className="text-xs text-muted-foreground">{tableTranslations.netProfit}</span>
+                  <span className="text-sm font-bold text-foreground">{row.netProfit.toLocaleString()} ₽</span>
                 </div>
-                <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{tableTranslations.byCategory}:</span>
+                <div className="pt-2 border-t border-border">
+                  <span className="text-xs text-muted-foreground">{tableTranslations.byCategory}:</span>
                   <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                     {renderCategories(row.byCategory, idx)}
                   </div>

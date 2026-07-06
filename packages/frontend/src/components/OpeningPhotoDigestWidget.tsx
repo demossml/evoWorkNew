@@ -82,7 +82,7 @@ export function OpeningPhotoDigestWidget({ employeeRole }: { employeeRole: Emplo
             type="button"
             onClick={runDigest}
             disabled={loading}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Анализ..." : "Запустить AI-анализ"}
           </button>

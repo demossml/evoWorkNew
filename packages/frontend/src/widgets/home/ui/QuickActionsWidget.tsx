@@ -64,7 +64,7 @@ export function QuickActionsWidget({ employeeRole }: QuickActionsWidgetProps) {
 
   return (
     <div className="mb-6">
-      <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+      <h2 className="text-sm font-semibold text-foreground mb-3">
         Быстрые действия
       </h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

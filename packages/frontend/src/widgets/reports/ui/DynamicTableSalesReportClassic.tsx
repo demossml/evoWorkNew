@@ -61,7 +61,7 @@ export const DynamicTableSalesReportClassic: React.FC<DynamicTableSalesReportPro
           onClick={() => handleSort("productName")}
           className={`rounded-full px-3 py-1.5 text-xs border transition ${
             sortKey === "productName"
-              ? "border-blue-500 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200"
+              ? "border-primary bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200"
               : "border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300"
           }`}
         >
@@ -72,7 +72,7 @@ export const DynamicTableSalesReportClassic: React.FC<DynamicTableSalesReportPro
           onClick={() => handleSort("quantitySale")}
           className={`rounded-full px-3 py-1.5 text-xs border transition ${
             sortKey === "quantitySale"
-              ? "border-blue-500 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200"
+              ? "border-primary bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200"
               : "border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300"
           }`}
         >
@@ -83,7 +83,7 @@ export const DynamicTableSalesReportClassic: React.FC<DynamicTableSalesReportPro
           onClick={() => handleSort("sum")}
           className={`rounded-full px-3 py-1.5 text-xs border transition ${
             sortKey === "sum"
-              ? "border-blue-500 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200"
+              ? "border-primary bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200"
               : "border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300"
           }`}
         >

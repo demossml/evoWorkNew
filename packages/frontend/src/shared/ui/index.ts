@@ -25,5 +25,5 @@ export { Input, type InputProps } from "./Input";
 export { Select, type SelectProps } from "./Select";
 export { Textarea, type TextareaProps } from "./Textarea";
 export { ReportHeader, type ReportHeaderProps } from "./ReportHeader";
-export { ReportKPIBar, type KPIItem, type KPIVariant } from "./ReportKPIBar";
+export { ReportKPIBar, type KPIItem, type KPIEmphasis } from "./ReportKPIBar";
 export { ReportShareButton } from "./ReportShareButton";

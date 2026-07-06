@@ -24,12 +24,12 @@ export const DynamicTable: React.FC<DynamicTableProps> = (props) => {
   return (
     <div>
       <div className="flex items-center justify-end gap-2 px-2 pb-2">
-        <span className={`text-xs transition ${version === "v2" ? "text-gray-900 dark:text-gray-100 font-semibold" : "text-gray-400 dark:text-gray-500"}`}>Новый</span>
+        <span className={`text-xs transition ${version === "v2" ? "text-foreground font-semibold" : "text-muted-foreground"}`}>Новый</span>
         <button type="button" onClick={() => setVersion(p => p === "v2" ? "classic" : "v2")} role="switch"
-          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${version === "classic" ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-700"}`}>
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${version === "classic" ? "bg-primary" : "bg-muted"}`}>
           <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${version === "classic" ? "translate-x-5" : "translate-x-0"}`} />
         </button>
-        <span className={`text-xs transition ${version === "classic" ? "text-gray-900 dark:text-gray-100 font-semibold" : "text-gray-400 dark:text-gray-500"}`}>Старый</span>
+        <span className={`text-xs transition ${version === "classic" ? "text-foreground font-semibold" : "text-muted-foreground"}`}>Старый</span>
       </div>
       {version === "v2" ? <DynamicTableV2 {...props} /> : <DynamicTableClassic {...props} />}
     </div>

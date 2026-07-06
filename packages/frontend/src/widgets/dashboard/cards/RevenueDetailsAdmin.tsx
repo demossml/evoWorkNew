@@ -96,7 +96,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
           return (
             <div
               key={shopName}
-              className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              className="bg-muted rounded-lg p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -105,14 +105,14 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
                     {shopName}
                   </span>
                 </div>
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                <span className="text-sm font-medium text-muted-foreground">
                   {percentOfTotal.toFixed(1)}%
                 </span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                 <div>
-                  <div className="text-gray-500 dark:text-gray-400">
+                  <div className="text-muted-foreground">
                     Продажи
                   </div>
                   <div className="font-semibold text-green-600 dark:text-green-400">
@@ -120,7 +120,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
                   </div>
                 </div>
                 <div>
-                  <div className="text-gray-500 dark:text-gray-400">
+                  <div className="text-muted-foreground">
                     Возвраты
                   </div>
                   <div className="font-semibold text-red-600 dark:text-red-400">
@@ -128,20 +128,20 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
                   </div>
                 </div>
                 <div>
-                  <div className="text-gray-500 dark:text-gray-400">Чистая</div>
+                  <div className="text-muted-foreground">Чистая</div>
                   <div className="font-semibold text-blue-600 dark:text-blue-400">
                     {formatCurrency(netShopSales)} ₽
                   </div>
                 </div>
                 <div>
-                  <div className="text-gray-500 dark:text-gray-400">
+                  <div className="text-muted-foreground">
                     % возвратов
                   </div>
                   <div
                     className={`font-semibold ${
                       refundRate > 10
                         ? "text-red-600 dark:text-red-400"
-                        : "text-gray-600 dark:text-gray-300"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {refundRate.toFixed(1)}%
@@ -150,11 +150,11 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
               </div>
 
               {/* Разбивка по формам оплаты */}
-              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+              <div className="mt-3 pt-3 border-t border-border">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Продажи по формам оплаты */}
                   <div>
-                    <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
+                    <div className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1">
                       <DollarSign className="w-3 h-3" />
                       Продажи по типу оплаты:
                     </div>
@@ -167,7 +167,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
                               key={paymentType}
                               className="flex justify-between items-center text-xs"
                             >
-                              <span className="text-gray-600 dark:text-gray-400">
+                              <span className="text-muted-foreground">
                                 {paymentType}
                               </span>
                               <span className="font-medium text-green-600 dark:text-green-400">
@@ -176,7 +176,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
                             </div>
                           ))
                       ) : (
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                        <span className="text-xs text-muted-foreground">
                           Нет данных
                         </span>
                       )}
@@ -185,7 +185,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
 
                   {/* Возвраты по формам оплаты */}
                   <div>
-                    <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
+                    <div className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1">
                       <RotateCcw className="w-3 h-3" />
                       Возвраты по типу оплаты:
                     </div>
@@ -198,7 +198,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
                               key={paymentType}
                               className="flex justify-between items-center text-xs"
                             >
-                              <span className="text-gray-600 dark:text-gray-400">
+                              <span className="text-muted-foreground">
                                 {paymentType}
                               </span>
                               <span className="font-medium text-red-600 dark:text-red-400">
@@ -207,7 +207,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
                             </div>
                           ))
                       ) : (
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                        <span className="text-xs text-muted-foreground">
                           Нет данных
                         </span>
                       )}
@@ -217,7 +217,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
               </div>
 
               {/* Progress bar */}
-              <div className="mt-3 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+              <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-blue-500 transition-all duration-300"
                   style={{ width: `${percentOfTotal}%` }}
@@ -227,10 +227,10 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
           );
         })}
       {/* Итоговая сводка */}
-      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+      <div className="mt-4 pt-4 border-t border-border">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
           <div className="text-center">
-            <div className="text-gray-500 dark:text-gray-400 mb-1">
+            <div className="text-muted-foreground mb-1">
               Общие продажи
             </div>
             <div className="text-lg font-bold text-gray-900 dark:text-white">
@@ -238,7 +238,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
             </div>
           </div>
           <div className="text-center">
-            <div className="text-gray-500 dark:text-gray-400 mb-1">
+            <div className="text-muted-foreground mb-1">
               Общие возвраты
             </div>
             <div className="text-lg font-bold text-red-600 dark:text-red-400">
@@ -246,7 +246,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
             </div>
           </div>
           <div className="text-center">
-            <div className="text-gray-500 dark:text-gray-400 mb-1">
+            <div className="text-muted-foreground mb-1">
               Чистая выручка
             </div>
             <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
@@ -254,7 +254,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
             </div>
           </div>
           <div className="text-center">
-            <div className="text-gray-500 dark:text-gray-400 mb-1">
+            <div className="text-muted-foreground mb-1">
               Средний чек
             </div>
             <div className="text-lg font-bold text-green-600 dark:text-green-400">

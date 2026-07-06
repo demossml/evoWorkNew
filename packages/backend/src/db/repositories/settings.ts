@@ -17,7 +17,8 @@ export async function createSettingsTable(
   // Also create the accessories table used by getAllUuid()
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS accessories (
-      uuid TEXT PRIMARY KEY
+      uuid TEXT PRIMARY KEY,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `).run();
 }

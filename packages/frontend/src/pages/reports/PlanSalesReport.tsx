@@ -42,7 +42,7 @@ export default function PlanSalesReport() {
       <div className="app-page flex flex-col items-center justify-center bg-gray-100 p-4">
         <div className="flex items-center mb-4">
           {/* Loading spinner */}
-          <div className="w-24 h-24 border-8 border-t-transparent border-blue-500 border-solid rounded-full animate-spin" />
+          <div className="w-24 h-24 border-8 border-t-transparent border-primary border-solid rounded-full animate-spin" />
           <h1 className="ml-4 text-xl sm:text-2xl text-gray-800 font-bold" />
         </div>
       </div>
@@ -101,7 +101,7 @@ export default function PlanSalesReport() {
       <div className="text-left mt-6">
         <a
           href="/"
-          className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 active:bg-blue-700 transition duration-300"
+          className="bg-primary text-primary-foreground py-2 px-4 rounded hover:bg-primary/90 active:bg-primary/80 transition duration-300"
         >
           На главную
         </a>

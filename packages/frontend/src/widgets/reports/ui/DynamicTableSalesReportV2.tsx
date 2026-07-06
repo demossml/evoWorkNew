@@ -53,35 +53,35 @@ export const DynamicTableSalesReportV2: React.FC<
 
   if (data.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+      <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
         Нет данных по выбранным параметрам.
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
       {/* Column headers — aligned with data columns */}
-      <div className="sticky top-0 z-10 border-b border-gray-200 dark:border-gray-800 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm">
+      <div className="sticky top-0 z-10 border-b border-border bg-muted/95 backdrop-blur-sm">
         <div className="flex items-center">
           <button
             type="button"
             onClick={() => handleSort("productName")}
-            className="flex-1 min-w-0 text-left px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+            className="flex-1 min-w-0 text-left px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
           >
             Название {sortArrow("productName")}
           </button>
           <button
             type="button"
             onClick={() => handleSort("quantitySale")}
-            className="w-[60px] shrink-0 text-right pr-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+            className="w-[60px] shrink-0 text-right pr-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
           >
             Шт {sortArrow("quantitySale")}
           </button>
           <button
             type="button"
             onClick={() => handleSort("sum")}
-            className="w-[90px] shrink-0 text-right pr-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+            className="w-[90px] shrink-0 text-right pr-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
           >
             ₽ {sortArrow("sum")}
           </button>
@@ -101,7 +101,7 @@ export const DynamicTableSalesReportV2: React.FC<
               }}
             >
               {/* Line 1: product name — full width */}
-              <div className="px-3 pt-1.5 pb-0 text-[13px] leading-tight font-medium text-gray-900 dark:text-gray-100">
+              <div className="px-3 pt-1.5 pb-0 text-[13px] leading-tight font-medium text-foreground">
                 {row.productName}
               </div>
 
@@ -110,11 +110,11 @@ export const DynamicTableSalesReportV2: React.FC<
                 {/* Empty spacer matching name column */}
                 <div className="flex-1 min-w-0 px-3" />
                 {/* Quantity column */}
-                <div className="w-[60px] shrink-0 text-right pr-3 text-[13px] font-semibold tabular-nums text-gray-700 dark:text-gray-300">
+                <div className="w-[60px] shrink-0 text-right pr-3 text-[13px] font-semibold tabular-nums text-foreground">
                   {formatNumber(row.quantitySale)}
                 </div>
                 {/* Sum column */}
-                <div className="w-[90px] shrink-0 text-right pr-3 text-[13px] font-bold tabular-nums text-gray-900 dark:text-gray-100">
+                <div className="w-[90px] shrink-0 text-right pr-3 text-[13px] font-bold tabular-nums text-foreground">
                   {formatNumber(row.sum)}
                 </div>
               </div>

@@ -29,7 +29,6 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
     <TileWrapper
       expanded={expanded}
       onToggle={onToggle}
-      ringTone="purple"
       card={<BestShopCard dayLeader={dayLeader} weekLeader={weekLeader} mode={mode} onClick={() => {}} />}
       detail={
         <BestShopDetails shops={activeRows} mode={mode} dayLeader={dayLeader} weekLeader={weekLeader} onModeChange={setMode} />

@@ -23,15 +23,6 @@ export const SaveAsJpegButton: React.FC<SaveAsJpegButtonProps> = ({
   // Инициализация при монтировании компонента
   useEffect(() => {
     if (isMiniApp) {
-      // Настройка темы
-      const theme = telegram.WebApp.colorScheme;
-      document.documentElement.classList.toggle("dark", theme === "dark");
-
-      // Установка цвета фона
-      telegram.WebApp.setBackgroundColor(
-        theme === "dark" ? "#1f2937" : "#2563eb"
-      );
-
       // Настройка главной кнопки
       telegram.WebApp.MainButton.setText("Сохранить как JPEG");
       telegram.WebApp.MainButton.onClick(handleSaveAsJpeg);
@@ -122,7 +113,7 @@ export const SaveAsJpegButton: React.FC<SaveAsJpegButtonProps> = ({
       {/* Контент, который будем сохранять */}
       <div
         ref={contentRef}
-        className="bg-custom-gray dark:bg-gray-800 p-4 rounded-lg shadow-md"
+        className="bg-muted p-4 rounded-lg shadow-md"
       >
         {children}
       </div>

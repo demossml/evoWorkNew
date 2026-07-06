@@ -155,7 +155,7 @@ export const DynamicTableProfitClassic: React.FC<DynamicTableProfitProps> = ({
 
   return (
     // Основной контейнер таблицы, занимающий весь экран
-    <div className="w-screen min-h-screen bg-gray-100 dark:bg-gray-900 px-2 sm:px-4 py-2">
+    <div className="w-screen min-h-screen bg-background px-2 sm:px-4 py-2">
       {/* Верхняя полоска прогресса скролла */}
       <motion.div
         style={{ scaleX, transformOrigin: "0%" }}
@@ -172,13 +172,13 @@ export const DynamicTableProfitClassic: React.FC<DynamicTableProfitProps> = ({
           overflowX: "auto",
         }}
       >
-        <table className="w-full table-auto bg-gray-100 dark:bg-gray-900 rounded-lg shadow-md">
-          <thead className="bg-gray-200 dark:bg-gray-800 sticky top-0 z-10">
+        <table className="w-full table-auto bg-background rounded-lg shadow-md">
+          <thead className="bg-muted sticky top-0 z-10">
             <tr>
               {tableKeys.map((key) => (
                 <th
                   key={key}
-                  className={`px-2 sm:px-4 py-1 sm:py-2 text-left text-xs sm:text-xs text-gray-700 dark:text-gray-300 ${
+                  className={`px-2 sm:px-4 py-1 sm:py-2 text-left text-xs sm:text-xs text-foreground ${
                     key !== "byCategory" ? "cursor-pointer" : ""
                   }`}
                   onClick={() => {
@@ -211,8 +211,8 @@ export const DynamicTableProfitClassic: React.FC<DynamicTableProfitProps> = ({
                       delay: animationDelay,
                       ease: "easeInOut",
                     }}
-                    className={`border-b border-gray-300 dark:border-gray-700 ${
-                      isTotalRow ? "font-bold bg-gray-300 dark:bg-gray-700" : ""
+                    className={`border-b border-border ${
+                      isTotalRow ? "font-bold bg-muted" : ""
                     }`}
                   >
                     <td className="px-2 sm:px-4 py-1 sm:py-2 text-xs sm:text-xs">
@@ -256,8 +256,8 @@ export const DynamicTableProfitClassic: React.FC<DynamicTableProfitProps> = ({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: animationDelay }}
-              className={`p-3 rounded-lg shadow-md bg-white dark:bg-gray-800 ${
-                isTotalRow ? "font-bold border-2 border-blue-500" : "border"
+              className={`p-3 rounded-lg shadow-md bg-card ${
+                isTotalRow ? "font-bold border-2 border-primary" : "border"
               }`}
             >
               <div className="mb-1 text-sm sm:text-base">{row.shopName}</div>

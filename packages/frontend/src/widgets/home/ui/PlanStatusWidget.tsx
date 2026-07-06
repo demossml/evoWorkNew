@@ -94,8 +94,8 @@ function ShopCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mb-2 transition-shadow duration-200 ${
-        isExpanded ? "shadow-md border-gray-300 dark:border-gray-600" : "hover:shadow-md"
+      className={`bg-card rounded-xl shadow-sm border border-border overflow-hidden mb-2 transition-shadow duration-200 ${
+        isExpanded ? "shadow-md border-border" : "hover:shadow-md"
       } border-l-4 ${colors.border}`}
     >
       {/* ── Свёрнутое состояние ── */}
@@ -116,7 +116,7 @@ function ShopCard({
         </div>
 
         {/* Прогресс-бар */}
-        <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden mb-2.5">
+        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mb-2.5">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${progressPct}%` }}
@@ -128,13 +128,13 @@ function ShopCard({
 
         <div className="flex items-center justify-between text-xs">
           <div>
-            <span className="text-gray-500 dark:text-gray-400">План: </span>
+            <span className="text-muted-foreground">План: </span>
             <span className="font-medium tabular-nums text-gray-900 dark:text-white" style={{ fontSize: 14 }}>
               {formatMoney(shop.plan)} ₽
             </span>
           </div>
           <div>
-            <span className="text-gray-500 dark:text-gray-400">Факт: </span>
+            <span className="text-muted-foreground">Факт: </span>
             <span className={`font-medium tabular-nums ${shop.status === "green" ? "text-green-600" : shop.status === "yellow" ? "text-yellow-600" : "text-red-600"}`} style={{ fontSize: 14 }}>
               {formatMoney(shop.fact)} ₽
             </span>
@@ -154,9 +154,9 @@ function ShopCard({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="overflow-hidden border-t border-gray-100 dark:border-gray-700"
+            className="overflow-hidden border-t border-border"
           >
-            <div className="px-4 py-3 space-y-4 bg-gray-50/50 dark:bg-gray-800/50">
+            <div className="px-4 py-3 space-y-4 bg-muted/50">
               {/* ── ForecastBlock ── */}
               <ForecastBlock shop={shop} />
 
@@ -177,7 +177,7 @@ function ShopCard({
       </AnimatePresence>
 
       {/* Подвал карточки */}
-      <div className="px-4 py-1.5 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-end gap-1 cursor-pointer" onClick={onToggle}>
+      <div className="px-4 py-1.5 border-t border-border text-xs text-muted-foreground flex items-center justify-end gap-1 cursor-pointer" onClick={onToggle}>
         {isExpanded ? <>Свернуть <ChevronUp className="w-3 h-3" /></> : <>Детали <ChevronDown className="w-3 h-3" /></>}
       </div>
     </motion.div>
@@ -192,10 +192,10 @@ function ForecastBlock({ shop }: { shop: PlanShop }) {
   const currentRate = shop.fact / Math.max(new Date().getHours() - 9, 0.5);
 
   return (
-    <div className="rounded-lg bg-white dark:bg-gray-800 p-3 border border-gray-100 dark:border-gray-700">
+    <div className="rounded-lg bg-card p-3 border border-border">
       <div className="flex items-center gap-1.5 mb-2">
         <Target className="w-3.5 h-3.5 text-blue-500" />
-        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Прогноз</span>
+        <span className="text-xs font-semibold text-foreground">Прогноз</span>
       </div>
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
@@ -230,10 +230,10 @@ function ProductList({ products }: { products: PlanShop["products"] }) {
   const display = products.slice(0, 5);
 
   return (
-    <div className="rounded-lg bg-white dark:bg-gray-800 p-3 border border-gray-100 dark:border-gray-700">
+    <div className="rounded-lg bg-card p-3 border border-border">
       <div className="flex items-center gap-1.5 mb-2">
         <Package className="w-3.5 h-3.5 text-purple-500" />
-        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Продажи вейпов сегодня</span>
+        <span className="text-xs font-semibold text-foreground">Продажи вейпов сегодня</span>
       </div>
       {display.length === 0 ? (
         <div className="text-xs text-gray-400 py-1">Нет продаж</div>
@@ -241,10 +241,10 @@ function ProductList({ products }: { products: PlanShop["products"] }) {
         <div className={`space-y-1.5 ${products.length > 5 ? "max-h-32 overflow-auto pr-1" : ""}`}>
           {display.map((p) => (
             <div key={p.name} className="flex items-center gap-2 text-xs">
-              <span className="flex-1 truncate text-gray-700 dark:text-gray-300 font-medium">{p.name}</span>
+              <span className="flex-1 truncate text-foreground font-medium">{p.name}</span>
               <span className="tabular-nums text-gray-500 w-10 text-right">{p.qty} шт</span>
               {p.sum > 0 && <span className="tabular-nums text-gray-400 w-14 text-right">{formatMoney(p.sum)} ₽</span>}
-              <div className="w-12 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
                 <div className="h-full bg-purple-400 rounded-full" style={{ width: `${(p.qty / maxQty) * 100}%` }} />
               </div>
             </div>
@@ -270,10 +270,10 @@ function WeekComparison({
 }) {
   if (!weekData) {
     return (
-      <div className="rounded-lg bg-white dark:bg-gray-800 p-3 border border-gray-100 dark:border-gray-700">
+      <div className="rounded-lg bg-card p-3 border border-border">
         <div className="flex items-center gap-1.5 mb-2">
           <Clock className="w-3.5 h-3.5 text-gray-400" />
-          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Vs. прошлая неделя</span>
+          <span className="text-xs font-semibold text-foreground">Vs. прошлая неделя</span>
         </div>
         <div className="text-xs text-gray-400">Нет данных за прошлую неделю</div>
       </div>
@@ -283,10 +283,10 @@ function WeekComparison({
   const prevShop = weekData.shops.find(s => s.name === shop.name);
   if (!prevShop) {
     return (
-      <div className="rounded-lg bg-white dark:bg-gray-800 p-3 border border-gray-100 dark:border-gray-700">
+      <div className="rounded-lg bg-card p-3 border border-border">
         <div className="flex items-center gap-1.5 mb-2">
           <Clock className="w-3.5 h-3.5 text-gray-400" />
-          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Vs. прошлая неделя</span>
+          <span className="text-xs font-semibold text-foreground">Vs. прошлая неделя</span>
         </div>
         <div className="text-xs text-gray-400">Магазин не работал на прошлой неделе</div>
       </div>
@@ -297,16 +297,16 @@ function WeekComparison({
   const isUp = deltaPct >= 0;
 
   return (
-    <div className="rounded-lg bg-white dark:bg-gray-800 p-3 border border-gray-100 dark:border-gray-700">
+    <div className="rounded-lg bg-card p-3 border border-border">
       <div className="flex items-center gap-1.5 mb-2">
         <Clock className="w-3.5 h-3.5 text-gray-500" />
-        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Vs. прошлая неделя</span>
+        <span className="text-xs font-semibold text-foreground">Vs. прошлая неделя</span>
       </div>
       <div className="flex items-center gap-2 text-xs">
         <span className="text-gray-500">{shop.name}:</span>
         <span className="font-semibold tabular-nums text-gray-900 dark:text-white">{formatMoney(shop.fact)} ₽</span>
         <span className="text-gray-400">→ было:</span>
-        <span className="tabular-nums text-gray-600 dark:text-gray-400">{formatMoney(prevShop.fact)} ₽</span>
+        <span className="tabular-nums text-muted-foreground">{formatMoney(prevShop.fact)} ₽</span>
         <span className={`font-medium tabular-nums flex items-center gap-0.5 ${isUp ? "text-green-600" : "text-red-500"}`}>
           {isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
           {isUp ? "+" : ""}{deltaPct.toFixed(1)}%
@@ -438,17 +438,17 @@ export function PlanStatusWidget({ date }: PlanStatusWidgetProps) {
       <div className="w-full mb-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 animate-pulse">
+            <div key={i} className="bg-card rounded-xl shadow-sm border border-border p-4 animate-pulse">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-2 h-2 rounded-full bg-gray-200 dark:bg-gray-700" />
-                <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
-                <div className="ml-auto h-5 w-12 bg-gray-200 dark:bg-gray-700 rounded" />
+                <div className="w-2 h-2 rounded-full bg-muted" />
+                <div className="h-4 w-24 bg-muted rounded" />
+                <div className="ml-auto h-5 w-12 bg-muted rounded" />
               </div>
-              <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mb-3" />
+              <div className="h-1.5 bg-muted rounded-full mb-3" />
               <div className="flex justify-between">
-                <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
-                <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
-                <div className="h-3 w-14 bg-gray-200 dark:bg-gray-700 rounded" />
+                <div className="h-3 w-16 bg-muted rounded" />
+                <div className="h-3 w-16 bg-muted rounded" />
+                <div className="h-3 w-14 bg-muted rounded" />
               </div>
             </div>
           ))}

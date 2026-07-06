@@ -278,7 +278,7 @@ const ScheduleTable: React.FC = () => {
       <div className="mt-6 flex gap-4">
         <button
           onClick={handleSave}
-          className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 w-full"
+          className="px-6 py-2 bg-primary text-white rounded hover:bg-primary/90 disabled:bg-gray-400 w-full"
           disabled={!store || isSaving} // Блокируем кнопку во время сохранения
         >
           {isSaving ? "Сохранение..." : "Сохранить"}{" "}

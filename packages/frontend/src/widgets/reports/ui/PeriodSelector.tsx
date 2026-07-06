@@ -15,7 +15,7 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
 
   return (
     <div className="flex flex-col w-full justify-between">
-      <p className="text-gray-700 dark:text-gray-400 mb-2 text-center">
+      <p className="text-muted-foreground mb-2 text-center">
         Выберите количество периодов для расчета
       </p>
       <div className="grid grid-cols-7 gap-2">
@@ -27,8 +27,8 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
             onClick={() => selectPeriod(period)}
             className={`p-2 rounded-md border ${
               selectedPeriod === period
-                ? "bg-blue-500 dark:bg-blue-400 dark:border-blue-400 text-white dark:text-gray-400"
-                : "bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400"
+                ? "bg-blue-500 dark:bg-blue-400 dark:border-blue-400 text-white dark:text-muted-foreground"
+                : "bg-muted dark:border-gray-600 dark:text-muted-foreground"
             }`}
           >
             <span className="text-sm">{period}</span>

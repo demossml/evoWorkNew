@@ -18,18 +18,18 @@ const sumRev = (n: number) =>
 function Skeleton() {
   return (
     <div className="w-full mb-3 animate-pulse">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         <div className="px-3 py-2 flex items-center gap-1.5">
-          <div className="w-3 h-3 bg-gray-200 dark:bg-gray-700 rounded" />
-          <div className="h-3 w-28 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div className="w-3 h-3 bg-muted rounded" />
+          <div className="h-3 w-28 bg-muted rounded" />
         </div>
         <div className="px-3 py-2 space-y-1.5">
           {[1, 2, 3].map((i) => (
             <div key={i} className="flex items-center gap-1.5">
-              <div className="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded-full" />
-              <div className="h-2.5 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
+              <div className="w-4 h-4 bg-muted rounded-full" />
+              <div className="h-2.5 w-16 bg-muted rounded" />
               <div className="flex-1" />
-              <div className="h-2.5 w-10 bg-gray-200 dark:bg-gray-700 rounded" />
+              <div className="h-2.5 w-10 bg-muted rounded" />
             </div>
           ))}
         </div>
@@ -57,9 +57,9 @@ export function SellerPerformanceWidget() {
       <div className="w-full mb-3">
         <div
           onClick={() => navigate("/evotor/seller-performance")}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-3 cursor-pointer active:scale-[0.98] transition-transform"
+          className="bg-card rounded-xl shadow-sm border border-border p-3 cursor-pointer active:scale-[0.98] transition-transform"
         >
-          <div className="text-center text-gray-400 dark:text-gray-500">
+          <div className="text-center text-muted-foreground">
             <Trophy className="w-4 h-4 mx-auto mb-0.5 opacity-30" />
             <div className="text-xs">Нет данных за сегодня</div>
           </div>
@@ -83,11 +83,11 @@ export function SellerPerformanceWidget() {
       >
         <div
           onClick={() => navigate("/evotor/seller-performance")}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
+          className="bg-card rounded-xl shadow-sm border border-border overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
         >
           {/* Header — compact */}
           <div className="px-3 py-2 flex items-center justify-between">
-            <span className="text-[13px] font-semibold text-gray-700 dark:text-gray-300">
+            <span className="text-[13px] font-semibold text-foreground">
               🏆 Продавцы сегодня
             </span>
             <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
@@ -106,9 +106,9 @@ export function SellerPerformanceWidget() {
                 </div>
 
                 {/* Name · highlight */}
-                <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200 truncate flex-1 leading-none">
+                <span className="text-[13px] font-medium text-foreground truncate flex-1 leading-none">
                   {s.name.split(" ")[0]}
-                  <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-1.5">
+                  <span className="text-xs font-normal text-muted-foreground ml-1.5">
                     ·{" "}
                     {s.avgCheck >= s.targetAvgCheck
                       ? `чек ${s.avgCheck}₽`
@@ -119,7 +119,7 @@ export function SellerPerformanceWidget() {
                 </span>
 
                 {/* Revenue */}
-                <span className="text-[13px] font-bold text-gray-800 dark:text-gray-200 shrink-0 tabular-nums">
+                <span className="text-[13px] font-bold text-foreground shrink-0 tabular-nums">
                   {sumRev(s.totalRevenue)}₽
                 </span>
 

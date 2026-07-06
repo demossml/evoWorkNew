@@ -213,19 +213,19 @@ export default function StoreOpeningsAdminReport() {
   }
 
   return (
-    <div className="app-page p-4 pb-6 bg-custom-gray dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+    <div className="app-page p-4 pb-6 bg-background text-foreground">
       <div className="max-w-6xl mx-auto space-y-4">
         <h1 className="text-xl font-semibold">Отчёт по открытиям магазинов</h1>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-card rounded-xl p-4 border border-border">
           <div className="md:col-span-4 grid grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => setDateMode("today")}
               className={`h-10 rounded-lg border text-sm font-semibold ${
                 dateMode === "today"
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "border-gray-300 dark:border-gray-600"
+                  ? "bg-primary text-white border-blue-600"
+                  : "border-border"
               }`}
             >
               Сегодня
@@ -235,8 +235,8 @@ export default function StoreOpeningsAdminReport() {
               onClick={() => setDateMode("yesterday")}
               className={`h-10 rounded-lg border text-sm font-semibold ${
                 dateMode === "yesterday"
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "border-gray-300 dark:border-gray-600"
+                  ? "bg-primary text-white border-blue-600"
+                  : "border-border"
               }`}
             >
               Вчера
@@ -260,8 +260,8 @@ export default function StoreOpeningsAdminReport() {
                   }}
                   className={`h-10 rounded-lg border text-sm font-semibold ${
                     dateMode === "period"
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "border-gray-300 dark:border-gray-600"
+                      ? "bg-primary text-white border-blue-600"
+                      : "border-border"
                   }`}
                 >
                   Период
@@ -289,7 +289,7 @@ export default function StoreOpeningsAdminReport() {
                   </button>
                   <button
                     type="button"
-                    className="px-3 py-1 rounded bg-blue-600 text-white disabled:bg-gray-400"
+                    className="px-3 py-1 rounded bg-primary text-white disabled:bg-gray-400"
                     disabled={!(tempPeriod?.from && tempPeriod?.to)}
                     onClick={() => {
                       setPeriod(tempPeriod);
@@ -311,7 +311,7 @@ export default function StoreOpeningsAdminReport() {
             <button
               onClick={() => void loadReport()}
               disabled={isLoading || endDate < startDate}
-              className="w-full md:w-auto px-4 py-2 rounded-lg bg-blue-600 text-white disabled:bg-gray-400"
+              className="w-full md:w-auto px-4 py-2 rounded-lg bg-primary text-white disabled:bg-gray-400"
             >
               {isLoading ? "Загрузка..." : "Обновить отчет"}
             </button>
@@ -323,7 +323,7 @@ export default function StoreOpeningsAdminReport() {
               value={shopSearch}
               onChange={(e) => setShopSearch(e.target.value)}
               placeholder="Например: Победа или Карина"
-              className="w-full rounded-lg border p-2 bg-white dark:bg-gray-700"
+              className="w-full rounded-lg border p-2 bg-card"
             />
           </div>
           <label className="md:col-span-1 flex items-center gap-2 text-sm mt-6 md:mt-0">
@@ -342,13 +342,13 @@ export default function StoreOpeningsAdminReport() {
           </div>
         )}
 
-        <div className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="text-sm text-muted-foreground">
           Показано записей: {filteredRecords.length}
         </div>
 
-        <div className="hidden md:block overflow-x-auto rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+        <div className="hidden md:block overflow-x-auto rounded-xl bg-card border border-border">
           <table className="w-full text-sm">
-            <thead className="bg-gray-100 dark:bg-gray-700">
+            <thead className="bg-muted">
               <tr>
                 <th className="text-left p-2">Магазин</th>
                 <th className="text-left p-2">Сотрудник</th>
@@ -362,7 +362,7 @@ export default function StoreOpeningsAdminReport() {
             <tbody>
               {filteredRecords.length ? (
                 filteredRecords.map((row) => (
-                  <tr key={`${row.shopUuid}-${row.openedAt}`} className="border-t border-gray-200 dark:border-gray-700">
+                  <tr key={`${row.shopUuid}-${row.openedAt}`} className="border-t border-border">
                     <td className="p-2">{row.shopName}</td>
                     <td className="p-2">{row.employeeName}</td>
                     <td className={`p-2${row.isLate ? " text-red-600 dark:text-red-400 font-semibold" : ""}`}>
@@ -374,7 +374,7 @@ export default function StoreOpeningsAdminReport() {
                       <button
                         type="button"
                         onClick={() => void loadPhotos(row)}
-                        className="px-2 py-1 rounded-md bg-blue-600 text-white text-xs"
+                        className="px-2 py-1 rounded-md bg-primary text-white text-xs"
                       >
                         Смотреть фото
                       </button>
@@ -399,16 +399,16 @@ export default function StoreOpeningsAdminReport() {
             filteredRecords.map((row) => (
               <div
                 key={`${row.shopUuid}-${row.openedAt}`}
-                className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 space-y-2"
+                className="rounded-xl bg-card border border-border p-3 space-y-2"
               >
                 <div className="flex items-center justify-between">
                   <div className="font-semibold">{row.shopName}</div>
                   <div className="text-xs text-gray-500">{row.completionPercent}%</div>
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-300">
+                <div className="text-sm text-muted-foreground">
                   {row.employeeName}
                 </div>
-                <div className={`text-xs${row.isLate ? " text-red-600 dark:text-red-400 font-semibold" : " text-gray-500 dark:text-gray-400"}`}>
+                <div className={`text-xs${row.isLate ? " text-red-600 dark:text-red-400 font-semibold" : " text-muted-foreground"}`}>
                   {new Date(row.openedAt).toLocaleString("ru-RU")}
                   {row.isLate ? " ⚠️ опоздание" : ""}
                 </div>
@@ -422,14 +422,14 @@ export default function StoreOpeningsAdminReport() {
                 <button
                   type="button"
                   onClick={() => void loadPhotos(row)}
-                  className="w-full px-2 py-2 rounded-md bg-blue-600 text-white text-sm"
+                  className="w-full px-2 py-2 rounded-md bg-primary text-white text-sm"
                 >
                   Смотреть фото
                 </button>
               </div>
             ))
           ) : (
-            <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 text-center text-gray-500">
+            <div className="rounded-xl bg-card border border-border p-4 text-center text-gray-500">
               Нет данных за выбранный период
             </div>
           )}
@@ -438,7 +438,7 @@ export default function StoreOpeningsAdminReport() {
 
       {previewRow && (
         <div className="fixed inset-0 z-[70] bg-black/50 p-4 overflow-y-auto">
-          <div className="max-w-5xl mx-auto bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-4">
+          <div className="max-w-5xl mx-auto bg-card rounded-xl border border-border p-4 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">
                 Фото открытия: {previewRow.shopName}
@@ -446,7 +446,7 @@ export default function StoreOpeningsAdminReport() {
               <button
                 type="button"
                 onClick={() => setPreviewRow(null)}
-                className="px-3 py-1 rounded-md bg-gray-200 dark:bg-gray-700"
+                className="px-3 py-1 rounded-md bg-muted"
               >
                 Закрыть
               </button>
@@ -498,7 +498,7 @@ export default function StoreOpeningsAdminReport() {
                               href={photo.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="block rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900"
+                              className="block rounded-lg overflow-hidden border border-border bg-background"
                             >
                               <img
                                 src={photo.url}
@@ -506,7 +506,7 @@ export default function StoreOpeningsAdminReport() {
                                 className="w-full h-40 object-cover"
                                 loading="lazy"
                               />
-                              <div className="px-2 py-1 text-xs text-gray-600 dark:text-gray-300">
+                              <div className="px-2 py-1 text-xs text-muted-foreground">
                                 {slotLabel}
                               </div>
                             </a>

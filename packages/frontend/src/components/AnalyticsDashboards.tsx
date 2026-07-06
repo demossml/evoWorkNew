@@ -46,7 +46,7 @@ export default function AnalyticsDashboards({
 		business.isLoading
 	) {
 		return (
-			<div className="mb-6 rounded-lg bg-white dark:bg-gray-800 p-4 shadow">
+			<div className="mb-6 rounded-lg bg-card p-4 shadow">
 				Загрузка аналитических дашбордов...
 			</div>
 		);
@@ -70,21 +70,21 @@ export default function AnalyticsDashboards({
 	const businessData = business.data as any;
 
 	return (
-		<div className="mb-6 space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+		<div className="mb-6 space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-border dark:bg-gray-800">
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-				<h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+				<h2 className="text-sm font-semibold text-foreground">
 					Аналитика
 				</h2>
 				<div className="flex items-center gap-2">
 					<label
 						htmlFor="analytics-shop-filter"
-						className="text-xs text-gray-500 dark:text-gray-400"
+						className="text-xs text-muted-foreground"
 					>
 						Магазин
 					</label>
 					<select
 						id="analytics-shop-filter"
-						className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+						className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-foreground"
 						value={selectedShopUuid}
 						onChange={(event) => setSelectedShopUuid(event.target.value)}
 					>
@@ -97,7 +97,7 @@ export default function AnalyticsDashboards({
 					</select>
 				</div>
 			</div>
-			<div className="text-xs text-gray-500 dark:text-gray-400">
+			<div className="text-xs text-muted-foreground">
 				Фильтр магазина применяется к разделу Business.
 			</div>
 			{readOnly && (
@@ -105,26 +105,26 @@ export default function AnalyticsDashboards({
 					Analytics dashboard включен в режиме только чтения (read-only).
 				</div>
 			)}
-			<div className="rounded-lg bg-white dark:bg-gray-800 p-4 shadow">
-				<h2 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">
+			<div className="rounded-lg bg-card p-4 shadow">
+				<h2 className="mb-3 text-sm font-semibold text-foreground">
 					Product
 				</h2>
 				<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">DAU</div>
 						<div className="text-lg font-semibold">{productData?.dau ?? 0}</div>
 					</div>
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">WAU</div>
 						<div className="text-lg font-semibold">{productData?.wau ?? 0}</div>
 					</div>
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">Конверсия в отчет</div>
 						<div className="text-lg font-semibold">
 							{pct(productData?.conversionToReport ?? 0)}
 						</div>
 					</div>
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">До первого отчета</div>
 						<div className="text-lg font-semibold">
 							{productData?.timeToFirstReport?.avgMinutes ??
@@ -135,25 +135,25 @@ export default function AnalyticsDashboards({
 					</div>
 				</div>
 				<div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">TTFReport p50</div>
 						<div className="text-lg font-semibold">
 							{productData?.timeToFirstReport?.p50Minutes ?? 0} мин
 						</div>
 					</div>
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">TTFReport p95</div>
 						<div className="text-lg font-semibold">
 							{productData?.timeToFirstReport?.p95Minutes ?? 0} мин
 						</div>
 					</div>
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">Retention D1</div>
 						<div className="text-lg font-semibold">
 							{pct(productData?.retention?.weightedAverage?.d1 ?? 0)}
 						</div>
 					</div>
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">Retention D7</div>
 						<div className="text-lg font-semibold">
 							{pct(productData?.retention?.weightedAverage?.d7 ?? 0)}
@@ -162,7 +162,7 @@ export default function AnalyticsDashboards({
 				</div>
 				<div className="mt-4 grid gap-4 sm:grid-cols-2">
 					<div className="overflow-x-auto rounded bg-gray-50 p-3 dark:bg-gray-700/50">
-						<div className="mb-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
+						<div className="mb-2 text-xs font-semibold text-muted-foreground">
 							Conversion by role
 						</div>
 						<table className="w-full text-xs">
@@ -187,7 +187,7 @@ export default function AnalyticsDashboards({
 						</table>
 					</div>
 					<div className="overflow-x-auto rounded bg-gray-50 p-3 dark:bg-gray-700/50">
-						<div className="mb-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
+						<div className="mb-2 text-xs font-semibold text-muted-foreground">
 							Top shops by conversion
 						</div>
 						<table className="w-full text-xs">
@@ -218,7 +218,7 @@ export default function AnalyticsDashboards({
 					</div>
 				</div>
 				<div className="mt-4 overflow-x-auto rounded bg-gray-50 p-3 dark:bg-gray-700/50">
-					<div className="mb-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
+					<div className="mb-2 text-xs font-semibold text-muted-foreground">
 						Cohort retention
 					</div>
 					<table className="w-full text-xs">
@@ -248,30 +248,30 @@ export default function AnalyticsDashboards({
 				</div>
 			</div>
 
-			<div className="rounded-lg bg-white dark:bg-gray-800 p-4 shadow">
-				<h2 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">
+			<div className="rounded-lg bg-card p-4 shadow">
+				<h2 className="mb-3 text-sm font-semibold text-foreground">
 					Reliability
 				</h2>
 				<div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">Error rate</div>
 						<div className="text-lg font-semibold">
 							{pct(reliabilityData?.errorRateOverall ?? 0)}
 						</div>
 					</div>
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">p50 latency</div>
 						<div className="text-lg font-semibold">
 							{Math.round(reliabilityData?.p50LatencyMs ?? 0)} ms
 						</div>
 					</div>
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">p95 latency</div>
 						<div className="text-lg font-semibold">
 							{Math.round(reliabilityData?.p95LatencyMs ?? 0)} ms
 						</div>
 					</div>
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">Top error code</div>
 						<div className="text-sm font-semibold">
 							{reliabilityData?.topErrorCodes?.[0]?.code ?? "N/A"}
@@ -300,30 +300,30 @@ export default function AnalyticsDashboards({
 				</div>
 			</div>
 
-			<div className="rounded-lg bg-white dark:bg-gray-800 p-4 shadow">
-				<h2 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">
+			<div className="rounded-lg bg-card p-4 shadow">
+				<h2 className="mb-3 text-sm font-semibold text-foreground">
 					Business
 				</h2>
 				<div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">Выручка</div>
 						<div className="text-sm font-semibold">
 							{money(businessData?.totals?.revenue ?? 0)}
 						</div>
 					</div>
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">Возвраты</div>
 						<div className="text-sm font-semibold">
 							{money(businessData?.totals?.refunds ?? 0)}
 						</div>
 					</div>
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">Средний чек</div>
 						<div className="text-sm font-semibold">
 							{money(businessData?.totals?.avgCheck ?? 0)}
 						</div>
 					</div>
-					<div className="rounded bg-gray-100 dark:bg-gray-700 p-3">
+					<div className="rounded bg-muted p-3">
 						<div className="text-xs text-gray-500">Net sales</div>
 						<div className="text-sm font-semibold">
 							{money(businessData?.totals?.netSales ?? 0)}

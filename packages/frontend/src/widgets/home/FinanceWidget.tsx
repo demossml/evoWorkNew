@@ -37,7 +37,6 @@ export function FinanceWidget({ since, until, expanded, onToggle }: Props) {
     <TileWrapper
       expanded={expanded}
       onToggle={onToggle}
-      ringTone="orange"
       card={
         <ExpensesCard
           value={filtered.grandTotalCashOutcome}

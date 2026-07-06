@@ -11,16 +11,16 @@ function formatMoney(n: number): string {
 
 function LoadingSkeleton() {
   return (
-    <div className="mb-4 rounded-xl bg-white dark:bg-gray-800 p-4 shadow animate-pulse">
+    <div className="mb-4 rounded-xl bg-card p-4 shadow animate-pulse">
       <div className="flex items-center justify-between mb-3">
-        <div className="h-4 w-36 bg-gray-200 dark:bg-gray-700 rounded" />
-        <div className="h-7 w-28 bg-gray-200 dark:bg-gray-700 rounded" />
+        <div className="h-4 w-36 bg-muted rounded" />
+        <div className="h-7 w-28 bg-muted rounded" />
       </div>
       <div className="grid grid-cols-3 gap-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="rounded-lg bg-gray-100 dark:bg-gray-750 px-3 py-2">
-            <div className="h-7 w-8 bg-gray-200 dark:bg-gray-700 rounded mb-1" />
-            <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
+          <div key={i} className="rounded-lg bg-muted px-3 py-2">
+            <div className="h-7 w-8 bg-muted rounded mb-1" />
+            <div className="h-3 w-16 bg-muted rounded" />
           </div>
         ))}
       </div>
@@ -51,11 +51,11 @@ function ErrorTile({ message, onRetry }: { message: string; onRetry: () => void 
 
 function EmptyState() {
   return (
-    <div className="mb-4 rounded-xl bg-white dark:bg-gray-800 p-4 shadow">
+    <div className="mb-4 rounded-xl bg-card p-4 shadow">
       <div className="text-center py-4">
         <div className="text-2xl mb-1">✅</div>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Мёртвого стока нет</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500">Все товары продаются</p>
+        <p className="text-sm text-muted-foreground">Мёртвого стока нет</p>
+        <p className="text-xs text-muted-foreground">Все товары продаются</p>
       </div>
     </div>
   );
@@ -195,14 +195,14 @@ export function StockHealthWidget() {
   };
 
   return (
-    <div className="mb-4 rounded-xl bg-white dark:bg-gray-800 p-4 shadow">
+    <div className="mb-4 rounded-xl bg-card p-4 shadow">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
           Состояние остатков
         </h3>
         {shops.length > 1 && (
           <select
-            className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+            className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-foreground"
             value={selectedShop}
             onChange={(e) => {
               setSelectedShop(e.target.value);
@@ -236,7 +236,7 @@ export function StockHealthWidget() {
           <div className="text-2xl font-bold text-red-600 dark:text-red-400">
             {totalDead}
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">
+          <div className="text-xs text-muted-foreground">
             Мёртвый сток
             {selectedShop !== "all" && deadCount !== totalDead && (
               <span className="text-xs ml-0.5">({deadCount})</span>
@@ -260,7 +260,7 @@ export function StockHealthWidget() {
           <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
             {totalLow}
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">
+          <div className="text-xs text-muted-foreground">
             Заканчиваются
             {selectedShop !== "all" && lowCount !== totalLow && (
               <span className="text-xs ml-0.5">({lowCount})</span>
@@ -284,7 +284,7 @@ export function StockHealthWidget() {
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
             {totalOOS}
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">
+          <div className="text-xs text-muted-foreground">
             Нет в наличии
             {selectedShop !== "all" && oosCount !== totalOOS && (
               <span className="text-xs ml-0.5">({oosCount})</span>
@@ -301,7 +301,7 @@ export function StockHealthWidget() {
             placeholder="Поиск по названию..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 placeholder:text-gray-400"
+            className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-foreground placeholder:text-gray-400"
           />
         </div>
       )}
@@ -320,7 +320,7 @@ export function StockHealthWidget() {
             </div>
             <div className="flex items-center gap-2">
               <select
-                className="rounded-md border border-gray-300 bg-white px-1 py-0.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                className="rounded-md border border-gray-300 bg-white px-1 py-0.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-foreground"
                 value={deadDays}
                 onChange={(e) => setDeadDays(Number(e.target.value))}
               >
@@ -329,7 +329,7 @@ export function StockHealthWidget() {
                 <option value={60}>60 дн</option>
               </select>
               {transferCount > 0 && (
-                <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
+                <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={onlyTransfers}
@@ -351,14 +351,14 @@ export function StockHealthWidget() {
                 return (
                   <li
                     key={idx}
-                    className="text-xs py-0.5 border-b border-gray-100 dark:border-gray-700 last:border-0"
+                    className="text-xs py-0.5 border-b border-border last:border-0"
                   >
                     <div className="flex justify-between gap-2">
-                      <span className="text-gray-800 dark:text-gray-200 truncate">
+                      <span className="text-foreground truncate">
                         {selectedShop === "all" ? `${item.shopName}: ` : ""}
                         {item.name}
                       </span>
-                      <span className="text-gray-500 dark:text-gray-400 shrink-0">
+                      <span className="text-muted-foreground shrink-0">
                         {item.quantity} шт
                       </span>
                     </div>
@@ -377,7 +377,7 @@ export function StockHealthWidget() {
             </div>
           )}
           {displayDead.length > 0 && (
-            <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+            <div className="mt-3 pt-2 border-t border-border">
               {exportUrl ? (
                 <div className="text-xs text-green-600 dark:text-green-400 break-all">
                   <a href={exportUrl} target="_blank" rel="noopener" className="underline">
@@ -423,7 +423,7 @@ export function StockHealthWidget() {
                       setExporting(false);
                     }
                   }}
-                  className="w-full py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+                  className="w-full py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 disabled:opacity-50 transition"
                 >
                   {exporting ? "Сохраняю..." : "Сохранить в Google Таблицы"}
                 </button>
@@ -453,7 +453,7 @@ export function StockHealthWidget() {
                   key={idx}
                   className="text-xs flex justify-between gap-2 py-0.5"
                 >
-                  <span className="text-gray-800 dark:text-gray-200 truncate">
+                  <span className="text-foreground truncate">
                     {selectedShop === "all" ? `${item.shopName}: ` : ""}
                     {item.name}
                   </span>
@@ -498,7 +498,7 @@ export function StockHealthWidget() {
                   key={idx}
                   className="text-xs flex justify-between gap-2 py-0.5"
                 >
-                  <span className="text-gray-800 dark:text-gray-200 truncate">
+                  <span className="text-foreground truncate">
                     {selectedShop === "all" ? `${item.shopName}: ` : ""}
                     {item.name}
                   </span>

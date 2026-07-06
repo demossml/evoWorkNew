@@ -45,7 +45,7 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center w-full min-h-screen bg-gray-100 dark:bg-gray-900 pt-20 sm:pt-24 px-4 sm:px-6 pb-24">
+      <div className="flex flex-col items-center w-full min-h-screen bg-background pt-20 sm:pt-24 px-4 sm:px-6 pb-24">
         <div className="w-full max-w-7xl space-y-4">
           <SkeletonHome />
         </div>
@@ -60,8 +60,8 @@ export default function Home() {
     // configured for backend validation.
     const shouldShowManualIdInput = true;
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4 sm:p-6">
-        <h1 className="mb-4 text-lg sm:text-xl md:text-2xl text-gray-800 dark:text-gray-100 font-bold">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4 sm:p-6">
+        <h1 className="mb-4 text-lg sm:text-xl md:text-2xl text-foreground font-bold">
           {shouldShowManualIdInput ? "Введите Telegram ID для входа" : "У вас нет прав доступа."}
         </h1>
         {shouldShowManualIdInput && <RegisterUserCard onRegister={(id) => console.log("Новый пользователь Telegram ID:", id)} />}
@@ -75,7 +75,7 @@ export default function Home() {
   const isExpanded = (key: WidgetKey) => expanded === key;
 
   return (
-    <div className="flex flex-col items-center w-full min-h-screen bg-gray-100 dark:bg-gray-900 pt-20 sm:pt-24 px-4 sm:px-6 pb-24">
+    <div className="flex flex-col items-center w-full min-h-screen bg-background pt-20 sm:pt-24 px-4 sm:px-6 pb-24">
       <HomeTopBar queryClient={queryClient} />
       <div className="w-full max-w-7xl space-y-4">
 
@@ -162,9 +162,9 @@ function LastUpdated() {
   const timeStr = lastOk ? lastOk.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "--:--:--";
   return (
     <div className="text-center mt-6 mb-2">
-      <span className="text-xs text-gray-400 dark:text-gray-500">
+      <span className="text-xs text-muted-foreground">
         {fetching > 0 ? (
-          <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-blue-400 animate-pulse" />Обновление...</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />Обновление...</span>
         ) : `Данные от ${timeStr}`}
       </span>
     </div>
@@ -194,24 +194,24 @@ function HomeTopBar({ queryClient }: { queryClient: QueryClient }) {
   }, [queryClient]);
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
+    <div className="fixed top-0 left-0 right-0 z-50 bg-card/85 backdrop-blur-sm border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">🏠 Evo App</span>
+          <span className="text-sm font-semibold text-foreground">🏠 Evo App</span>
           {online ? (
-            <Wifi className="w-3.5 h-3.5 text-green-500" />
+            <Wifi className="w-3.5 h-3.5 text-success" />
           ) : (
-            <WifiOff className="w-3.5 h-3.5 text-red-400" />
+            <WifiOff className="w-3.5 h-3.5 text-destructive" />
           )}
         </div>
         <div className="flex items-center gap-3">
           {!online && (
-            <span className="text-xs text-red-500 dark:text-red-400 font-medium">⚡ Офлайн</span>
+            <span className="text-xs text-destructive font-medium">⚡ Офлайн</span>
           )}
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all disabled:opacity-50"
+            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-muted-foreground bg-secondary rounded-md hover:bg-secondary/80 active:scale-95 transition-all disabled:opacity-50"
           >
             <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
             Обновить
@@ -226,18 +226,18 @@ function SkeletonHome() {
   return (
     <>
       {/* DailyBriefing skeleton */}
-      <div className="animate-pulse bg-gradient-to-br from-blue-500/20 to-indigo-600/20 rounded-xl p-4 h-24" />
+      <div className="animate-pulse bg-primary/10 rounded-xl p-4 h-24" />
       {/* Spacer */}
-      <div className="animate-pulse rounded-xl bg-white dark:bg-gray-800 p-4 shadow h-10" />
+      <div className="animate-pulse rounded-xl bg-card border border-border p-4 shadow-sm h-10" />
       {/* Grid of skeleton tiles */}
       <div className="grid grid-cols-2 gap-4">
         {[...Array(6)].map((_, i) => (
-          <div key={i} className="animate-pulse rounded-xl bg-white dark:bg-gray-800 p-4 shadow min-h-[120px]" />
+          <div key={i} className="animate-pulse rounded-xl bg-card border border-border p-4 shadow-sm min-h-[120px]" />
         ))}
       </div>
       {/* Bottom widgets */}
-      <div className="animate-pulse rounded-xl bg-white dark:bg-gray-800 p-4 shadow h-16" />
-      <div className="animate-pulse rounded-xl bg-white dark:bg-gray-800 p-4 shadow h-24" />
+      <div className="animate-pulse rounded-xl bg-card border border-border p-4 shadow-sm h-16" />
+      <div className="animate-pulse rounded-xl bg-card border border-border p-4 shadow-sm h-24" />
     </>
   );
 }

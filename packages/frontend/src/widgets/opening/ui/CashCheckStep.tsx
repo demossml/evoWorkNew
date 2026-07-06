@@ -77,7 +77,7 @@ export default function CashCheckStep({
       <h2 className="text-lg font-semibold">Проверка кассы</h2>
 
       {errorMessage && (
-        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm text-destructive">
           {errorMessage}
         </div>
       )}
@@ -110,14 +110,14 @@ export default function CashCheckStep({
 
       <div className="flex gap-2">
         <button
-          className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-xl shadow"
+          className="flex-1 py-3 bg-secondary text-secondary-foreground rounded-xl shadow"
           onClick={() => setCurrentStep("photos")}
           disabled={isSubmitting}
         >
           Назад к фото
         </button>
         <button
-          className="flex-1 py-3 bg-blue-600 text-white rounded-xl shadow"
+          className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl shadow"
           onClick={finish}
           disabled={isCorrect === null || isSubmitting}
         >

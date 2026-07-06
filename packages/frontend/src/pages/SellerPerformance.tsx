@@ -98,11 +98,11 @@ function KpiCards({ snapshot, prevSnapshot }: { snapshot: any; prevSnapshot: any
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.05 }}
-          className="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm border border-gray-100 dark:border-gray-700"
+          className="bg-card rounded-xl p-3 shadow-sm border border-border"
         >
           <div className={`${c.color} mb-1`}>{c.icon}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">{c.label}</div>
-          <div className="text-base font-bold text-gray-800 dark:text-gray-100">{c.value}</div>
+          <div className="text-xs text-muted-foreground">{c.label}</div>
+          <div className="text-base font-bold text-foreground">{c.value}</div>
           {c.delta != null && (
             <div className={`text-xs font-medium mt-0.5 ${c.delta > 0 ? "text-emerald-500" : c.delta < 0 ? "text-red-500" : "text-gray-400"}`}>
               {c.delta > 0 ? "↑" : c.delta < 0 ? "↓" : "="} vs пред. период: {c.deltaFmt!(c.delta)}
@@ -127,23 +127,23 @@ function StoreComparison({ stores, onSelect, selected }: { stores: StoreBaseline
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.08 }}
           onClick={() => onSelect(isActive ? "all" : s.store)}
-          className={`bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border cursor-pointer hover:shadow-md transition-all active:scale-[0.98] ${
+          className={`bg-card rounded-xl p-4 shadow-sm border cursor-pointer hover:shadow-md transition-all active:scale-[0.98] ${
             isActive
-              ? "border-blue-500 dark:border-blue-400 ring-2 ring-blue-500/30"
-              : "border-gray-100 dark:border-gray-700"
+              ? "border-primary dark:border-blue-400 ring-2 ring-blue-500/30"
+              : "border-border"
           }`}
         >
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-sm text-gray-800 dark:text-gray-100">{s.store}</h3>
+            <h3 className="font-semibold text-sm text-foreground">{s.store}</h3>
             <Store className="w-4 h-4 text-gray-400" />
           </div>
-          <div className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-1">{fmtRub(s.avgDailyRev)}</div>
+          <div className="text-2xl font-bold text-foreground mb-1">{fmtRub(s.avgDailyRev)}</div>
           <div className="text-xs text-gray-500">средняя выручка/день</div>
           <div className="flex gap-3 mt-2 text-xs">
-            <span className="text-gray-500">Чек <span className="font-medium text-gray-700 dark:text-gray-300">{s.avgCheck} ₽</span></span>
+            <span className="text-gray-500">Чек <span className="font-medium text-foreground">{s.avgCheck} ₽</span></span>
             <span className="text-gray-500">CV <span className={`font-medium ${s.cv > 30 ? "text-red-500" : "text-emerald-500"}`}>{s.cv}%</span></span>
           </div>
-            <div className="mt-1.5 w-full h-1 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div className="mt-1.5 w-full h-1 bg-muted rounded-full overflow-hidden">
             <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.min(s.avgDailyRev / maxRev * 100, 100)}%` }} />
           </div>
         </motion.div>
@@ -191,7 +191,7 @@ function SellerTable({ sellers, filter, sortBy, onSort }: {
       <div className="hidden sm:block overflow-x-auto -mx-1">
       <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-gray-100 dark:border-gray-700">
+          <tr className="border-b border-border">
             <th className="text-left p-2 text-gray-400 font-medium w-6">#</th>
             <th className="text-left p-2 text-gray-400 font-medium">Продавец</th>
             {headers.map(h => (
@@ -227,17 +227,17 @@ function SellerTable({ sellers, filter, sortBy, onSort }: {
               >
                 <td className="p-2 text-gray-400">{idx + 1}</td>
                 <td className="p-2">
-                  <div className="font-medium text-gray-800 dark:text-gray-100">{s.name}</div>
+                  <div className="font-medium text-foreground">{s.name}</div>
                   <div className="text-xs text-gray-400">{s.daysWorked}д · {s.storeLabels.join(", ")}</div>
                 </td>
-                <td className="p-2 text-right font-semibold text-gray-800 dark:text-gray-100">{fmtRub(s.avgDailyRev)}</td>
-                <td className="p-2 text-right text-gray-700 dark:text-gray-200">{s.avgCheck} ₽</td>
+                <td className="p-2 text-right font-semibold text-foreground">{fmtRub(s.avgDailyRev)}</td>
+                <td className="p-2 text-right text-foreground">{s.avgCheck} ₽</td>
                 <td className="p-2 text-right">
                   <span className={`font-medium ${s.cv > 35 ? "text-red-500" : s.cv > 30 ? "text-amber-500" : "text-emerald-500"}`}>
                     {s.cv}%
                   </span>
                 </td>
-                <td className="p-2 text-right text-gray-600 dark:text-gray-300">{s.vapeShare}%</td>
+                <td className="p-2 text-right text-muted-foreground">{s.vapeShare}%</td>
                 <td className="p-2 text-right">
                   <span className={`font-medium ${s.efficiencyVsStore >= 100 ? "text-emerald-500" : s.efficiencyVsStore >= 95 ? "text-amber-500" : "text-red-500"}`}>
                     {s.efficiencyVsStore > 0 ? `${s.efficiencyVsStore}%` : "—"}
@@ -285,14 +285,14 @@ function SellerTable({ sellers, filter, sortBy, onSort }: {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.04 }}
-            className={`bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm border border-gray-100 dark:border-gray-700 ${isAdmin ? "opacity-50" : ""}`}
+            className={`bg-card rounded-xl p-3 shadow-sm border border-border ${isAdmin ? "opacity-50" : ""}`}
           >
             {/* Top row: rank + name + risk */}
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-lg font-bold text-gray-400 w-6">#{idx + 1}</span>
                 <div>
-                  <div className="font-semibold text-sm text-gray-800 dark:text-gray-100">{s.name}</div>
+                  <div className="font-semibold text-sm text-foreground">{s.name}</div>
                   <div className="text-xs text-gray-400">{s.daysWorked}д · {s.storeLabels.join(", ")}</div>
                 </div>
               </div>
@@ -303,7 +303,7 @@ function SellerTable({ sellers, filter, sortBy, onSort }: {
 
             {/* Main KPI: big revenue number */}
             <div className="flex items-baseline gap-2 mb-2">
-              <span className="text-xl font-bold text-gray-800 dark:text-gray-100">{fmtRub(s.avgDailyRev)}</span>
+              <span className="text-xl font-bold text-foreground">{fmtRub(s.avgDailyRev)}</span>
               <span className="text-xs text-gray-400">₽/день</span>
               {s.deltaRank != null && (
                 <span className={`ml-auto text-xs font-semibold ${
@@ -315,8 +315,8 @@ function SellerTable({ sellers, filter, sortBy, onSort }: {
             </div>
 
             {/* Metrics row */}
-            <div className="flex gap-3 text-xs text-gray-600 dark:text-gray-300 flex-wrap">
-              <span>Чек <b className="text-gray-800 dark:text-gray-100">{s.avgCheck} ₽</b></span>
+            <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
+              <span>Чек <b className="text-foreground">{s.avgCheck} ₽</b></span>
               <span className={s.cv > 35 ? "text-red-500" : s.cv > 30 ? "text-amber-500" : "text-emerald-500"}>
                 CV <b>{s.cv}%</b>
               </span>
@@ -325,7 +325,7 @@ function SellerTable({ sellers, filter, sortBy, onSort }: {
                 Эфф <b>{s.efficiencyVsStore > 0 ? `${s.efficiencyVsStore}%` : "—"}</b>
               </span>
               {s.rubPerHour != null && (
-                <span>₽/ч <b className="text-gray-800 dark:text-gray-100">{fmtRub(s.rubPerHour)}</b></span>
+                <span>₽/ч <b className="text-foreground">{fmtRub(s.rubPerHour)}</b></span>
               )}
             </div>
 
@@ -374,16 +374,16 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25 }}
-        className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl max-h-[85vh] w-full sm:max-w-lg overflow-y-auto shadow-2xl"
+        className="bg-card rounded-t-2xl sm:rounded-2xl max-h-[85vh] w-full sm:max-w-lg overflow-y-auto shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-3 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between z-10">
           <div>
-            <h2 className="font-bold text-gray-800 dark:text-gray-100">{seller.name}</h2>
+            <h2 className="font-bold text-foreground">{seller.name}</h2>
             <div className="text-xs text-gray-400">{seller.daysWorked} смен · {seller.totalChecks} чеков · {seller.storeLabels.join(", ")}</div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-muted">
             <ChevronDown className="w-5 h-5 text-gray-400" />
           </button>
         </div>
@@ -391,28 +391,28 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
         <div className="p-4 space-y-4">
           {/* KPI grid */}
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-3">
+            <div className="bg-muted rounded-lg p-3">
               <div className="text-xs text-gray-500">Выручка/день</div>
-              <div className="text-lg font-bold text-gray-800 dark:text-gray-100">{fmtRub(seller.avgDailyRev)}</div>
+              <div className="text-lg font-bold text-foreground">{fmtRub(seller.avgDailyRev)}</div>
             </div>
-            <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-3">
+            <div className="bg-muted rounded-lg p-3">
               <div className="text-xs text-gray-500">Средний чек</div>
-              <div className="text-lg font-bold text-gray-800 dark:text-gray-100">{seller.avgCheck} ₽</div>
+              <div className="text-lg font-bold text-foreground">{seller.avgCheck} ₽</div>
             </div>
-            <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-3">
+            <div className="bg-muted rounded-lg p-3">
               <div className="text-xs text-gray-500">Чеков/день</div>
-              <div className="text-lg font-bold text-gray-800 dark:text-gray-100">{seller.checksPerDay}</div>
+              <div className="text-lg font-bold text-foreground">{seller.checksPerDay}</div>
             </div>
-            <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-3">
+            <div className="bg-muted rounded-lg p-3">
               <div className="text-xs text-gray-500">Эфф. vs магазин</div>
               <div className={`text-lg font-bold ${seller.efficiencyVsStore >= 100 ? "text-emerald-500" : "text-amber-500"}`}>
                 {seller.efficiencyVsStore > 0 ? `${seller.efficiencyVsStore}%` : "—"}
               </div>
             </div>
             {seller.rubPerHour != null && (
-              <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-3">
+              <div className="bg-muted rounded-lg p-3">
                 <div className="text-xs text-gray-500">₽/час</div>
-                <div className="text-lg font-bold text-gray-800 dark:text-gray-100">{fmtRub(seller.rubPerHour)}</div>
+                <div className="text-lg font-bold text-foreground">{fmtRub(seller.rubPerHour)}</div>
                 <div className="text-[9px] text-gray-400">{seller.avgHours}ч/день</div>
               </div>
             )}
@@ -420,11 +420,11 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
 
           {/* Trend + CV + MAD */}
           <div className="flex gap-3 text-xs">
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-gray-100 dark:bg-gray-700">
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-muted">
               <span className={t.color}>{t.icon}</span>
               Тренд {seller.trendSlope > 0 ? "+" : ""}{seller.trendSlope} ₽/д (R²={seller.trendR2.toFixed(3)})
             </span>
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-gray-100 dark:bg-gray-700">
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-muted">
               CV {seller.cv}% · MAD {seller.mad.toFixed(3)}
             </span>
           </div>
@@ -434,10 +434,10 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
             <div className={`rounded-lg p-3 border text-xs ${
               seller.deltaRank > 0 ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800" :
               seller.deltaRank < 0 ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" :
-              "bg-gray-50 dark:bg-gray-750 border-gray-200 dark:border-gray-700"
+              "bg-muted border-border"
             }`}>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-bold text-gray-800 dark:text-gray-100">#{seller.rank}</span>
+                <span className="text-lg font-bold text-foreground">#{seller.rank}</span>
                 <span className="text-gray-400">→</span>
                 <span className={`font-semibold ${
                   seller.deltaRank > 0 ? "text-emerald-600" : seller.deltaRank < 0 ? "text-red-600" : "text-gray-500"
@@ -459,9 +459,9 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
             <div className="mb-2">
               <div className="flex justify-between text-xs mb-0.5">
                 <span className="text-gray-500">Средний чек</span>
-                <span className="font-medium text-gray-700 dark:text-gray-200">{seller.avgCheck} / {seller.targetAvgCheck} ₽</span>
+                <span className="font-medium text-foreground">{seller.avgCheck} / {seller.targetAvgCheck} ₽</span>
               </div>
-              <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+              <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${seller.avgCheck >= seller.targetAvgCheck ? "bg-emerald-500" : "bg-blue-500"}`}
                   style={{ width: `${Math.min(seller.avgCheck / seller.targetAvgCheck * 100, 100)}%` }}
@@ -475,9 +475,9 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
             <div>
               <div className="flex justify-between text-xs mb-0.5">
                 <span className="text-gray-500">Vape-доля</span>
-                <span className="font-medium text-gray-700 dark:text-gray-200">{seller.vapeShare} / {seller.targetVapeShare}%</span>
+                <span className="font-medium text-foreground">{seller.vapeShare} / {seller.targetVapeShare}%</span>
               </div>
-              <div className="w-full h-2 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+              <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${seller.vapeShare >= seller.targetVapeShare ? "bg-emerald-500" : "bg-purple-500"}`}
                   style={{ width: `${Math.min(seller.vapeShare / seller.targetVapeShare * 100, 100)}%` }}
@@ -522,7 +522,7 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
           {seller.categoryBreakdown && seller.categoryBreakdown.length > 0 && (
             <div>
               <div className="text-xs text-gray-500 mb-1">Категории</div>
-              <div className="flex h-4 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
+              <div className="flex h-4 rounded-full overflow-hidden bg-muted">
                 {seller.categoryBreakdown.map((cat, i) => {
                   const colors = ["#8b5cf6", "#f59e0b", "#3b82f6", "#10b981", "#ef4444", "#ec4899", "#6366f1", "#14b8a6"];
                   return (
@@ -541,7 +541,7 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
                   return (
                     <span key={i} className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colors[i % colors.length] }} />
-                      <span className="text-gray-600 dark:text-gray-300">{cat.name} {cat.share}%</span>
+                      <span className="text-muted-foreground">{cat.name} {cat.share}%</span>
                     </span>
                   );
                 })}
@@ -623,13 +623,13 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
                 const sBaseline = ([] as any[]).find(b => b.store === st.store);
                 const eff = sBaseline ? Math.round(st.avgDailyRev / sBaseline.avgDailyRev * 100) : null;
                 return (
-                  <div key={st.store} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-gray-50 dark:bg-gray-750">
+                  <div key={st.store} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-muted">
                     <div>
-                      <span className="font-medium text-gray-700 dark:text-gray-200">{st.store}</span>
+                      <span className="font-medium text-foreground">{st.store}</span>
                       <span className="text-gray-400 ml-2">{st.days}д</span>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold text-gray-800 dark:text-gray-100">{fmtRub(st.avgDailyRev)}</div>
+                      <div className="font-semibold text-foreground">{fmtRub(st.avgDailyRev)}</div>
                       {eff !== null && (
                         <div className={`text-xs ${eff >= 100 ? "text-emerald-500" : eff >= 95 ? "text-amber-500" : "text-red-500"}`}>
                           {eff}% от среднего
@@ -684,7 +684,7 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
           )}
 
           {isAdmin && (
-            <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-3 text-xs text-gray-500">
+            <div className="bg-muted rounded-lg p-3 text-xs text-gray-500">
               ⚠️ Исключён из общего рейтинга — всего {seller.daysWorked} смен. Требуется минимум 20 смен для статистической значимости.
             </div>
           )}
@@ -710,8 +710,8 @@ function Charts({ sellers, dowData }: { sellers: SellerMetrics[]; dowData: DowDa
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {/* Bar: CV vs Avg Check */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm border border-gray-100 dark:border-gray-700">
-        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-1.5">
+      <div className="bg-card rounded-xl p-3 shadow-sm border border-border">
+        <h4 className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
           <BarChart3 className="w-3.5 h-3.5" />Выручка/день по продавцам
         </h4>
         <div className="h-48">
@@ -733,8 +733,8 @@ function Charts({ sellers, dowData }: { sellers: SellerMetrics[]; dowData: DowDa
       </div>
 
       {/* DOW heatmap */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm border border-gray-100 dark:border-gray-700">
-        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-1.5">
+      <div className="bg-card rounded-xl p-3 shadow-sm border border-border">
+        <h4 className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
           <Calendar className="w-3.5 h-3.5" />Выручка по дням недели (heatmap)
         </h4>
         <div className="overflow-x-auto">
@@ -750,8 +750,8 @@ function Charts({ sellers, dowData }: { sellers: SellerMetrics[]; dowData: DowDa
             <tbody>
               {dowData.map(d => {
                 return (
-                  <tr key={d.store} className="border-t border-gray-100 dark:border-gray-700">
-                    <td className="p-1 font-medium text-gray-700 dark:text-gray-200">{d.store}</td>
+                  <tr key={d.store} className="border-t border-border">
+                    <td className="p-1 font-medium text-foreground">{d.store}</td>
                     {[0,1,2,3,4,5,6].map(dow => {
                       const val = d[dow as keyof typeof d] as number;
                       const intensity = val / maxDow;
@@ -830,7 +830,7 @@ function Insights({ sellers }: { sellers: SellerMetrics[] }) {
 
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+      <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
         <Zap className="w-4 h-4 text-amber-500" />Insights & Alerts
       </h3>
 
@@ -861,7 +861,7 @@ function Insights({ sellers }: { sellers: SellerMetrics[] }) {
                   {s.name}
                 </div>
                 {s.riskReasons.map((r, i) => (
-                  <div key={i} className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{r}</div>
+                  <div key={i} className="text-xs text-muted-foreground mt-0.5">{r}</div>
                 ))}
               </div>
             </div>
@@ -870,7 +870,7 @@ function Insights({ sellers }: { sellers: SellerMetrics[] }) {
             {detail && (
               <button
                 onClick={() => setExpanded(isExpanded ? null : s.uuid)}
-                className="mt-2 w-full text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-white/60 dark:bg-gray-800/40 border border-gray-200/50 dark:border-gray-700/50 transition-colors"
+                className="mt-2 w-full text-xs font-medium text-muted-foreground hover:text-gray-700 dark:hover:text-gray-200 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-white/60 dark:bg-gray-800/40 border border-gray-200/50 dark:border-border/50 transition-colors"
               >
                 {isExpanded ? (
                   <><ChevronUp className="w-3 h-3" />Свернуть</>
@@ -890,19 +890,19 @@ function Insights({ sellers }: { sellers: SellerMetrics[] }) {
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden border-t border-red-200/50 dark:border-red-800/50"
               >
-                <div className="p-3 space-y-3 bg-white/40 dark:bg-gray-900/20">
+                <div className="p-3 space-y-3 bg-white/40 dark:bg-background/20">
                   {/* Diagnosis */}
                   <div>
-                    <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Диагноз</div>
-                    <div className="text-xs text-gray-800 dark:text-gray-200 leading-relaxed">{detail.diagnosis}</div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Диагноз</div>
+                    <div className="text-xs text-foreground leading-relaxed">{detail.diagnosis}</div>
                   </div>
 
                   {/* Causes */}
                   <div>
-                    <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Причины</div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Причины</div>
                     <div className="space-y-1">
                       {detail.causes.map((c, i) => (
-                        <div key={i} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
+                        <div key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
                           <span className="text-red-400 mt-0.5 shrink-0">•</span>
                           <span>{c}</span>
                         </div>
@@ -915,7 +915,7 @@ function Insights({ sellers }: { sellers: SellerMetrics[] }) {
                     <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mb-1">План действий</div>
                     <div className="space-y-1">
                       {detail.actions.map((a, i) => (
-                        <div key={i} className="text-xs text-gray-700 dark:text-gray-300 flex items-start gap-1.5">
+                        <div key={i} className="text-xs text-foreground flex items-start gap-1.5">
                           <span className="text-emerald-500 font-bold mt-0.5 shrink-0">{i + 1}.</span>
                           <span>{a}</span>
                         </div>
@@ -936,7 +936,7 @@ function Insights({ sellers }: { sellers: SellerMetrics[] }) {
           <Calendar className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
           <div>
             <div className="text-xs font-semibold text-blue-700 dark:text-blue-400">Спад в выходные: −40%</div>
-            <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+            <div className="text-xs text-muted-foreground mt-0.5">
               Победа и Твардоского теряют 40% выручки в Сб–Вс. Рекомендуется: промо-акции на выходные, сменное расписание под трафик.
             </div>
           </div>
@@ -949,7 +949,7 @@ function Insights({ sellers }: { sellers: SellerMetrics[] }) {
           <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
           <div>
             <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Гипотезы H1, H3 — подтверждены</div>
-            <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+            <div className="text-xs text-muted-foreground mt-0.5">
               Store fixed effects значимы. Выходные — структурный фактор. H5 опровергнута: продавец влияет на чек сильнее локации.
             </div>
           </div>
@@ -1018,27 +1018,27 @@ function HelpModal({ onClose }: { onClose: () => void }) {
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25 }}
-        className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl max-h-[85vh] w-full sm:max-w-lg overflow-y-auto shadow-2xl"
+        className="bg-card rounded-t-2xl sm:rounded-2xl max-h-[85vh] w-full sm:max-w-lg overflow-y-auto shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-3 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between z-10">
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-blue-500" />
             <div>
-              <h2 className="font-bold text-gray-800 dark:text-gray-100">Как читать дашборд</h2>
+              <h2 className="font-bold text-foreground">Как читать дашборд</h2>
               <div className="text-xs text-gray-400">Методология исследования v2.1</div>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-muted">
             <ChevronDown className="w-5 h-5 text-gray-400" />
           </button>
         </div>
 
         <div className="p-4 space-y-4">
           {sections.map((s, i) => (
-            <div key={i} className="bg-gray-50 dark:bg-gray-750 rounded-lg p-3 border border-gray-100 dark:border-gray-700">
-              <h3 className="text-xs font-semibold text-gray-800 dark:text-gray-100 mb-1.5">{s.title}</h3>
-              <p className="text-xs text-gray-600 dark:text-gray-300 mb-1.5 leading-relaxed">{s.content}</p>
+            <div key={i} className="bg-muted rounded-lg p-3 border border-border">
+              <h3 className="text-xs font-semibold text-foreground mb-1.5">{s.title}</h3>
+              <p className="text-xs text-muted-foreground mb-1.5 leading-relaxed">{s.content}</p>
               <div className="text-xs text-blue-600 dark:text-blue-400 flex items-start gap-1">
                 <span className="mt-0.5">→</span>
                 <span>{s.action}</span>
@@ -1048,7 +1048,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
 
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
             <div className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-1">📐 Источники данных</div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">
+            <div className="text-xs text-muted-foreground">
               DuckDB: evotor.duckdb (30 091 продаж). Таблицы: sells, employees, positions, product_groups, vape_groups.
               Период: 04.03.2026 – 03.06.2026 (90 дней). Покрытие open_user_uuid: 99.4%.
             </div>
@@ -1121,24 +1121,24 @@ export default function SellerPerformancePage() {
   const selected = sellers.find(s => s.uuid === selectedSeller) || null;
 
   const kpiItems = [
-    { label: "Общая выручка", value: fmtRub(snapshot.totalRevenue), variant: "green" as const },
-    { label: "Ср. выручка/день", value: fmtRub(snapshot.avgDailyRev), variant: "blue" as const },
-    { label: "Средний чек", value: `${snapshot.avgCheck} ₽`, variant: "purple" as const },
-    { label: "Всего смен", value: String(snapshot.totalShifts), variant: "amber" as const },
-    { label: "Активны сегодня", value: String(snapshot.activeToday), variant: "gray" as const },
+    { label: "Общая выручка", value: fmtRub(snapshot.totalRevenue), emphasis: "primary" as const },
+    { label: "Ср. выручка/день", value: fmtRub(snapshot.avgDailyRev) },
+    { label: "Средний чек", value: `${snapshot.avgCheck} ₽` },
+    { label: "Всего смен", value: String(snapshot.totalShifts) },
+    { label: "Активны сегодня", value: String(snapshot.activeToday) },
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="flex flex-col min-h-screen bg-background">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-20 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
+      <div className="sticky top-0 z-20 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-border">
         <div className="px-4 py-2.5">
           <div className="flex items-center gap-3">
             <button onClick={() => navigate(-1)} className="p-1 -ml-1">
-              <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+              <ArrowLeft className="w-5 h-5 text-muted-foreground" />
             </button>
             <div className="shrink-0 min-w-0">
-              <h1 className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate">Эффективность</h1>
+              <h1 className="text-sm font-bold text-foreground truncate">Эффективность</h1>
               <div className="text-xs text-gray-400">v3 · {period}д</div>
             </div>
 
@@ -1161,8 +1161,8 @@ export default function SellerPerformancePage() {
                   onClick={() => setPeriod(d)}
                   className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${
                     period === d
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-650"
+                      ? "bg-primary text-white shadow-sm"
+                      : "bg-muted text-muted-foreground hover:bg-gray-200 dark:hover:bg-gray-650"
                   }`}
                 >
                   {d}д
@@ -1173,7 +1173,7 @@ export default function SellerPerformancePage() {
                 className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors flex items-center gap-1 ${
                   showCharts
                     ? "bg-purple-600 text-white shadow-sm"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                    : "bg-muted text-muted-foreground"
                 }`}
               >
                 <BarChart3 className="w-3 h-3" />Графики
@@ -1190,7 +1190,7 @@ export default function SellerPerformancePage() {
                 className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
                   storeFilter === f
                     ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-650"
+                    : "bg-muted text-muted-foreground hover:bg-gray-200 dark:hover:bg-gray-650"
                 }`}
               >
                 {f === "all" ? "Все" : f}
@@ -1213,7 +1213,7 @@ export default function SellerPerformancePage() {
 
         {/* Store Comparison */}
         <div>
-          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1.5">
+          <h3 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
             <Store className="w-3.5 h-3.5" />Сравнение магазинов
           </h3>
           <StoreComparison stores={baselines} onSelect={setStoreFilter} selected={storeFilter} />
@@ -1236,7 +1236,7 @@ export default function SellerPerformancePage() {
         {/* Seller Table */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5" />Рейтинг продавцов
             </h3>
             <button
@@ -1246,7 +1246,7 @@ export default function SellerPerformancePage() {
               <ArrowUpDown className="w-3 h-3" />Сбросить сортировку
             </button>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+          <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
             <SellerTable sellers={activeSellers} filter={storeFilter} sortBy={sortBy} onSort={setSortBy} />
           </div>
           {/* Efficiency footnote */}
@@ -1257,7 +1257,7 @@ export default function SellerPerformancePage() {
 
         {/* Hypotheses */}
         <div>
-          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1.5">
+          <h3 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
             <Target className="w-3.5 h-3.5" />Гипотезы исследования
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1279,7 +1279,7 @@ export default function SellerPerformancePage() {
                     {h.id}: {h.confirmed ? "Подтверждено" : "Не подтверждено"}
                   </span>
                 </div>
-                <div className="text-gray-600 dark:text-gray-400">{h.summary}</div>
+                <div className="text-muted-foreground">{h.summary}</div>
               </div>
             ))}
           </div>

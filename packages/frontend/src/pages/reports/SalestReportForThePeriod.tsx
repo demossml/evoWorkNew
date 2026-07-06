@@ -110,7 +110,7 @@ export default function SalesSummaryReport() {
   if (loading) {
     return (
       <div className="app-page flex min-h-[60vh] items-center justify-center">
-        <div className="w-16 h-16 border-4 border-t-transparent border-blue-500 border-solid rounded-full animate-spin" />
+        <div className="w-16 h-16 border-4 border-t-transparent border-primary border-solid rounded-full animate-spin" />
       </div>
     );
   }
@@ -138,7 +138,7 @@ export default function SalesSummaryReport() {
               onClick={() => setDateMode("today")}
               className={`rounded-lg border px-3 py-2 text-sm transition ${
                 dateMode === "today"
-                  ? "border-blue-600 bg-blue-600 text-white"
+                  ? "border-blue-600 bg-primary text-white"
                   : "border-slate-300 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               }`}
             >
@@ -148,7 +148,7 @@ export default function SalesSummaryReport() {
               onClick={() => setDateMode("yesterday")}
               className={`rounded-lg border px-3 py-2 text-sm transition ${
                 dateMode === "yesterday"
-                  ? "border-blue-600 bg-blue-600 text-white"
+                  ? "border-blue-600 bg-primary text-white"
                   : "border-slate-300 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               }`}
             >
@@ -167,7 +167,7 @@ export default function SalesSummaryReport() {
                 <button
                   className={`rounded-lg border px-3 py-2 text-sm transition ${
                     dateMode === "period"
-                      ? "border-blue-600 bg-blue-600 text-white"
+                      ? "border-blue-600 bg-primary text-white"
                       : "border-slate-300 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                   }`}
                   onClick={() => {
@@ -199,7 +199,7 @@ export default function SalesSummaryReport() {
                     Отмена
                   </button>
                   <button
-                    className="px-3 py-1 rounded bg-blue-600 text-white disabled:bg-gray-400"
+                    className="px-3 py-1 rounded bg-primary text-white disabled:bg-gray-400"
                     disabled={!(tempPeriod?.from && tempPeriod?.to)}
                     onClick={() => {
                       setPeriod(tempPeriod);
@@ -221,8 +221,8 @@ export default function SalesSummaryReport() {
             onClick={loadReport}
             className={`w-full py-3 rounded-xl font-medium text-white transition ${
               canRunReport
-                ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-                : "bg-gray-300 dark:bg-gray-700 cursor-not-allowed"
+                ? "bg-primary hover:bg-primary/90 dark:bg-blue-500 dark:hover:bg-primary"
+                : "bg-muted cursor-not-allowed"
             }`}
             disabled={!canRunReport}
           >
@@ -243,10 +243,10 @@ export default function SalesSummaryReport() {
               Период: {reportData.startDate} - {reportData.endDate}
             </p>
             <ReportKPIBar items={[
-              { label: "Продажи", value: formatMoney(reportData.grandTotalSell || 0), variant: "gray" },
-              { label: "Возвраты", value: formatMoney(reportData.grandTotaRefund || 0), variant: "gray" },
-              { label: "Выплаты", value: formatMoney(reportData.grandTotaCashOutcome || 0), variant: "gray" },
-              { label: "Нетто", value: formatMoney(analytics.netTotal), variant: "gray" },
+              { label: "Продажи", value: formatMoney(reportData.grandTotalSell || 0) },
+              { label: "Возвраты", value: formatMoney(reportData.grandTotaRefund || 0) },
+              { label: "Выплаты", value: formatMoney(reportData.grandTotaCashOutcome || 0) },
+              { label: "Нетто", value: formatMoney(analytics.netTotal), emphasis: "primary" },
             ]} />
 
             {analytics.hasConsistencyIssue ? (

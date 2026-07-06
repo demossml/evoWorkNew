@@ -241,7 +241,7 @@ function AccessoriesCard({
       onClick={onClick}
     >
       <div className="flex items-center justify-between mb-2">
-        <div className="text-sm text-gray-600 dark:text-gray-300">
+        <div className="text-sm text-muted-foreground">
           Аксессуары
         </div>
         <Cherry className="w-6 h-6 text-blue-600 dark:text-blue-400" />
@@ -296,7 +296,7 @@ function AccessoriesSummaryStats({
   return (
     <div className="grid grid-cols-2 gap-4 mb-6">
       <div className="bg-blue-100 dark:bg-blue-900 rounded-lg p-4 flex flex-col items-center justify-center min-h-[92px] col-span-1">
-        <div className="text-xs text-gray-700 dark:text-gray-300 mb-2">
+        <div className="text-xs text-foreground mb-2">
           Суммы по магазинам
         </div>
         <div className="flex flex-col gap-1 w-full items-center">
@@ -305,7 +305,7 @@ function AccessoriesSummaryStats({
               key={shop.shopName}
               className="flex flex-row items-center justify-between w-full text-xs font-semibold text-blue-800 dark:text-blue-200"
             >
-              <span className="truncate max-w-[60%] text-gray-800 dark:text-gray-200">
+              <span className="truncate max-w-[60%] text-foreground">
                 {shop.shopName}
               </span>
               <span className="ml-2 whitespace-nowrap">
@@ -319,23 +319,23 @@ function AccessoriesSummaryStats({
         <div className="text-white text-2xl font-bold mb-1">
           {totalProducts}
         </div>
-        <div className="text-xs text-gray-300 dark:text-gray-400">
+        <div className="text-xs text-gray-300 dark:text-muted-foreground">
           ВСЕГО ТОВАРОВ
         </div>
       </div>
       <div className="bg-gray-800 dark:bg-gray-700 rounded-lg p-4 flex flex-col items-center justify-center min-h-[92px]">
         <div className="text-white text-2xl font-bold mb-1">{topShare}%</div>
-        <div className="text-xs text-gray-300 dark:text-gray-400">
+        <div className="text-xs text-gray-300 dark:text-muted-foreground">
           ДОЛЯ ТОП-3
         </div>
       </div>
       <div className="bg-gray-800 dark:bg-gray-700 rounded-lg p-4 flex flex-col items-center justify-center min-h-[92px]">
         <div className="text-white text-2xl font-bold mb-1">{avgPrice}</div>
-        <div className="text-xs text-gray-300 dark:text-gray-400">СР. ЦЕНА</div>
+        <div className="text-xs text-gray-300 dark:text-muted-foreground">СР. ЦЕНА</div>
       </div>
       <div className="bg-gray-800 dark:bg-gray-700 rounded-lg p-4 flex flex-col items-center justify-center min-h-[92px]">
         <div className="text-white text-2xl font-bold mb-1">{totalQty}</div>
-        <div className="text-xs text-gray-300 dark:text-gray-400">
+        <div className="text-xs text-gray-300 dark:text-muted-foreground">
           ПРОДАНО ШТ
         </div>
       </div>
@@ -362,7 +362,7 @@ function AccessoriesDetails({
   const list = data.total;
   const sorted = [...list].sort((a, b) => b.sum - a.sum);
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+    <div className="bg-card rounded-lg p-4 shadow">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white">
           {"Продажи"}
@@ -374,7 +374,7 @@ function AccessoriesDetails({
               className={`rounded px-2 py-1 ${
                 productScope === "accessories"
                   ? "bg-cyan-600 text-white"
-                  : "text-gray-600 dark:text-gray-300"
+                  : "text-muted-foreground"
               }`}
               onClick={() => onProductScopeChange("accessories")}
             >
@@ -385,7 +385,7 @@ function AccessoriesDetails({
               className={`rounded px-2 py-1 ${
                 productScope === "nonAccessories"
                   ? "bg-slate-700 text-white"
-                  : "text-gray-600 dark:text-gray-300"
+                  : "text-muted-foreground"
               }`}
               onClick={() => onProductScopeChange("nonAccessories")}
             >
@@ -394,7 +394,7 @@ function AccessoriesDetails({
           </div>
           {shopOptions.length > 1 && (
             <select
-              className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+              className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-foreground"
               value={shopFilter}
               onChange={(event) => onShopFilterChange(event.target.value)}
             >
@@ -415,7 +415,7 @@ function AccessoriesDetails({
             className="flex justify-between items-center mb-2"
           >
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-xs text-gray-800 dark:text-gray-300">
+              <span className="font-semibold text-xs text-gray-800 dark:text-foreground">
                 {idx + 1}.
               </span>
               <span className="font-bold text-sm text-gray-900 dark:text-white">
@@ -426,7 +426,7 @@ function AccessoriesDetails({
               <div className="text-sm font-bold text-blue-700 dark:text-blue-400">
                 {sale.sum.toLocaleString()} ₽
               </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">
+              <div className="text-xs text-muted-foreground">
                 {sale.quantity} шт
               </div>
             </div>
@@ -450,7 +450,7 @@ function OpeningPhotoDigestDetails({
   onRefresh: () => Promise<void>;
 }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+    <div className="bg-card rounded-lg p-4 shadow">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white">
           AI-дайджест утреннего открытия
@@ -472,18 +472,18 @@ function OpeningPhotoDigestDetails({
       )}
 
       {!data?.shops?.length && !loading && !error && (
-        <div className="rounded-md bg-gray-100 dark:bg-gray-700 p-3 text-sm text-gray-700 dark:text-gray-200">
+        <div className="rounded-md bg-muted p-3 text-sm text-foreground">
           Нет данных по утренним фото за выбранную дату.
         </div>
       )}
 
       <div className="space-y-3">
         {data?.shops?.map((shop) => (
-          <div key={shop.shopUuid} className="rounded-md border p-3 dark:border-gray-700">
-            <div className="mb-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+          <div key={shop.shopUuid} className="rounded-md border p-3 dark:border-border">
+            <div className="mb-1 text-sm font-semibold text-foreground">
               {shop.shopName}
             </div>
-            <div className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+            <div className="mb-2 text-xs text-muted-foreground">
               Фото: {shop.photoCount}
               {shop.openedByName ? ` • Открыл: ${shop.openedByName}` : ""}
             </div>
@@ -493,16 +493,16 @@ function OpeningPhotoDigestDetails({
 
             {shop.photos && shop.photos.length > 0 && (
               <details className="mt-2">
-                <summary className="cursor-pointer text-xs text-gray-600 dark:text-gray-300">
+                <summary className="cursor-pointer text-xs text-muted-foreground">
                   Показать описания фото
                 </summary>
                 <div className="mt-2 space-y-1">
                   {shop.photos.map((photo) => (
                     <div
                       key={photo.key}
-                      className="rounded bg-gray-100 dark:bg-gray-700 p-2 text-xs text-gray-700 dark:text-gray-200"
+                      className="rounded bg-muted p-2 text-xs text-foreground"
                     >
-                      <div className="mb-1 text-gray-500 dark:text-gray-400">
+                      <div className="mb-1 text-muted-foreground">
                         [{photo.category}] {photo.key.split("/").pop()}
                       </div>
                       <div>{photo.description}</div>
@@ -856,8 +856,8 @@ export default function DashboardSummary2({
         <button
           className={`rounded-lg border px-3 py-2 text-sm transition ${
             dateMode === "today"
-              ? "border-blue-600 bg-blue-600 text-white"
-              : "border-gray-300 bg-white text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+              ? "border-blue-600 bg-primary text-white"
+              : "border-gray-300 bg-white text-gray-800 dark:border-border dark:bg-gray-800 dark:text-foreground"
           }`}
           onClick={() => setDateMode("today")}
         >
@@ -866,8 +866,8 @@ export default function DashboardSummary2({
         <button
           className={`rounded-lg border px-3 py-2 text-sm transition ${
             dateMode === "yesterday"
-              ? "border-blue-600 bg-blue-600 text-white"
-              : "border-gray-300 bg-white text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+              ? "border-blue-600 bg-primary text-white"
+              : "border-gray-300 bg-white text-gray-800 dark:border-border dark:bg-gray-800 dark:text-foreground"
           }`}
           onClick={() => setDateMode("yesterday")}
         >
@@ -886,8 +886,8 @@ export default function DashboardSummary2({
             <button
               className={`rounded-lg border px-3 py-2 text-sm transition ${
                 dateMode === "period"
-                  ? "border-blue-600 bg-blue-600 text-white"
-                  : "border-gray-300 bg-white text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                  ? "border-blue-600 bg-primary text-white"
+                  : "border-gray-300 bg-white text-gray-800 dark:border-border dark:bg-gray-800 dark:text-foreground"
               }`}
               onClick={() => {
                 if (!isSuperAdmin) return;
@@ -913,7 +913,7 @@ export default function DashboardSummary2({
               />
               <div className="flex justify-end p-2">
                 <button
-                  className="px-3 py-1 rounded bg-blue-600 text-white"
+                  className="px-3 py-1 rounded bg-primary text-white"
                   disabled={!(tempPeriod?.from && tempPeriod?.to)}
                   onClick={() => {
                     setPeriod(tempPeriod);

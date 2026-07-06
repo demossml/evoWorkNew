@@ -187,18 +187,18 @@ const Settings = () => {
 
       {error && <div className="text-red-500 mb-4">{error}</div>}
 
-      <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-border dark:bg-gray-800">
         <h3 className="text-lg font-semibold mb-2">
           Настройка темпа продаж: доля аксессуаров
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+        <p className="text-sm text-muted-foreground mb-3">
           Целевой порог доли высокомаржинальных аксессуаров в общей массе продаж.
           По умолчанию: {DEFAULT_ACCESSORY_SHARE_TARGET_PCT}%.
         </p>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="w-full sm:w-64">
             <label
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium text-foreground mb-1"
               htmlFor="accessoryShareTarget"
             >
               Целевой порог, %
@@ -210,7 +210,7 @@ const Settings = () => {
               max={100}
               value={accessoryShareTargetInput}
               onChange={(e) => setAccessoryShareTargetInput(e.target.value)}
-              className="border border-gray-300 p-2 rounded w-full dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+              className="border border-gray-300 p-2 rounded w-full dark:border-gray-600 dark:bg-background dark:text-foreground"
             />
           </div>
           <button
@@ -228,9 +228,9 @@ const Settings = () => {
         )}
       </div>
 
-      <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-border dark:bg-gray-800">
         <h3 className="text-lg font-semibold mb-3">Оклад и премия</h3>
-        <div className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+        <div className="mb-2 text-xs text-muted-foreground">
           {salaryBonusDirty ? "Есть несохранённые изменения" : "Сохранено"}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -243,7 +243,7 @@ const Settings = () => {
               id="salary"
               value={salary}
               onChange={(e) => setSalary(e.target.value)}
-              className="border border-gray-300 p-2 rounded w-full dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+              className="border border-gray-300 p-2 rounded w-full dark:border-gray-600 dark:bg-background dark:text-foreground"
             />
           </div>
           <div>
@@ -255,7 +255,7 @@ const Settings = () => {
               id="bonus"
               value={bonus}
               onChange={(e) => setBonus(e.target.value)}
-              className="border border-gray-300 p-2 rounded w-full dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+              className="border border-gray-300 p-2 rounded w-full dark:border-gray-600 dark:bg-background dark:text-foreground"
             />
           </div>
         </div>
@@ -267,7 +267,7 @@ const Settings = () => {
             className={`text-white py-2 px-4 rounded transition duration-300 ${
               isLoading || isSavingSalaryBonus || !salaryBonusDirty
                 ? "bg-blue-300 cursor-not-allowed"
-                : "bg-blue-500 hover:bg-blue-700 active:bg-blue-800"
+                : "bg-blue-500 hover:bg-primary/90 active:bg-primary/80"
             }`}
           >
             {isSavingSalaryBonus ? "Сохранение..." : "Сохранить оклад и премию"}
@@ -282,8 +282,8 @@ const Settings = () => {
             disabled={isLoading || !salaryBonusDirty}
             className={`py-2 px-4 rounded transition duration-300 ${
               isLoading || !salaryBonusDirty
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-muted-foreground"
+                : "bg-gray-100 text-gray-700 hover:bg-muted dark:text-foreground dark:hover:bg-gray-600"
             }`}
           >
             Сбросить
@@ -296,12 +296,12 @@ const Settings = () => {
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-border dark:bg-gray-800">
         <h3 className="text-lg font-semibold mb-2">Группы аксессуаров</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+        <p className="text-sm text-muted-foreground mb-3">
           Выбранные группы берутся из БД и доступны для редактирования.
         </p>
-        <div className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+        <div className="mb-2 text-xs text-muted-foreground">
           {groupsDirty ? "Есть несохранённые изменения" : "Сохранено"}
         </div>
 
@@ -317,14 +317,14 @@ const Settings = () => {
         <div className="mt-3 text-sm">
           Выбрано: <strong>{selectedGroups.length}</strong>
           {selectedGroupNames.length > 0 && (
-            <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+            <div className="mt-1 text-xs text-muted-foreground">
               {selectedGroupNames.join(", ")}
             </div>
           )}
         </div>
 
         {showGroups && (
-          <fieldset className="mt-4 max-h-80 overflow-auto rounded border border-gray-200 dark:border-gray-700 p-3">
+          <fieldset className="mt-4 max-h-80 overflow-auto rounded border border-border p-3">
             <legend className="text-sm font-semibold px-1">
               Доступные группы
             </legend>
@@ -333,7 +333,7 @@ const Settings = () => {
               value={groupSearch}
               onChange={(e) => setGroupSearch(e.target.value)}
               placeholder="Поиск группы..."
-              className="mb-3 border border-gray-300 p-2 rounded w-full dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+              className="mb-3 border border-gray-300 p-2 rounded w-full dark:border-gray-600 dark:bg-background dark:text-foreground"
             />
             <div className="mb-3 flex gap-2">
               <button
@@ -345,7 +345,7 @@ const Settings = () => {
                     return Array.from(set);
                   })
                 }
-                className="py-1 px-2 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
+                className="py-1 px-2 rounded bg-gray-100 text-gray-700 hover:bg-muted dark:text-foreground dark:hover:bg-gray-600"
               >
                 Выбрать найденные
               </button>
@@ -358,7 +358,7 @@ const Settings = () => {
                     )
                   )
                 }
-                className="py-1 px-2 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
+                className="py-1 px-2 rounded bg-gray-100 text-gray-700 hover:bg-muted dark:text-foreground dark:hover:bg-gray-600"
               >
                 Снять найденные
               </button>
@@ -387,7 +387,7 @@ const Settings = () => {
             className={`text-white py-2 px-4 rounded transition duration-300 ${
               isLoading || isSavingGroups || !groupsDirty
                 ? "bg-blue-300 cursor-not-allowed"
-                : "bg-blue-500 hover:bg-blue-700 active:bg-blue-800"
+                : "bg-blue-500 hover:bg-primary/90 active:bg-primary/80"
             }`}
           >
             {isSavingGroups ? "Сохранение..." : "Сохранить группы аксессуаров"}
@@ -401,8 +401,8 @@ const Settings = () => {
             disabled={isLoading || !groupsDirty}
             className={`py-2 px-4 rounded transition duration-300 ${
               isLoading || !groupsDirty
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-muted-foreground"
+                : "bg-gray-100 text-gray-700 hover:bg-muted dark:text-foreground dark:hover:bg-gray-600"
             }`}
           >
             Сбросить

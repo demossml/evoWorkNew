@@ -28,7 +28,7 @@ export function DataSourceSwitcher() {
 
   return (
     <div className="rounded-lg border border-blue-300/50 dark:border-blue-400/40 bg-blue-50/80 dark:bg-slate-800/80 px-3 py-2">
-      <div className="text-xs text-gray-700 dark:text-gray-200 mb-2">
+      <div className="text-xs text-foreground mb-2">
         Источник данных: <span className="font-semibold">{dataSource}</span>
       </div>
       <div className="flex gap-2 items-center">

@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 
 // Define button class with responsive styling
 const buttonClass =
-  "w-full h-10 sm:h-12 py-2 px-4 bg-white dark:bg-gray-800 text-black dark:text-gray-200 text-sm sm:text-base text-center rounded-lg border border-gray-300 dark:border-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition-colors duration-200";
+  "w-full h-10 sm:h-12 py-2 px-4 bg-card text-foreground text-sm sm:text-base text-center rounded-lg border border-border hover:bg-muted flex items-center justify-center transition-colors duration-200";
 
 export const CashierButtons = () => (
   <div className="flex flex-col gap-2 sm:gap-3 w-full max-w-md mx-auto mt-auto mb-6 px-4 sm:px-6">

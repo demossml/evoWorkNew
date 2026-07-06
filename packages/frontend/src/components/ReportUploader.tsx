@@ -102,7 +102,7 @@ const ReportUploader = forwardRef<HTMLDivElement, ReportUploaderProps>(
         <button
           onClick={uploadImage}
           className={`mt-4 px-4 py-2 text-white rounded ${
-            uploading ? "bg-gray-500" : "bg-blue-500 hover:bg-blue-700"
+            uploading ? "bg-gray-500" : "bg-blue-500 hover:bg-primary/90"
           }`}
           disabled={uploading}
         >

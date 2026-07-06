@@ -52,7 +52,7 @@ export const PlanSalesReport: React.FC = () => {
 
   if (!salesData) {
     return (
-      <div className="text-center text-gray-500 dark:text-gray-400">
+      <div className="text-center text-muted-foreground">
         Загрузка данных...
       </div>
     );
@@ -78,7 +78,7 @@ export const PlanSalesReport: React.FC = () => {
       return (
         <motion.li
           key={shopName}
-          className={`bg-custom-gray dark:bg-gray-800 shadow-md mt-2 rounded-lg p-0 border-l-4 ${colorClass}`}
+          className={`bg-muted shadow-md mt-2 rounded-lg p-0 border-l-4 ${colorClass}`}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
@@ -95,7 +95,7 @@ export const PlanSalesReport: React.FC = () => {
                 {statusText}
               </span>
             </div>
-            <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
+            <div className="flex items-center justify-between text-muted-foreground">
               <div>
                 <p className="text-sm">План</p>
                 <p className="font-bold text-sm ">{datePlan.toFixed(2)} ₽</p>
@@ -116,8 +116,8 @@ export const PlanSalesReport: React.FC = () => {
             className="overflow-hidden transition-all duration-300 ease-in-out"
           >
             {expandedShop === shopName && (
-              <div className="mt-4 bg-custom-gray dark:bg-gray-700 p-3 rounded">
-                <h4 className="text-sm font-bold mb-2 text-gray-800 dark:text-gray-100">
+              <div className="mt-4 bg-muted p-3 rounded">
+                <h4 className="text-sm font-bold mb-2 text-foreground">
                   {dataQuantityArray.length > 0
                     ? "Проданные товары:"
                     : "Нет проданных товаров"}
@@ -127,14 +127,14 @@ export const PlanSalesReport: React.FC = () => {
                     {dataQuantityArray.map((item) => (
                       <li
                         key={`${shopName}-${item.productNam}-${item.quantity}`}
-                        className="text-sm text-gray-700 dark:text-gray-300"
+                        className="text-sm text-foreground"
                       >
                         {item.productNam} — {item.quantity} шт.
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground">
                     Данные отсутствуют
                   </p>
                 )}

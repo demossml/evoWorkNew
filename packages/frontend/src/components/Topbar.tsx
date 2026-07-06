@@ -295,7 +295,7 @@ export const Topbar = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
-              className="flex items-center gap-1 bg-blue-600 text-white text-sm font-medium px-3 py-1.5 rounded-xl shadow hover:bg-blue-700 transition-all"
+              className="flex items-center gap-1 bg-primary text-white text-sm font-medium px-3 py-1.5 rounded-xl shadow hover:bg-primary/90 transition-all"
             >
               <Download className="w-4 h-4" />
               Установить
@@ -337,7 +337,7 @@ export const Topbar = () => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
+                  className="absolute right-0 mt-2 w-64 bg-card rounded-xl shadow-2xl border border-border overflow-hidden z-50"
                 >
                   {/* Заголовок меню */}
                   <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white">
@@ -378,7 +378,7 @@ export const Topbar = () => {
                         setShowProfileMenu(false);
                         // Переход в настройки
                       }}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-foreground"
                     >
                       <Settings className="w-4 h-4" />
                       <span className="text-sm font-medium">Настройки</span>
@@ -390,7 +390,7 @@ export const Topbar = () => {
                           setShowProfileMenu(false);
                           // Переход к алертам
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-foreground"
                       >
                         <Bell className="w-4 h-4" />
                         <span className="text-sm font-medium">Уведомления</span>
@@ -400,7 +400,7 @@ export const Topbar = () => {
                       </button>
                     )}
 
-                    <div className="border-t border-gray-200 dark:border-gray-700 my-2" />
+                    <div className="border-t border-border my-2" />
 
                     <button
                       onClick={() => {
