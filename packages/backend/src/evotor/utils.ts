@@ -767,3 +767,211 @@ export async function getSalesSumFromD1(
 	}
 	return total;
 }
+
+/**
+ * Извлекает продажи из index_documents — D1-версия extractSalesInfo.
+ */
+export async function extractSalesInfoFromD1(
+	db: D1Database,
+	since: string,
+	until: string,
+): Promise<Array<{
+	type: string;
+	shopName: string;
+	closeDate: string;
+	employeeName: string;
+	paymentData: Array<{ paymentType: string; sum: number }>;
+	transactions: Array<{ productName: string; quantity: number; price: number; costPrice: number; sum: number }>;
+}>> {
+	const { getShopNameUuidsDictFromDB, getEmployeesDictFromDB } = await import("../sync/db.js");
+	const [shops, employees] = await Promise.all([
+		getShopNameUuidsDictFromDB(db),
+		getEmployeesDictFromDB(db),
+	]);
+
+	const result = await db
+		.prepare(
+			`SELECT close_date, number, open_user_uuid, shop_id, type, transactions
+			 FROM index_documents
+			 WHERE close_date >= ? AND close_date <= ?
+			   AND type IN ('SELL', 'PAYBACK')
+			 ORDER BY close_date DESC
+			 LIMIT 500`
+		)
+		.bind(since, until)
+		.all<{ close_date: string; open_user_uuid: string; shop_id: string; type: string; transactions: string }>();
+
+	return (result.results ?? []).map((row) => {
+		const txs = (() => { try { return JSON.parse(row.transactions) ?? []; } catch { return []; } })();
+		return {
+			type: row.type === "SELL" ? "SALE" : "PAYBACK",
+			shopName: shops[row.shop_id] ?? row.shop_id,
+			closeDate: row.close_date,
+			employeeName: employees[row.open_user_uuid] ?? row.open_user_uuid,
+			paymentData: txs
+				.filter((tx: any) => tx.type === "PAYMENT")
+				.map((payment: any) => ({
+					paymentType: payment.paymentType || "",
+					sum: payment.sum || 0,
+				})),
+			transactions: txs
+				.filter((tx: any) => tx.type === "REGISTER_POSITION")
+				.map((pos: any) => ({
+					productName: pos.commodityName,
+					quantity: pos.quantity,
+					price: pos.price,
+					costPrice: pos.costPrice,
+					sum: pos.sum,
+				})),
+		};
+	});
+}
+
+/**
+ * Рассчитывает остаток наличных по магазинам из index_documents.
+ */
+export async function getCashByShopsFromD1(
+	db: D1Database,
+): Promise<Record<string, number>> {
+	const { getShopNameUuidsFromDB, getShopUuidsFromDB } = await import("../sync/db.js");
+	const shopUuids = await getShopUuidsFromDB(db);
+
+	const reportData: Record<string, number> = {};
+
+	for (const shopId of shopUuids) {
+		try {
+			// 1. Найти последний FPRINT_Z_REPORT
+			const fprint = await db
+				.prepare(
+					`SELECT transactions FROM index_documents
+					 WHERE shop_id = ? AND type = 'FPRINT'
+					 ORDER BY close_date DESC LIMIT 1`
+				)
+				.bind(shopId)
+				.first<{ transactions: string }>();
+
+			let totalCash = 0;
+			let sinceDate = "";
+
+			if (fprint) {
+				const txs = (() => { try { return JSON.parse(fprint.transactions) ?? []; } catch { return []; } })();
+				for (const tx of txs) {
+					if (tx.type === "FPRINT_Z_REPORT" && tx.cash != null) {
+						totalCash += tx.cash;
+					}
+				}
+			}
+
+			// 2. Получаем все операции после последнего FPRINT (или все, если нет FPRINT)
+			const cashRows = await db
+				.prepare(
+					`SELECT type, transactions FROM index_documents
+					 WHERE shop_id = ? AND type IN ('SELL', 'PAYBACK', 'CASH_INCOME', 'CASH_OUTCOME')${sinceDate ? " AND close_date > ?" : ""}
+					 ORDER BY close_date ASC`
+				)
+				.bind(sinceDate ? shopId : shopId, ...(sinceDate ? [sinceDate] : []))
+				.all<{ type: string; transactions: string }>();
+
+			for (const row of cashRows.results ?? []) {
+				const txs = (() => { try { return JSON.parse(row.transactions) ?? []; } catch { return []; } })();
+				for (const tx of txs) {
+					if (tx.type === "PAYMENT" && tx.paymentType === "CASH" && ["SELL", "PAYBACK"].includes(row.type)) {
+						totalCash += row.type === "SELL" ? (tx.sum || 0) : -(tx.sum || 0);
+					} else if (tx.type === row.type && ["CASH_INCOME", "CASH_OUTCOME"].includes(row.type)) {
+						totalCash += row.type === "CASH_INCOME" ? (tx.sum || 0) : -(tx.sum || 0);
+					}
+				}
+			}
+
+			reportData[shopId] = totalCash;
+		} catch (e) {
+			console.error(`[getCashByShopsFromD1] Ошибка для ${shopId}:`, e);
+			reportData[shopId] = 0;
+		}
+	}
+
+	// Переводим ключи с shopId → shopName
+	const shopNames = await getShopNameUuidsFromDB(db);
+	const named: Record<string, number> = {};
+	for (const [shopId, cash] of Object.entries(reportData)) {
+		const name = shopNames.find(s => s.uuid === shopId)?.name ?? shopId;
+		named[name] = cash;
+	}
+	return named;
+}
+
+/**
+ * Получает данные о продажах за сегодня из index_documents.
+ */
+export async function getSalesTodayFromD1(
+	db: D1Database,
+): Promise<Record<string, Record<string, number>>> {
+	const { getShopNameUuidsFromDB, getShopUuidsFromDB } = await import("../sync/db.js");
+
+	const now = new Date();
+	const since = formatDateWithTimeLocal(now, false);
+	const until = formatDateWithTimeLocal(now, true);
+
+	const paymentType: Record<string, string> = {
+		CARD: "Банковской картой:",
+		ADVANCE: "Предоплатой (зачетом аванса):",
+		CASH: "Нал. средствами:",
+		COUNTEROFFER: "Встречным предоставлением:",
+		CREDIT: "Постоплатой (в кредит):",
+		ELECTRON: "Безналичными средствами:",
+		UNKNOWN: "Неизвестно. По-умолчанию:",
+	};
+
+	const shopUuids = await getShopUuidsFromDB(db);
+	const shopNames = await getShopNameUuidsFromDB(db);
+	const nameMap = new Map(shopNames.map(s => [s.uuid, s.name]));
+
+	const salesByShop: Record<string, Record<string, number>> = {};
+
+	for (const shopUuid of shopUuids) {
+		const result = await db
+			.prepare(
+				`SELECT transactions FROM index_documents
+				 WHERE shop_id = ? AND close_date >= ? AND close_date <= ?
+				   AND type IN ('SELL', 'PAYBACK')`
+			)
+			.bind(shopUuid, since, until)
+			.all<{ transactions: string }>();
+
+		const shopName = nameMap.get(shopUuid) ?? shopUuid;
+		if (!salesByShop[shopName]) salesByShop[shopName] = {};
+
+		for (const row of result.results ?? []) {
+			try {
+				const txs = JSON.parse(row.transactions);
+				if (!Array.isArray(txs)) continue;
+				for (const tx of txs) {
+					if (tx.type === "PAYMENT") {
+						const label = paymentType[tx.paymentType] || paymentType.UNKNOWN;
+						salesByShop[shopName][label] = (salesByShop[shopName][label] || 0) + (tx.sum || 0);
+					}
+				}
+			} catch { /* skip */ }
+		}
+	}
+
+	// Sort by total descending
+	const sorted: Record<string, Record<string, number>> = {};
+	Object.entries(salesByShop)
+		.sort(([, a], [, b]) => {
+			const sumA = Object.values(a).reduce((s, v) => s + v, 0);
+			const sumB = Object.values(b).reduce((s, v) => s + v, 0);
+			return sumB - sumA;
+		})
+		.forEach(([k, v]) => { sorted[k] = v; });
+
+	return sorted;
+}
+
+function formatDateWithTimeLocal(date: Date, isEndOfDay: boolean): string {
+	const y = date.getFullYear();
+	const m = String(date.getMonth() + 1).padStart(2, "0");
+	const d = String(date.getDate()).padStart(2, "0");
+	const time = isEndOfDay ? "23:59:59" : "00:00:00";
+	return `${y}-${m}-${d}T${time}.000+0300`;
+}

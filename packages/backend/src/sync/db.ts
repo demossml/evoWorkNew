@@ -507,3 +507,27 @@ export async function getEmployeesByShopIdDB(db: D1Database, shopId: string): Pr
     })
     .map((r) => ({ uuid: r.uuid, name: r.name }));
 }
+
+export async function getEmployeeRoleFromDB(db: D1Database, lastName: string): Promise<string> {
+  const result = await db.prepare("SELECT role FROM employees WHERE last_name = ?").bind(lastName).first<{ role: string }>();
+  return result?.role ?? "null";
+}
+
+export async function getEmployeesLastNameAndUuidFromDB(db: D1Database): Promise<{ uuid: string; name: string }[]> {
+  const result = await db.prepare("SELECT uuid, name FROM employees").all<{ uuid: string; name: string }>();
+  return result.results ?? [];
+}
+
+export async function getEmployeesDictFromDB(db: D1Database): Promise<Record<string, string>> {
+  const result = await db.prepare("SELECT uuid, name FROM employees").all<{ uuid: string; name: string }>();
+  const dict: Record<string, string> = {};
+  for (const r of result.results ?? []) dict[r.uuid] = r.name;
+  return dict;
+}
+
+export async function getShopNameUuidsDictFromDB(db: D1Database): Promise<Record<string, string>> {
+  const result = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+  const dict: Record<string, string> = {};
+  for (const r of result.results ?? []) dict[r.uuid] = r.name;
+  return dict;
+}

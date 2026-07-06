@@ -41,7 +41,7 @@ import {
 	getTodayRangeEvotor,
 	getUuidsByParentUuidList,
 	isOpenStoreExists,
-	replaceUuidsWithNames,
+	replaceUuidsWithNamesDB,
 	saveFileToR2,
 	saveNewIndexDocuments,
 	saveOpenStorsTable,
@@ -61,7 +61,19 @@ import {
 	getSalesgardenReportData,
 	getTopProductsFromD1,
 	getAccessoriesSalesFromD1,
+	extractSalesInfoFromD1,
+	getCashByShopsFromD1,
 } from "./evotor/utils";
+import {
+	getShopUuidsFromDB,
+	getShopNameFromDB,
+	getShopNameUuidsFromDB,
+	getEmployeeNameFromDB,
+	getEmployeeByLastNameDB,
+	getEmployeesByShopIdDB,
+	getEmployeesLastNameAndUuidFromDB,
+	getEmployeeRoleFromDB,
+} from "./sync/db";
 import { saveDeadStocks } from "./db/repositories/saveDeadStocks";
 import { sendDeadStocksToTelegram } from "../utils/sendDeadStocksToTelegram";
 import { sendPhotoToTelegram } from "../utils/sendPhotoToTelegram";
@@ -99,7 +111,8 @@ export const api = new Hono<IEnv>()
 	// get currently logged in evo toremployee
 
 	.get("/api/employee-name", async (c) => {
-		const employeeName = await c.var.evotor.getEmployeeLastName(c.var.userId);
+		const db = c.get("db");
+		const employeeName = await getEmployeeNameFromDB(db, c.var.userId);
 		// console.log("employeeName:", employeeName);
 
 		assert(employeeName, "not an employee");
@@ -107,7 +120,9 @@ export const api = new Hono<IEnv>()
 	})
 
 	.get("/api/by-last-name-uuid", async (c) => {
-		const employeeNameAndUuid = await c.var.evotor.getEmployeesByLastName(
+		const db = c.get("db");
+		const employeeNameAndUuid = await getEmployeeByLastNameDB(
+			db,
 			c.var.user.id.toString(),
 		);
 		// console.log(employeeNameAndUuid);
@@ -117,7 +132,7 @@ export const api = new Hono<IEnv>()
 
 	.get("/api/documents", async (c) => {
 		const db = c.get("db");
-		const shopsUuid = await c.var.evotor.getShopUuids();
+		const shopsUuid = await getShopUuidsFromDB(db);
 		const newDate = new Date(); // Получаем текущую дату
 		const sevenDaysAgo = new Date(newDate.getTime() - 5 * 24 * 60 * 60 * 1000);
 
@@ -167,8 +182,9 @@ export const api = new Hono<IEnv>()
 	})
 
 	.get("/api/employee/name-uuid", async (c) => {
+		const db = c.get("db");
 		const employeeNameAndUuid =
-			await c.var.evotor.getEmployeesLastNameAndUuid();
+			await getEmployeesLastNameAndUuidFromDB(db);
 		// console.log("employeeNameAndUuid:", employeeNameAndUuid);
 
 		assert(employeeNameAndUuid, "not an employee");
@@ -176,10 +192,11 @@ export const api = new Hono<IEnv>()
 	})
 
 	.post("/api/employee/and-store/name-uuid", async (c) => {
+		const db = c.get("db");
 		const data = await c.req.json();
 		const { shop } = data;
 
-		const employeeNameAndUuid = await c.var.evotor.getEmployeesByShopId(shop);
+		const employeeNameAndUuid = await getEmployeesByShopIdDB(db, shop);
 		// console.log("employeeNameAndUuid:", employeeNameAndUuid);
 
 		assert(employeeNameAndUuid, "not an employee");
@@ -210,11 +227,10 @@ export const api = new Hono<IEnv>()
 			const result = await getScheduleByPeriod(db, start, end);
 			// console.log("result:", result);
 
-			const evo = c.var.evotor;
 			if (!result) {
 				return c.json({ error: "No schedule data found" }, 404);
 			}
-			const scheduleTable = await replaceUuidsWithNames(result, evo);
+			const scheduleTable = await replaceUuidsWithNamesDB(result, db);
 
 			// Возвращаем успешный ответ
 			return c.json({ scheduleTable });
@@ -235,11 +251,10 @@ export const api = new Hono<IEnv>()
 
 			const result = await getScheduleByPeriodAndShopId(db, start, end, shopId);
 
-			const evo = c.var.evotor;
 			if (!result) {
 				return c.json({ error: "No schedule data found" }, 404);
 			}
-			const scheduleTable = await replaceUuidsWithNames(result, evo);
+			const scheduleTable = await replaceUuidsWithNamesDB(result, db);
 
 			// Возвращаем успешный ответ
 			return c.json({ scheduleTable });
@@ -251,51 +266,42 @@ export const api = new Hono<IEnv>()
 
 	.get("/api/ai-report", async (c) => {
 		console.log("AI report request received");
-		const evo = c.var.evotor;
-
-		// const shopsUuid = await c.var.evotor.getShopUuids();
+		const db = c.get("db");
 		const [start, end] = getTodayRangeEvotor();
 
-		const docs = await evo.getAllDocumentsByTypes(start, end);
-
-		const docFiltered = await evo.extractSalesInfo(docs);
+		const docFiltered = await extractSalesInfoFromD1(db, start, end);
 		// console.log("docs:", JSON.stringify(docFiltered, null, 2));
 
 		const result = await analyzeDocsStaffTask(c, docFiltered);
 		// console.log({ result });
 
-		// const result = await sum2Numbers(c, { a: 1, b: 2 });
 		return c.json({ result });
 	})
 
 	.get("/api/ai-association-rules", async (c) => {
 		console.log("AI report request received");
-		const evo = c.var.evotor;
-
-		// const shopsUuid = await c.var.evotor.getShopUuids();
+		const db = c.get("db");
 		const [start, end] = getPeriodRangeEvotor(3);
 		console.log("start:", start, "end:", end);
 
-		const docs = await evo.getAllDocumentsByTypes(start, end);
-
-		const docFiltered = await evo.extractSalesInfo(docs);
+		const docFiltered = await extractSalesInfoFromD1(db, start, end);
 		// console.log("docs:", JSON.stringify(docFiltered, null, 2));
 
 		const result = await analyzeDocsStaffTask(c, docFiltered);
 		// console.log({ result });
 
-		// const result = await sum2Numbers(c, { a: 1, b: 2 });
 		return c.json({ result });
 	})
 
 	.get("/api/schedules", async (c) => {
+		const db = c.get("db");
 		const date = formatDate(new Date());
-		const shopsUuid = await c.var.evotor.getShopUuids();
+		const shopsUuid = await getShopUuidsFromDB(db);
 		const dataReport: Record<string, string> = {};
 
 		for (const uuid of shopsUuid) {
-			const shopName = await c.var.evotor.getShopName(uuid);
-			const data = await getData(date, uuid, c.get("db"));
+			const shopName = await getShopNameFromDB(db, uuid);
+			const data = await getData(date, uuid, db);
 
 			if (data) {
 				const date = new Date(data.dateTime);
@@ -303,7 +309,7 @@ export const api = new Hono<IEnv>()
 
 				// Явное приведение типа data.userId к строке
 				const userId = data.userId as string;
-				const employeeName = await c.var.evotor.getEmployeeLastName(userId);
+				const employeeName = await getEmployeeNameFromDB(db, userId);
 				dataReport[shopName] =
 					`${employeeName} открыта в  ${date.toISOString().slice(11, 16)}`;
 			} else {
@@ -320,7 +326,8 @@ export const api = new Hono<IEnv>()
 	})
 
 	.get("/api/shops", async (c) => {
-		const shopsNameAndUuid = await c.var.evotor.getShopNameUuids();
+		const db = c.get("db");
+		const shopsNameAndUuid = await getShopNameUuidsFromDB(db);
 		assert(shopsNameAndUuid, "not an shopsNameAndUuid");
 		return c.json({ shopsNameAndUuid });
 	})
@@ -388,8 +395,9 @@ export const api = new Hono<IEnv>()
 				}
 
 				// Дополнительная информация
-				const shopName = await c.var.evotor.getShopName(shop); // Получаем имя магазина
-				const employeeName = await c.var.evotor.getEmployeeLastName(
+				const shopName = await getShopNameFromDB(c.get("db"), shop);
+				const employeeName = await getEmployeeNameFromDB(
+					c.get("db"),
 					dataOpening.userId,
 				);
 
@@ -412,7 +420,8 @@ export const api = new Hono<IEnv>()
 	.get("/api/employee-role", async (c) => {
 		const userId = c.var.user.id.toString();
 
-		const employeeRoleEvo = await c.var.evotor.getEmployeeRole(userId);
+		const db = c.get("db");
+		const employeeRoleEvo = await getEmployeeRoleFromDB(db, userId);
 
 		const employeeRole =
 			userId === "5700958253" || userId === "475039971"
@@ -432,7 +441,8 @@ export const api = new Hono<IEnv>()
 		const { userId } = data;
 		c.set("userId", String(userId));
 
-		const employeeRoleEvo = await c.var.evotor.getEmployeeRole(userId);
+		const db = c.get("db");
+		const employeeRoleEvo = await getEmployeeRoleFromDB(db, userId);
 		const employeeRole = employeeRoleEvo !== null;
 		console.log("employeeRole:", employeeRole);
 
@@ -660,7 +670,9 @@ export const api = new Hono<IEnv>()
 	})
 
 	.get("/api/evotor/sales-today", async (c) => {
-		const salesData = await c.var.evotor.getSalesToday();
+		const db = c.get("db");
+		const { getSalesTodayFromD1 } = await import("./evotor/utils.js");
+		const salesData = await getSalesTodayFromD1(db);
 
 		assert(salesData, "No sales data found");
 
@@ -671,7 +683,7 @@ export const api = new Hono<IEnv>()
 		const db = c.get("db"); // Получаем подключение к базе данных
 		const evo = c.var.evotor;
 
-		const shopUuids = await c.var.evotor.getShopUuids();
+		const shopUuids = await getShopUuidsFromDB(db);
 
 		const nowDate = new Date(); // Получаем текущую дату
 		const sevenDaysAgo = new Date(nowDate.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -1322,12 +1334,12 @@ export const api = new Hono<IEnv>()
 	})
 	.post("/api/evotor/sales-garden-report", async (c) => {
 		try {
-			const data = await c.req.json(); // Разбор JSON тела
+			const db = c.get("db");
+			const data = await c.req.json();
 
 			const { startDate, endDate } = data;
-			// console.log(data);
 
-			const shopUuids = await c.var.evotor.getShopUuids();
+			const shopUuids = await getShopUuidsFromDB(db);
 
 			const sincetDate = new Date(startDate); // Преобразуем в объект Date
 			const untilDate = new Date(endDate); // Преобразуем в объект Date
@@ -1379,7 +1391,7 @@ export const api = new Hono<IEnv>()
 			// const response = await analyzeSalesDocuments(f, aiWithRun);
 			// console.log("Результат анализа:", response);
 
-			const cashBalanceByShop = await c.var.evotor.getCashByShops();
+			const cashBalanceByShop = await getCashByShopsFromD1(db);
 			const totalCashBalance = Object.values(cashBalanceByShop).reduce((s, v) => s + v, 0);
 
 			const grandTotalCashOutcome = calculateTotalSum(cashOutcomeData);
@@ -2350,6 +2362,7 @@ export const api = new Hono<IEnv>()
 	})
 	.post("/api/evotor/salesResult", async (c) => {
 		try {
+			const db = c.get("db");
 			const data = await c.req.json();
 			const { startDate, endDate, shopUuid, groups } = data;
 
@@ -2358,7 +2371,7 @@ export const api = new Hono<IEnv>()
 
 			// Если выбран «все магазины» — агрегируем по всем
 			if (shopUuid === "all") {
-				const shopUuids = await c.var.evotor.getShopUuids();
+				const shopUuids = await getShopUuidsFromDB(db);
 				const merged: Record<string, { quantitySale: number; sum: number }> = {};
 
 				for (const sid of shopUuids) {
@@ -2669,24 +2682,22 @@ ${storesList}
 	// --- /api/evotor/settings-config (settings page) ---
 	.get("/api/evotor/settings-config", async (c) => {
 		try {
-			const evo = c.get("evotor");
+			const db = c.get("db");
 			const drizzle = c.get("drizzle");
 			const { getSettings } = await import("./db/repositories/settings.js");
 
-			// Загружаем группы из Evotor API (все доступные)
+			// Загружаем группы из shopProduct (D1)
 			let groupOptions: Array<{ uuid: string; name: string }> = [];
 			try {
-				const shopNames = await evo.getShops();
-				const firstShopId = Array.isArray(shopNames) && shopNames.length > 0
-					? shopNames[0].uuid
-					: "";
-				if (firstShopId) {
-					const groupsRaw = await evo.getGroupsByNameUuid(firstShopId);
-					groupOptions = (groupsRaw as any[])?.map((g: any) => ({
-						uuid: g.group_uuid || g.uuid,
-						name: g.group_name || g.name,
-					})) ?? [];
-				}
+				const groupsRaw = await db
+					.prepare(
+						"SELECT DISTINCT uuid, name FROM shopProduct WHERE product_group = 1"
+					)
+					.all<{ uuid: string; name: string }>();
+				groupOptions = (groupsRaw.results ?? []).map((g) => ({
+					uuid: g.uuid,
+					name: g.name,
+				}));
 			} catch {
 				groupOptions = [];
 			}
@@ -2721,20 +2732,19 @@ ${storesList}
 			// Save to settings via drizzle + accessories via raw D1
 			await saveAccessoryGroups(drizzle, db, uuids);
 
-			// Разрешаем UUID в имена через Evotor API
+			// Разрешаем UUID в имена через shopProduct (D1)
 			let groupsName: string[] = [];
 			try {
-				const evo = c.get("evotor");
-				const shopNames = await evo.getShops();
-				const firstShopId = Array.isArray(shopNames) && shopNames.length > 0
-					? shopNames[0].uuid
-					: "";
-				if (firstShopId && uuids.length > 0) {
-					const groupsRaw = await evo.getGroupsByNameUuid(firstShopId);
-					const nameMap = new Map((groupsRaw as any[])?.map((g: any) => [
-						g.group_uuid || g.uuid,
-						g.group_name || g.name,
-					]) ?? []);
+				if (uuids.length > 0) {
+					const db = c.get("db");
+					const placeholders = uuids.map(() => "?").join(",");
+					const result = await db
+						.prepare(
+							`SELECT uuid, name FROM shopProduct WHERE uuid IN (${placeholders})`
+						)
+						.bind(...uuids)
+						.all<{ uuid: string; name: string }>();
+					const nameMap = new Map((result.results ?? []).map((r) => [r.uuid, r.name]));
 					groupsName = uuids.map((u) => nameMap.get(u)).filter(Boolean) as string[];
 				}
 			} catch {

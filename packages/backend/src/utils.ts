@@ -1713,9 +1713,9 @@ export async function getScheduleByPeriod(
 	}
 }
 
-export async function replaceUuidsWithNames(
+export async function replaceUuidsWithNamesDB(
 	data: TransformedSchedule[],
-	evotor: Evotor,
+  db: D1Database,
 ): Promise<
 	Array<{
 		id: number;
@@ -1733,22 +1733,21 @@ export async function replaceUuidsWithNames(
 	const result = await Promise.all(
 		data.map(async (item) => {
 			// Получаем имя магазина из кэша или через запрос
-			let shopName = shopNameCache[item.shopUuid];
+      const shopUuid = item.shopUuid;
+      let shopName = shopNameCache[shopUuid];
 			if (!shopName) {
-				shopName =
-					(await evotor.getShopName(item.shopUuid)) || "Неизвестный магазин";
-				shopNameCache[item.shopUuid] = shopName; // Сохраняем в кэш
+        shopName = (await db.prepare("SELECT name FROM shops WHERE uuid = ?").bind(shopUuid).first<{ name: string }>())?.name ?? "Неизвестный магазин";
+        shopNameCache[shopUuid] = shopName;
 			}
 
-			// Получаем имя сотрудника из кэша или через запрос
-			let employeeName = employeeNameCache[item.employeeUuid];
-			if (!employeeName) {
-				employeeName =
-					(await evotor.getEmployeeByUuid(item.employeeUuid)) ||
-					"Неизвестный сотрудник";
-				employeeNameCache[item.employeeUuid] = employeeName; // Сохраняем в кэш
-			}
-
+      // Получаем имя сотрудника из кэша или через запрос (D1)
+      const employeeUuid = item.employeeUuid;
+      let employeeName = employeeNameCache[employeeUuid];
+      if (!employeeName) {
+        employeeName = (await db.prepare("SELECT name FROM employees WHERE uuid = ?").bind(employeeUuid).first<{ name: string }>())?.name ?? "Неизвестный сотрудник";
+        employeeNameCache[employeeUuid] = employeeName;
+      }
+      
 			// Возвращаем преобразованный объект
 			return {
 				id: item.id ?? 0, // Устанавливаем значение по умолчанию для id
