@@ -11,6 +11,7 @@ import type { IEnv, SaveDeadStocksRequest } from "./types";
 import { analyzeDocsStaffTask, getHoroscopeByDateTask, analyzeDocsInsightsTask, analyzeDocsAnomaliesTask, analyzeDocsPatternsTask } from "./ai";
 import { runOrderForecastV2 } from "./services/orderForecastV2";
 import { deepseekChat } from "./services/deepseek";
+import { computeSellerEffectiveness } from "./services/sellerEffectiveness";
 import type { ShopUuidName } from "./evotor/types";
 import {
 	assert,
@@ -724,7 +725,10 @@ export const api = new Hono<IEnv>()
 			}
 
 			const db = c.get("db"); // Получаем подключение к базе данных
-			const newDate: Date = new Date();
+			const queryDate = c.req.query("date"); // ?date=YYYY-MM-DD
+			const newDate: Date = queryDate
+				? new Date(queryDate + "T12:00:00+03:00")
+				: new Date();
 			const datePlan: string = formatDate(newDate);
 			let salesData: SalesData = {};
 
@@ -1306,7 +1310,7 @@ export const api = new Hono<IEnv>()
 
 			const shopUuids = await evo.getShopUuids();
 
-			const { salesDataByShopName, grandTotalSell, grandTotalRefund } =
+			const { salesDataByShopName, grandTotalSell, grandTotalRefund, dailySell } =
 				await getSalesgardenReportData(db, shopUuids, since, until);
 
 			const cashOutcomeData = await getDocumentsByCashOutcomeData(
@@ -1324,6 +1328,7 @@ export const api = new Hono<IEnv>()
 				grandTotalSell,
 				grandTotalRefund,
 				grandTotalCashOutcome,
+				dailySell,
 				cashOutcomeData,
 				cash,
 			});
@@ -1351,7 +1356,7 @@ export const api = new Hono<IEnv>()
 			// 	(uuid: string) => uuid !== "20231001-6611-407F-8068-AC44283C9196",
 			// );
 
-			const { salesDataByShopName, grandTotalSell, grandTotaRefund } =
+			const { salesDataByShopName, grandTotalSell, grandTotaRefund, dailySell } =
 				await c.var.evotor.getSalesgardenReportData(shopUuids, since, until);
 
 			const cashOutcomeData = await c.var.evotor.getDocumentsByCashOutcomeData(
@@ -1400,6 +1405,7 @@ export const api = new Hono<IEnv>()
 				grandTotalSell,
 				grandTotalRefund: grandTotaRefund,
 				grandTotalCashOutcome,
+				dailySell,
 				startDate,
 				endDate,
 				cashOutcomeData,
@@ -2358,7 +2364,13 @@ export const api = new Hono<IEnv>()
 		return c.json({ byShop: {} });
 	})
 	.get("/api/employees/seller-effectiveness", async (c) => {
-		return c.json({ sellers: [], snapshot: { totalRevenue: 0, avgDailyRev: 0, avgCheck: 0, totalShifts: 0, activeToday: 0 }, prevSnapshot: null, baselines: [], dowData: [], hypotheses: [] });
+		const db = c.env.DB as D1Database;
+		const period = c.req.query("period") ? parseInt(c.req.query("period")!) : undefined;
+		const since = c.req.query("since") || undefined;
+		const until = c.req.query("until") || undefined;
+		const store = c.req.query("store") || undefined;
+		const result = await computeSellerEffectiveness(db, { period, since, until, store });
+		return c.json(result);
 	})
 	.post("/api/evotor/salesResult", async (c) => {
 		try {

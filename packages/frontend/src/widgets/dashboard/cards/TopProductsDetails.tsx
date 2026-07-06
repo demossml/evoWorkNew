@@ -11,6 +11,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatCurrency";
+import { Sparkline } from "@shared/ui";
 import type {
   TopProductMetricMode,
   TopProductRefundFilter,
@@ -40,33 +41,6 @@ const matchesRefundFilter = (
   if (filter === "highRefund") return p.refundRate >= HIGH_REFUND_THRESHOLD;
   return true;
 };
-
-function Sparkline({ values }: { values: number[] }) {
-  const safeValues = values.length === 7 ? values : [0, 0, 0, 0, 0, 0, 0];
-  const width = 90;
-  const height = 26;
-  const min = Math.min(...safeValues);
-  const max = Math.max(...safeValues);
-  const span = max - min || 1;
-  const points = safeValues
-    .map((v, i) => {
-      const x = (i / (safeValues.length - 1)) * (width - 2) + 1;
-      const y = height - 2 - ((v - min) / span) * (height - 4);
-      return `${x},${y}`;
-    })
-    .join(" ");
-  return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <polyline
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        className="text-blue-500"
-        points={points}
-      />
-    </svg>
-  );
-}
 
 export const TopProductsDetails: React.FC<TopProductsDetailsProps> = ({
   topProducts,

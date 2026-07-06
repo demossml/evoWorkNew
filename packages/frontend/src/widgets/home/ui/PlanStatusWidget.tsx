@@ -93,12 +93,12 @@ function ShopCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className={`bg-card rounded-xl shadow-sm border border-border overflow-hidden mb-2 transition-shadow duration-200 ${
+      className={`bg-card rounded-xl shadow-sm border border-border overflow-hidden transition-shadow duration-200 ${
         isExpanded ? "shadow-md border-primary/30" : "hover:shadow-md"
       } border-l-4 ${colors.border}`}
     >
       {/* ── Свёрнутое состояние ── */}
-      <div onClick={onToggle} className="cursor-pointer p-4">
+      <div onClick={onToggle} className="cursor-pointer p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${colors.dot}`} style={{ boxShadow: `0 0 6px ${colors.accent}` }} />
@@ -156,9 +156,6 @@ function ShopCard({
             className="overflow-hidden border-t border-border"
           >
             <div className="px-4 py-3 space-y-4 bg-muted/50">
-              {/* ── ForecastBlock ── */}
-              <ForecastBlock shop={shop} />
-
               {/* ── ProductList ── */}
               <ProductList products={shop.products} />
 
@@ -435,7 +432,7 @@ export function PlanStatusWidget({ date }: PlanStatusWidgetProps) {
   if (shopsLoading || (isLoading && !model)) {
     return (
       <div className="w-full mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="bg-card rounded-xl shadow-sm border border-border p-4 animate-pulse">
               <div className="flex items-center gap-2 mb-3">
@@ -480,7 +477,7 @@ export function PlanStatusWidget({ date }: PlanStatusWidgetProps) {
       <NetworkSummaryBar model={model} />
 
       {/* Сетка карточек */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {model.shops.map((shop, index) => (
           <ShopCard
             key={shop.shopId}

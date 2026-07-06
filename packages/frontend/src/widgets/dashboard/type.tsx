@@ -32,4 +32,8 @@ export interface SalesData {
   totalCashBalance: number;
   totalChecks: number;
   topProducts: ProductData[];
+  /** YYYY-MM-DD → выручка за день, по всем магазинам. Только для периодных
+   * запросов (since+until) — сервер строит его из тех же документов, что и
+   * grandTotalSell, просто не схлопывает их в одно число. */
+  dailySell?: Record<string, number>;
 }

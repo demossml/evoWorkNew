@@ -88,6 +88,13 @@ export async function getSalesgardenReportData(
 	>;
 	grandTotalSell: number;
 	grandTotalRefund: number;
+	/**
+	 * Выручка по дням (YYYY-MM-DD → сумма продаж), просуммированная по всем
+	 * переданным магазинам. Строится из той же выборки документов, что и
+	 * grandTotalSell — просто не схлопывается в одно число, а группируется
+	 * по close_date. Нужно для спарклайнов/трендов на дашборде.
+	 */
+	dailySell: Record<string, number>;
 }> {
 	const paymentTypeLabels: Record<string, string> = {
 		CARD: "Банковской картой:",
@@ -128,6 +135,7 @@ export async function getSalesgardenReportData(
 
 		let grandTotalSell = 0;
 		let grandTotalRefund = 0;
+		const dailySellMap = new Map<string, number>();
 
 		for (const { uuid, docs } of documentsByShop) {
 			const sellMap = new Map<string, number>();
@@ -135,9 +143,10 @@ export async function getSalesgardenReportData(
 			let totalSell = 0;
 			let totalRefund = 0;
 
-			for (const { type: docType, transactions } of docs) {
+			for (const { type: docType, transactions, closeDate } of docs) {
 				const isRefund = docType === "PAYBACK";
 				const targetMap = isRefund ? refundMap : sellMap;
+				const day = closeDate.slice(0, 10); // "YYYY-MM-DD" из "YYYY-MM-DD HH:mm:ss"
 
 				for (const { type, paymentType, sum } of transactions) {
 					if (type !== "PAYMENT" || !paymentType) continue;
@@ -148,6 +157,7 @@ export async function getSalesgardenReportData(
 						totalRefund += sum;
 					} else {
 						totalSell += sum;
+						dailySellMap.set(day, (dailySellMap.get(day) ?? 0) + sum);
 					}
 				}
 			}
@@ -162,7 +172,12 @@ export async function getSalesgardenReportData(
 			grandTotalRefund += totalRefund;
 		}
 
-		return { salesDataByShopName, grandTotalSell, grandTotalRefund };
+		return {
+			salesDataByShopName,
+			grandTotalSell,
+			grandTotalRefund,
+			dailySell: Object.fromEntries(dailySellMap),
+		};
 	} catch (error) {
 		console.error(
 			`getSalesgardenReportData: Ошибка при получении данных для магазинов ${shopUuids.join(", ")}`,

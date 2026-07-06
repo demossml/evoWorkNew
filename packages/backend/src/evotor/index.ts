@@ -1514,8 +1514,9 @@ export class Evotor {
 	 * @param {string} since - Начальная дата (в формате строки).
 	 * @param {string} until - Конечная дата (в формате строки).
 	 *
-	 * @returns {Promise<{ salesDataByShopName: Record<string, { sell: Record<string, number>; refund: Record<string, number>; totalSell: number }>, grandTotalSell: number, grandTotaRefund: number }>}
+	 * @returns {Promise<{ salesDataByShopName: Record<string, { sell: Record<string, number>; refund: Record<string, number>; totalSell: number }>, grandTotalSell: number, grandTotaRefund: number, dailySell: Record<string, number> }>}
 	 *  - Данные по продажам с разбивкой по магазинам и суммарными данными.
+	 *  - dailySell содержит выручку по дням (YYYY-MM-DD → сумма продаж).
 	 *
 	 * @throws {Error} - В случае ошибки при получении данных.
 	 */
@@ -1534,6 +1535,11 @@ export class Evotor {
 		>;
 		grandTotalSell: number;
 		grandTotaRefund: number;
+		/**
+		 * Выручка по дням (YYYY-MM-DD → сумма продаж) по всем переданным
+		 * магазинам вместе.
+		 */
+		dailySell: Record<string, number>;
 	}> {
 		try {
 			const paymentType: PaymentType = {
@@ -1550,6 +1556,7 @@ export class Evotor {
 				string,
 				{ sell: Record<string, number>; refund: Record<string, number> }
 			> = {};
+			const dailySellMap = new Map<string, number>();
 
 			// Проходим по каждому магазину
 			for (const shopUuid of shopUuids) {
@@ -1566,6 +1573,7 @@ export class Evotor {
 
 				for (const doc of salesData) {
 					const transactionType = doc.type === "PAYBACK" ? "refund" : "sell";
+					const day = (doc.closeDate || "").slice(0, 10); // "YYYY-MM-DD"
 
 					for (const trans of doc.transactions) {
 						if (trans.type !== "PAYMENT") continue;
@@ -1589,6 +1597,10 @@ export class Evotor {
 
 						salesDataByShop[shopUuid][transactionType][paymentTypeLabel] +=
 							trans.sum;
+
+						if (transactionType === "sell" && day) {
+							dailySellMap.set(day, (dailySellMap.get(day) ?? 0) + trans.sum);
+						}
 					}
 				}
 			}
@@ -1638,6 +1650,7 @@ export class Evotor {
 				salesDataByShopName,
 				grandTotalSell,
 				grandTotaRefund,
+				dailySell: Object.fromEntries(dailySellMap),
 			};
 		} catch (error) {
 			console.error(

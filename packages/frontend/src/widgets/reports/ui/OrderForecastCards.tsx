@@ -52,16 +52,16 @@ const REASON_LABELS: Record<string, string> = {
 };
 
 const REASON_STYLES: Record<string, string> = {
-  NO_STOCK: "bg-red-50 text-red-700 ring-1 ring-red-200",
-  LOW_STOCK: "bg-red-50 text-red-700 ring-1 ring-red-200",
-  HIGH_VARIABILITY: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-  OVERSTOCK: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+  NO_STOCK: "bg-destructive/10 text-destructive ring-1 ring-destructive/20",
+  LOW_STOCK: "bg-destructive/10 text-destructive ring-1 ring-destructive/20",
+  HIGH_VARIABILITY: "bg-warning/10 text-warning ring-1 ring-warning/20",
+  OVERSTOCK: "bg-warning/10 text-warning ring-1 ring-warning/20",
   HIGH_VALUE: "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
-  HIGH_DEMAND: "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
-  STABLE: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-  BALANCED: "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
-  NEW_PRODUCT: "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
-  NO_SALES: "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
+  HIGH_DEMAND: "bg-primary/10 text-primary ring-1 ring-primary/20",
+  STABLE: "bg-success/10 text-success ring-1 ring-success/20",
+  BALANCED: "bg-primary/10 text-primary ring-1 ring-primary/20",
+  NEW_PRODUCT: "bg-muted text-muted-foreground ring-1 ring-border",
+  NO_SALES: "bg-muted text-muted-foreground ring-1 ring-border",
 };
 
 const SORTS = [
@@ -96,10 +96,10 @@ function ConfidencePill({ value }: { value: number }) {
   const pct = Math.round(value * 100);
   const tone =
     pct >= 75
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+      ? "bg-success/10 text-success ring-success/20"
       : pct >= 55
-        ? "bg-amber-50 text-amber-700 ring-amber-200"
-        : "bg-red-50 text-red-700 ring-red-200";
+        ? "bg-warning/10 text-warning ring-warning/20"
+        : "bg-destructive/10 text-destructive ring-destructive/20";
   return (
     <span
       className={`inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold leading-none ring-1 tabular-nums ${tone}`}
@@ -112,10 +112,10 @@ function ConfidencePill({ value }: { value: number }) {
 function AbcBadge({ abc }: { abc: string }) {
   const tone =
     abc === "A"
-      ? "bg-primary text-white"
+      ? "bg-primary text-primary-foreground"
       : abc === "B"
-        ? "bg-slate-300 text-slate-700"
-        : "bg-slate-100 text-slate-500";
+        ? "bg-secondary text-secondary-foreground"
+        : "bg-muted text-muted-foreground";
   return (
     <span
       className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[11px] font-bold ${tone}`}
@@ -140,16 +140,16 @@ function Metric({
 }) {
   return (
     <div className="text-left leading-none">
-      <div className="text-[9px] font-medium text-slate-400">{label}</div>
+      <div className="text-[9px] font-medium text-muted-foreground">{label}</div>
       <div
         className={`mt-0.5 truncate font-bold tabular-nums ${
           money ? "text-[11px]" : "text-[13px]"
         } ${
           danger
-            ? "text-red-600"
+            ? "text-destructive"
             : accent
-              ? "text-blue-600"
-              : "text-slate-900"
+              ? "text-primary"
+              : "text-foreground"
         }`}
       >
         {value}
@@ -161,8 +161,8 @@ function Metric({
 function DetailRow({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="text-slate-400">{label}</span>
-      <span className="font-semibold tabular-nums text-slate-700">{value}</span>
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-semibold tabular-nums text-foreground">{value}</span>
     </div>
   );
 }
@@ -174,25 +174,25 @@ function ProductCard({ item }: { item: OrderV2Item }) {
 
   return (
     <div
-      className={`rounded-2xl border bg-white transition-shadow ${
+      className={`rounded-2xl border bg-card transition-shadow ${
         isA
-          ? "border-blue-200 shadow-[0_1px_0_0_rgba(37,99,235,0.15)]"
-          : "border-slate-200"
-      } ${noStock ? "ring-1 ring-red-200" : ""}`}
+          ? "border-primary/30 shadow-[0_1px_0_0_hsl(var(--primary)/0.15)]"
+          : "border-border"
+      } ${noStock ? "ring-1 ring-destructive/30" : ""}`}
     >
       <div className="flex items-start gap-2 px-2.5 py-2">
         <AbcBadge abc={item.abcClass} />
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[13px] font-semibold leading-tight text-slate-900 line-clamp-1">
+            <p className="text-[13px] font-semibold leading-tight text-foreground line-clamp-1">
               {item.productName}
             </p>
             <ConfidencePill value={item.confidence} />
           </div>
 
           {noStock && (
-            <div className="mt-0.5 flex items-center gap-1 text-[11px] font-medium leading-none text-red-600">
+            <div className="mt-0.5 flex items-center gap-1 text-[11px] font-medium leading-none text-destructive">
               <PackageX className="h-3 w-3" />
               Нет на складе
             </div>
@@ -230,7 +230,7 @@ function ProductCard({ item }: { item: OrderV2Item }) {
 
           <button
             onClick={() => setOpen((v) => !v)}
-            className="mt-1 flex items-center gap-0.5 text-[11px] font-medium leading-none text-slate-400 active:text-slate-600"
+            className="mt-1 flex items-center gap-0.5 text-[11px] font-medium leading-none text-muted-foreground active:text-foreground"
           >
             {open ? "Скрыть" : "Подробнее"}
             {open ? (
@@ -290,8 +290,8 @@ function ShopChip({
       onClick={onClick}
       className={`flex shrink-0 items-center whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
         active
-          ? "bg-slate-900 text-white"
-          : "bg-white text-slate-500 ring-1 ring-slate-200"
+          ? "bg-primary text-primary-foreground"
+          : "bg-card text-muted-foreground ring-1 ring-border"
       }`}
     >
       {children}
@@ -347,31 +347,31 @@ export function OrderForecastCards({
   return (
     <div className="mx-auto max-w-[420px]">
       {/* Sticky summary bar */}
-      <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur -mx-4 sm:-mx-6">
+      <div className="sticky top-0 z-20 border-b border-border bg-card/95 px-3 py-2.5 backdrop-blur -mx-4 sm:-mx-6">
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
               <Calendar className="h-3 w-3" />
               {fmtCompactDate(startDate)} – {fmtCompactDate(endDate)} ·{" "}
               {analysisWeeks} нед. анализа
             </div>
-            <div className="mt-0.5 text-lg font-extrabold tabular-nums text-slate-900">
+            <div className="mt-0.5 text-lg font-extrabold tabular-nums text-foreground">
               {fmtMoney(totalSum)}
             </div>
           </div>
           <div className="text-right">
-            <div className="flex items-center gap-1 text-[11px] font-medium text-slate-400">
+            <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
               <Package className="h-3 w-3" />
               позиций
             </div>
-            <div className="mt-0.5 text-lg font-extrabold tabular-nums text-slate-900">
+            <div className="mt-0.5 text-lg font-extrabold tabular-nums text-foreground">
               {totalCount}
             </div>
           </div>
         </div>
         <button
           onClick={onNewForecast}
-          className="mt-2 w-full rounded-xl bg-primary py-2 text-[13px] font-semibold text-white active:bg-primary/80"
+          className="mt-2 w-full rounded-xl bg-primary py-2 text-[13px] font-semibold text-primary-foreground active:bg-primary/90"
         >
           Сформировать новый прогноз
         </button>
@@ -401,7 +401,7 @@ export function OrderForecastCards({
 
       {/* Sort chips */}
       <div className="flex items-center gap-1.5 overflow-x-auto px-3 pb-2 -mx-4 sm:-mx-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <ArrowUpDown className="h-3.5 w-3.5 shrink-0 text-slate-300" />
+        <ArrowUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
         {SORTS.map((s) => (
           <button
             key={s.key}
@@ -415,8 +415,8 @@ export function OrderForecastCards({
             }}
             className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors ${
               sortKey === s.key
-                ? "bg-primary text-white"
-                : "bg-white text-slate-500 ring-1 ring-slate-200"
+                ? "bg-primary text-primary-foreground"
+                : "bg-card text-muted-foreground ring-1 ring-border"
             }`}
           >
             {s.label}{" "}
@@ -432,14 +432,14 @@ export function OrderForecastCards({
             <div key={abc}>
               <button
                 onClick={() => toggleAbc(abc)}
-                className="mb-2 flex w-full items-center justify-between text-[12px] font-semibold uppercase tracking-wide text-slate-400"
+                className="mb-2 flex w-full items-center justify-between text-[12px] font-semibold uppercase tracking-wide text-muted-foreground"
               >
                 <span className="flex items-center gap-1.5">
                   {abc === "A" && (
-                    <Sparkles className="h-3.5 w-3.5 text-blue-500" />
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
                   )}
                   {ABC_LABELS[abc]}
-                  <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] text-slate-500">
+                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                     {grouped[abc].length}
                   </span>
                 </span>
@@ -464,7 +464,7 @@ export function OrderForecastCards({
           <div>
             <button
               onClick={() => setShowZero((v) => !v)}
-              className="flex w-full items-center justify-between rounded-xl bg-slate-100 px-3 py-2 text-[12px] font-medium text-slate-500"
+              className="flex w-full items-center justify-between rounded-xl bg-muted px-3 py-2 text-[12px] font-medium text-muted-foreground"
             >
               <span>Не требуют заказа ({zero.length})</span>
               {showZero ? (
@@ -484,7 +484,7 @@ export function OrderForecastCards({
         )}
 
         {active.length === 0 && zero.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-10 text-center text-slate-400">
+          <div className="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
             <AlertTriangle className="h-6 w-6" />
             <p className="text-sm">Нет данных для этого магазина</p>
           </div>
