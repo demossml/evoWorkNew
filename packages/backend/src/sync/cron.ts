@@ -101,7 +101,7 @@ export async function updateProductsShope(env: SyncEnv): Promise<void> {
 async function ensureDaysOfDocuments(
 	evo: Evotor,
 	db: D1Database,
-	daysBack = 30,
+	daysBack = 90,
 ): Promise<void> {
 	const today = new Date();
 	const startDate = new Date(today);
@@ -113,7 +113,7 @@ async function ensureDaysOfDocuments(
 	// Получаем все дни, за которые уже есть документы
 	const existing = await db
 		.prepare(`
-			SELECT DISTINCT date(close_date) as d
+			SELECT DISTINCT substr(close_date, 1, 10) as d
 			FROM index_documents
 			WHERE close_date >= ? AND close_date <= ?
 		`)
@@ -140,7 +140,8 @@ async function ensureDaysOfDocuments(
 	}
 
 	if (rangeStart) {
-		missingRanges.push({ since: new Date(rangeStart), until: new Date(today) });
+		// rangeStart — самый новый пропущенный день; пробел тянется до startDate
+		missingRanges.push({ since: new Date(startDate), until: new Date(today) });
 	}
 
 	if (missingRanges.length === 0) {

@@ -25,7 +25,7 @@ import { assert, isValidSign } from "./src/utils";
 import { createSettingsTable } from "./src/db/repositories/settings";
 import { createIndexDocumentsTable, createOpeningPhotosTable, createOpenStorsTable, createSalaryBonusTable, createProductsTableIfNotExists } from "./src/utils";
 
-import { syncDocuments, updateProductsShope } from "./src/sync/cron";
+import { syncDocuments, updateProductsShope, updatePlan_, getDataForCurrentDate, updateDataSaleByPlan } from "./src/sync/cron";
 
 const DATA_DIR = process.env.DATA_DIR ?? "./data";
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
@@ -139,6 +139,33 @@ const app = new Hono()
 	.get("/*", serveStatic({ root: "../frontend/dist", path: "index.html" }));
 
 // --- Cron-задачи (синхронизация) ---
+// ── Функция инициализации: планы + зарплаты после синхронизации ──
+async function initializePlansAndSalaries() {
+	const env = { EVOTOR_API_TOKEN: EVOTOR_TOKEN, DB: db as any };
+
+	console.log("[startup] Расчет планов и зарплат...");
+
+	try {
+		await runSyncTask(() => updatePlan_(env), "План продаж");
+	} catch (e: any) {
+		console.error("[startup] Ошибка плана:", e.message);
+	}
+
+	try {
+		await runSyncTask(() => updateDataSaleByPlan(env), "Продажи по плану");
+	} catch (e: any) {
+		console.error("[startup] Ошибка SaleByPlan:", e.message);
+	}
+
+	try {
+		await runSyncTask(() => getDataForCurrentDate(env), "Зарплата");
+	} catch (e: any) {
+		console.error("[startup] Ошибка зарплаты:", e.message);
+	}
+
+	console.log("[startup] Планы и зарплаты — готово");
+}
+
 async function runSyncTask(task: () => Promise<void>, label: string) {
 	const start = Date.now();
 	console.log(`[cron] ${label} — запуск...`);
@@ -153,12 +180,22 @@ async function runSyncTask(task: () => Promise<void>, label: string) {
 function setupCron() {
 	const env = { EVOTOR_API_TOKEN: EVOTOR_TOKEN, DB: db as any };
 
-	// Первичная синхронизация при старте (30 дней истории)
+	// Первичная синхронизация при старте
 	setTimeout(() => runSyncTask(() => syncDocuments(env), "первичная синхронизация"), 2000);
+
+	// После синхронизации — планы и зарплаты (через 15 сек)
+	setTimeout(() => initializePlansAndSalaries(), 15000);
 
 	// Каждые 30 минут — синхронизация документов
 	cron.schedule("*/30 * * * *", () => {
 		runSyncTask(() => syncDocuments(env), "syncDocuments");
+	});
+
+	// Каждые 6 часов — планы, продажи по плану, зарплаты
+	cron.schedule("0 */6 * * *", () => {
+		runSyncTask(() => updatePlan_(env), "updatePlans");
+		runSyncTask(() => updateDataSaleByPlan(env), "updateSalesByPlan");
+		runSyncTask(() => getDataForCurrentDate(env), "calcSalary");
 	});
 
 	// Каждые 6 часов — обновление shopProduct
@@ -168,6 +205,9 @@ function setupCron() {
 
 	console.log("[cron] Планировщик запущен:");
 	console.log("  syncDocuments      — каждые 30 минут");
+	console.log("  updatePlans        — каждые 6 часов");
+	console.log("  updateSalesByPlan  — каждые 6 часов");
+	console.log("  calcSalary         — каждые 6 часов");
 	console.log("  updateProductsShope — каждые 6 часов");
 }
 
