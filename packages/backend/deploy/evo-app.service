@@ -1,0 +1,31 @@
+# /etc/systemd/system/evo-app.service
+# Установка:
+#   sudo cp deploy/evo-app.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now evo-app
+
+[Unit]
+Description=Evo App Backend
+After=network.target
+
+[Service]
+Type=simple
+User=evo
+WorkingDirectory=/opt/evo-app/packages/backend
+ExecStart=/usr/bin/node --experimental-strip-types server.ts
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=DATA_DIR=/opt/evo-app/data
+Environment=EVOTOR_API_TOKEN=1126f94c-2b19-490e-872c-49ded3be310e
+Environment=BOT_TOKEN=8727487138:AAHnSTM9tisI2pOmRqooqTSHwsuJVtMmXag
+Environment=TELEGRAM_STORAGE_CHAT_ID=-5118742446
+Environment=TELEGRAM_STORAGE_BOT_TOKEN=8727487138:AAHnSTM9tisI2pOmRqooqTSHwsuJVtMmXag
+
+# Логи
+StandardOutput=append:/var/log/evo-app/app.log
+StandardError=append:/var/log/evo-app/error.log
+
+[Install]
+WantedBy=multi-user.target

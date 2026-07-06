@@ -2,3 +2,4 @@
 node_modules
 dist.dev.vars
 .deploy.vars.json
+.dev.vars

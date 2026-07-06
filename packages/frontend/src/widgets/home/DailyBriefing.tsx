@@ -26,12 +26,12 @@ function fmtRub(n: number): string {
 function BriefingSkeleton() {
   return (
     <div className="mb-4 animate-pulse">
-      <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-4 shadow-lg">
-        <div className="h-4 w-32 bg-white/20 rounded mb-2" />
-        <div className="h-6 w-48 bg-white/20 rounded mb-3" />
+      <div className="bg-primary rounded-xl p-4 shadow-lg">
+        <div className="h-4 w-32 bg-primary-foreground/20 rounded mb-2" />
+        <div className="h-6 w-48 bg-primary-foreground/20 rounded mb-3" />
         <div className="flex gap-3">
-          <div className="h-8 w-24 bg-white/10 rounded-lg" />
-          <div className="h-8 w-24 bg-white/10 rounded-lg" />
+          <div className="h-8 w-24 bg-primary-foreground/10 rounded-lg" />
+          <div className="h-8 w-24 bg-primary-foreground/10 rounded-lg" />
         </div>
       </div>
     </div>
@@ -87,7 +87,7 @@ export function DailyBriefing() {
       label: "Сегодня",
       value: todayShop,
       icon: <MapPin className="w-3 h-3" />,
-      color: "bg-white/15",
+      color: "bg-primary-foreground/15",
     });
   }
 
@@ -96,7 +96,7 @@ export function DailyBriefing() {
       label: "План",
       value: `${fmtRub(todayPlan)} ₽`,
       icon: <Target className="w-3 h-3" />,
-      color: "bg-white/15",
+      color: "bg-primary-foreground/15",
     });
   }
 
@@ -107,14 +107,14 @@ export function DailyBriefing() {
         label: "vs 30 дн",
         value: `+${fmtRub(Math.abs(seller.trendSlope))}/д`,
         icon: <TrendingUp className="w-3 h-3" />,
-        color: "bg-emerald-500/30",
+        color: "bg-success/30",
       });
     } else if (delta === "↓") {
       chips.push({
         label: "vs 30 дн",
         value: `${fmtRub(seller.trendSlope)}/д`,
         icon: <TrendingDown className="w-3 h-3" />,
-        color: "bg-red-500/30",
+        color: "bg-destructive/30",
       });
     }
   }
@@ -128,14 +128,14 @@ export function DailyBriefing() {
         if (isMiniApp) telegram.WebApp.HapticFeedback.impactOccurred("light");
       }}
     >
-      <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-4 shadow-lg text-white">
-        <div className="text-white/70 text-xs font-medium mb-0.5">
+      <div className="bg-primary rounded-xl p-4 shadow-lg text-primary-foreground">
+        <div className="text-primary-foreground/70 text-xs font-medium mb-0.5">
           {greeting}
         </div>
         <h2 className="text-lg font-bold mb-3 leading-tight">
           {name.split(" ")[0]}
           {seller && (
-            <span className="text-white/60 text-sm font-normal ml-1">
+            <span className="text-primary-foreground/60 text-sm font-normal ml-1">
               · #{seller.rank} в рейтинге
             </span>
           )}
@@ -149,15 +149,15 @@ export function DailyBriefing() {
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${chip.color}`}
               >
                 {chip.icon}
-                <span className="text-white/60">{chip.label}</span>
-                <span className="text-white">{chip.value}</span>
+                <span className="text-primary-foreground/60">{chip.label}</span>
+                <span className="text-primary-foreground">{chip.value}</span>
               </div>
             ))}
           </div>
         )}
 
         {!todayShop && (
-          <div className="mt-2 text-white/50 text-xs">
+          <div className="mt-2 text-primary-foreground/50 text-xs">
             Нет данных о сегодняшней смене
           </div>
         )}

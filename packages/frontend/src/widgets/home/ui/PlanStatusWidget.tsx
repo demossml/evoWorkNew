@@ -22,9 +22,9 @@ import {
 
 // ── Цвета статусов ──
 const STATUS_COLORS = {
-  green:  { bg: "#ECFDF5", text: "#065F46", accent: "#10B981", dot: "bg-green-500", badge: "bg-green-100 text-green-700", bar: "bg-green-500", border: "border-l-green-500" },
-  yellow: { bg: "#FFFBEB", text: "#78350F", accent: "#F59E0B", dot: "bg-yellow-500", badge: "bg-yellow-100 text-yellow-700", bar: "bg-yellow-500", border: "border-l-yellow-500" },
-  red:    { bg: "#FEF2F2", text: "#7F1D1D", accent: "#EF4444", dot: "bg-red-500", badge: "bg-red-100 text-red-700", bar: "bg-red-500", border: "border-l-red-500" },
+  green:  { bg: "hsl(var(--success) / 0.12)", text: "hsl(var(--success))", accent: "hsl(var(--success))", dot: "bg-success", badge: "bg-success/15 text-success", bar: "bg-success", border: "border-l-success" },
+  yellow: { bg: "hsl(var(--warning) / 0.12)", text: "hsl(var(--warning))", accent: "hsl(var(--warning))", dot: "bg-warning", badge: "bg-warning/15 text-warning", bar: "bg-warning", border: "border-l-warning" },
+  red:    { bg: "hsl(var(--destructive) / 0.12)", text: "hsl(var(--destructive))", accent: "hsl(var(--destructive))", dot: "bg-destructive", badge: "bg-destructive/15 text-destructive", bar: "bg-destructive", border: "border-l-destructive" },
 } as const;
 
 // ═══════════════════════════════════════════
@@ -36,30 +36,29 @@ function NetworkSummaryBar({ model }: { model: PlanDomainModel }) {
   const colors = STATUS_COLORS[netStatus];
 
   return (
-    <div className="rounded-xl mb-3 overflow-hidden" style={{ background: "linear-gradient(135deg, #1E3A5F 0%, #2563EB 100%)" }}>
+    <div className="rounded-xl mb-3 overflow-hidden bg-primary">
       <div className="px-4 py-3.5">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-white text-sm font-semibold">Сеть</div>
-            <div className="text-white/70 text-xs mt-0.5">
+            <div className="text-primary-foreground text-sm font-semibold">Сеть</div>
+            <div className="text-primary-foreground/70 text-xs mt-0.5">
               {formatMoney(network.totalPlan)} план / {formatMoney(network.totalFact)} факт
             </div>
           </div>
-          <div className="text-white text-2xl font-bold tabular-nums">
+          <div className="text-primary-foreground text-2xl font-bold tabular-nums">
             {formatPercent(network.progress)}
           </div>
-          <div className="text-white/70 text-xs text-right">
+          <div className="text-primary-foreground/70 text-xs text-right">
             {network.shopsOnTarget} из {network.shopsTotal} выполняют
           </div>
         </div>
       </div>
-      <div className="h-1.5 bg-white/20">
+      <div className="h-1.5 bg-primary-foreground/20">
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${Math.min(network.progress * 100, 100)}%` }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="h-full rounded-r"
-          style={{ background: network.progress >= 1 ? "#10B981" : "#FFFFFF" }}
+          className={`h-full rounded-r ${network.progress >= 1 ? "bg-success" : "bg-primary-foreground"}`}
         />
       </div>
     </div>
@@ -95,7 +94,7 @@ function ShopCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
       className={`bg-card rounded-xl shadow-sm border border-border overflow-hidden mb-2 transition-shadow duration-200 ${
-        isExpanded ? "shadow-md border-border" : "hover:shadow-md"
+        isExpanded ? "shadow-md border-primary/30" : "hover:shadow-md"
       } border-l-4 ${colors.border}`}
     >
       {/* ── Свёрнутое состояние ── */}
@@ -103,10 +102,10 @@ function ShopCard({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${colors.dot}`} style={{ boxShadow: `0 0 6px ${colors.accent}` }} />
-            <span className="font-semibold text-gray-900 dark:text-white" style={{ fontSize: 16 }}>{shop.name}</span>
+            <span className="font-semibold text-foreground" style={{ fontSize: 16 }}>{shop.name}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="tabular-nums font-bold text-gray-900 dark:text-white" style={{ fontSize: 22 }}>
+            <span className="tabular-nums font-bold text-foreground" style={{ fontSize: 22 }}>
               {formatPercent(shop.progress)}
             </span>
             <span className="text-xs font-medium rounded-md px-2 py-0.5" style={{ background: colors.bg, color: colors.text }}>
@@ -129,17 +128,17 @@ function ShopCard({
         <div className="flex items-center justify-between text-xs">
           <div>
             <span className="text-muted-foreground">План: </span>
-            <span className="font-medium tabular-nums text-gray-900 dark:text-white" style={{ fontSize: 14 }}>
+            <span className="font-medium tabular-nums text-foreground" style={{ fontSize: 14 }}>
               {formatMoney(shop.plan)} ₽
             </span>
           </div>
           <div>
             <span className="text-muted-foreground">Факт: </span>
-            <span className={`font-medium tabular-nums ${shop.status === "green" ? "text-green-600" : shop.status === "yellow" ? "text-yellow-600" : "text-red-600"}`} style={{ fontSize: 14 }}>
+            <span className={`font-medium tabular-nums ${shop.status === "green" ? "text-success" : shop.status === "yellow" ? "text-warning" : "text-destructive"}`} style={{ fontSize: 14 }}>
               {formatMoney(shop.fact)} ₽
             </span>
           </div>
-          <div className={`flex items-center gap-0.5 font-medium ${shop.delta >= 0 ? "text-green-600" : "text-red-500"}`} style={{ fontSize: 13 }}>
+          <div className={`flex items-center gap-0.5 font-medium ${shop.delta >= 0 ? "text-success" : "text-destructive"}`} style={{ fontSize: 13 }}>
             {shop.delta >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
             {formatDelta(shop.delta)}
           </div>
@@ -194,28 +193,28 @@ function ForecastBlock({ shop }: { shop: PlanShop }) {
   return (
     <div className="rounded-lg bg-card p-3 border border-border">
       <div className="flex items-center gap-1.5 mb-2">
-        <Target className="w-3.5 h-3.5 text-blue-500" />
-        <span className="text-xs font-semibold text-foreground">Прогноз</span>
+        <Target className="w-3.5 h-3.5 text-primary" />
+        <span className="text-xs font-semibold text-foreground/80">Прогноз</span>
       </div>
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
-          <span className="text-gray-500">К концу дня: </span>
+          <span className="text-muted-foreground">К концу дня: </span>
           <span className="font-semibold tabular-nums" style={{ fontSize: 14 }}>{formatMoney(shop.forecast)} ₽</span>
         </div>
         <div className="text-right">
           {isOnTrack ? (
-            <span className="text-green-600 font-medium">✅ успеваем</span>
+            <span className="text-success font-medium">✅ успеваем</span>
           ) : (
-            <span className="text-red-500 font-medium">⚠️ не успеваем</span>
+            <span className="text-destructive font-medium">⚠️ не успеваем</span>
           )}
         </div>
         <div>
-          <span className="text-gray-500">Нужный темп: </span>
+          <span className="text-muted-foreground">Нужный темп: </span>
           <span className="font-semibold text-orange-600">{formatRate(shop.requiredHourlyRate)}</span>
         </div>
         <div className="text-right">
-          <span className="text-gray-500">Текущий: </span>
-          <span className="font-semibold text-blue-600">{formatRate(currentRate)}</span>
+          <span className="text-muted-foreground">Текущий: </span>
+          <span className="font-semibold text-primary">{formatRate(currentRate)}</span>
         </div>
       </div>
     </div>
@@ -233,24 +232,24 @@ function ProductList({ products }: { products: PlanShop["products"] }) {
     <div className="rounded-lg bg-card p-3 border border-border">
       <div className="flex items-center gap-1.5 mb-2">
         <Package className="w-3.5 h-3.5 text-purple-500" />
-        <span className="text-xs font-semibold text-foreground">Продажи вейпов сегодня</span>
+        <span className="text-xs font-semibold text-foreground/80">Продажи вейпов сегодня</span>
       </div>
       {display.length === 0 ? (
-        <div className="text-xs text-gray-400 py-1">Нет продаж</div>
+        <div className="text-xs text-muted-foreground py-1">Нет продаж</div>
       ) : (
         <div className={`space-y-1.5 ${products.length > 5 ? "max-h-32 overflow-auto pr-1" : ""}`}>
           {display.map((p) => (
             <div key={p.name} className="flex items-center gap-2 text-xs">
-              <span className="flex-1 truncate text-foreground font-medium">{p.name}</span>
-              <span className="tabular-nums text-gray-500 w-10 text-right">{p.qty} шт</span>
-              {p.sum > 0 && <span className="tabular-nums text-gray-400 w-14 text-right">{formatMoney(p.sum)} ₽</span>}
+              <span className="flex-1 truncate text-foreground/80 font-medium">{p.name}</span>
+              <span className="tabular-nums text-muted-foreground w-10 text-right">{p.qty} шт</span>
+              {p.sum > 0 && <span className="tabular-nums text-muted-foreground w-14 text-right">{formatMoney(p.sum)} ₽</span>}
               <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
                 <div className="h-full bg-purple-400 rounded-full" style={{ width: `${(p.qty / maxQty) * 100}%` }} />
               </div>
             </div>
           ))}
           {products.length > 5 && (
-            <div className="text-xs text-gray-400 pt-0.5">+ ещё {products.length - 5} позиций</div>
+            <div className="text-xs text-muted-foreground pt-0.5">+ ещё {products.length - 5} позиций</div>
           )}
         </div>
       )}
@@ -272,10 +271,10 @@ function WeekComparison({
     return (
       <div className="rounded-lg bg-card p-3 border border-border">
         <div className="flex items-center gap-1.5 mb-2">
-          <Clock className="w-3.5 h-3.5 text-gray-400" />
-          <span className="text-xs font-semibold text-foreground">Vs. прошлая неделя</span>
+          <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold text-foreground/80">Vs. прошлая неделя</span>
         </div>
-        <div className="text-xs text-gray-400">Нет данных за прошлую неделю</div>
+        <div className="text-xs text-muted-foreground">Нет данных за прошлую неделю</div>
       </div>
     );
   }
@@ -285,10 +284,10 @@ function WeekComparison({
     return (
       <div className="rounded-lg bg-card p-3 border border-border">
         <div className="flex items-center gap-1.5 mb-2">
-          <Clock className="w-3.5 h-3.5 text-gray-400" />
-          <span className="text-xs font-semibold text-foreground">Vs. прошлая неделя</span>
+          <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold text-foreground/80">Vs. прошлая неделя</span>
         </div>
-        <div className="text-xs text-gray-400">Магазин не работал на прошлой неделе</div>
+        <div className="text-xs text-muted-foreground">Магазин не работал на прошлой неделе</div>
       </div>
     );
   }
@@ -299,15 +298,15 @@ function WeekComparison({
   return (
     <div className="rounded-lg bg-card p-3 border border-border">
       <div className="flex items-center gap-1.5 mb-2">
-        <Clock className="w-3.5 h-3.5 text-gray-500" />
-        <span className="text-xs font-semibold text-foreground">Vs. прошлая неделя</span>
+        <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="text-xs font-semibold text-foreground/80">Vs. прошлая неделя</span>
       </div>
       <div className="flex items-center gap-2 text-xs">
-        <span className="text-gray-500">{shop.name}:</span>
-        <span className="font-semibold tabular-nums text-gray-900 dark:text-white">{formatMoney(shop.fact)} ₽</span>
-        <span className="text-gray-400">→ было:</span>
+        <span className="text-muted-foreground">{shop.name}:</span>
+        <span className="font-semibold tabular-nums text-foreground">{formatMoney(shop.fact)} ₽</span>
+        <span className="text-muted-foreground">→ было:</span>
         <span className="tabular-nums text-muted-foreground">{formatMoney(prevShop.fact)} ₽</span>
-        <span className={`font-medium tabular-nums flex items-center gap-0.5 ${isUp ? "text-green-600" : "text-red-500"}`}>
+        <span className={`font-medium tabular-nums flex items-center gap-0.5 ${isUp ? "text-success" : "text-destructive"}`}>
           {isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
           {isUp ? "+" : ""}{deltaPct.toFixed(1)}%
         </span>

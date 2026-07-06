@@ -61,11 +61,12 @@
     --tg-safe-top: 0px;
     --tg-safe-bottom: 0px;
     --tg-viewport-height: 100dvh;
-    --tg-app-top-offset: 0px;
-    --app-bottom-nav-height: 64px;
-    --app-top-clearance: calc(
-      var(--tg-app-top-offset, var(--tg-safe-top, 0px)) + 8px
+    --tg-safe-top: env(safe-area-inset-top, 0px);
+    --tg-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --tg-viewport-height: calc(
+      100dvh - var(--tg-safe-top) - var(--tg-safe-bottom)
     );
+    --app-top-clearance: calc(var(--tg-safe-top, 0px) + 8px);
     --app-bottom-clearance: calc(
       var(--app-bottom-nav-height, 64px) + var(--tg-safe-bottom, 0px) + 8px
     );
@@ -117,9 +118,6 @@
   * {
     @apply border-border;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
 }
 
 /* Match Telegram's own typography instead of shipping a webfont — keeps the
@@ -134,35 +132,31 @@ body {
 html,
 body,
 #root {
-  height: var(--tg-viewport-height);
-  min-height: var(--tg-viewport-height);
-  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
-body {
-  padding-top: var(--app-top-clearance);
-  padding-bottom: var(--app-bottom-clearance);
-}
-
-.app-shell-main {
+body,
+#root {
   min-height: var(--tg-viewport-height);
   padding-top: var(--app-top-clearance);
   padding-bottom: var(--app-bottom-clearance);
+  background: hsl(var(--background));
 }
 
 .app-page {
-  width: 100%;
-  min-height: calc(
-    var(--tg-viewport-height) - var(--app-top-clearance) -
-      var(--app-bottom-clearance)
-  );
+  min-height: var(--tg-viewport-height);
+  padding-top: var(--app-top-clearance);
+  padding-bottom: var(--app-bottom-clearance);
 }
 
 .app-page-scroll {
-  width: 100%;
-  min-height: calc(
-    var(--tg-viewport-height) - var(--app-top-clearance) -
-      var(--app-bottom-clearance)
+  min-height: var(--tg-viewport-height);
+  padding-top: calc(
+    var(--app-top-clearance) + var(--app-page-header-height, 48px)
   );
+  padding-bottom: var(--app-bottom-clearance);
   overflow-y: auto;
 }
