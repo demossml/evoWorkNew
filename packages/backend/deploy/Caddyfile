@@ -1,0 +1,36 @@
+# Caddyfile — reverse proxy + HTTPS (automatic via Let's Encrypt)
+#
+# Переменная $DOMAIN настраивается в .env.
+# Caddy подставляет её через import или environment:
+#   caddy run --envfile /opt/evo-app/.env
+#
+# Результат:
+#   https://$DOMAIN        → фронтенд (SPA)
+#   https://$DOMAIN/api/*  → бэкенд :3000
+#   https://$DOMAIN/health → healthcheck
+
+{$DOMAIN:localhost} {
+	# Сжатие
+	encode gzip
+
+	# API → Node.js бэкенд
+	handle_path /api/* {
+		reverse_proxy 127.0.0.1:3000 {
+			header_up Host {host}
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+
+	# Healthcheck
+	handle_path /health {
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	# Статика (SPA — всё на index.html)
+	handle {
+		root * /opt/evo-app/packages/frontend/dist
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -5,7 +5,7 @@
 #   sudo systemctl enable --now evo-app
 
 [Unit]
-Description=Evo App Backend
+Description=Evo App (backend + cron)
 After=network.target
 
 [Service]
@@ -18,10 +18,8 @@ RestartSec=5
 Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=DATA_DIR=/opt/evo-app/data
-Environment=EVOTOR_API_TOKEN=1126f94c-2b19-490e-872c-49ded3be310e
-Environment=BOT_TOKEN=8727487138:AAHnSTM9tisI2pOmRqooqTSHwsuJVtMmXag
-Environment=TELEGRAM_STORAGE_CHAT_ID=-5118742446
-Environment=TELEGRAM_STORAGE_BOT_TOKEN=8727487138:AAHnSTM9tisI2pOmRqooqTSHwsuJVtMmXag
+Environment=DB_PATH=/opt/evo-app/data/local.db
+EnvironmentFile=/opt/evo-app/.env
 
 # Логи
 StandardOutput=append:/var/log/evo-app/app.log
