@@ -681,3 +681,89 @@ export async function getAccessoriesSalesFromD1(
 		return empty;
 	}
 }
+
+// ============================================================================
+// D1-only helpers — no Evotor API calls
+// ============================================================================
+
+/**
+ * Получает OPEN_SESSION документы из index_documents за период.
+ */
+export async function getOpenSessionsFromD1(
+	db: D1Database,
+	since: string,
+	until: string,
+): Promise<Array<{ storeUuid: string; openUserUuid: string }>> {
+	const result = await db
+		.prepare(
+			`SELECT shop_id, open_user_uuid FROM index_documents
+			 WHERE close_date >= ? AND close_date <= ? AND type = 'OPEN_SESSION'`
+		)
+		.bind(since, until)
+		.all<{ shop_id: string; open_user_uuid: string }>();
+
+	return (result.results ?? []).map((r) => ({
+		storeUuid: r.shop_id,
+		openUserUuid: r.open_user_uuid,
+	}));
+}
+
+/**
+ * Получает UUID товаров, входящих в заданные группы, из shopProduct.
+ */
+export async function getProductsByGroupFromD1(
+	db: D1Database,
+	groupUuids: string[],
+): Promise<string[]> {
+	if (groupUuids.length === 0) return [];
+	const placeholders = groupUuids.map(() => "?").join(",");
+	const result = await db
+		.prepare(
+			`SELECT DISTINCT uuid FROM shopProduct WHERE parentUuid IN (${placeholders}) AND product_group = 0`
+		)
+		.bind(...groupUuids)
+		.all<{ uuid: string }>();
+
+	return (result.results ?? []).map((r) => r.uuid);
+}
+
+/**
+ * Вычисляет сумму продаж для заданных товаров из index_documents.
+ */
+export async function getSalesSumFromD1(
+	db: D1Database,
+	shopId: string,
+	since: string,
+	until: string,
+	productUuids: string[],
+): Promise<number> {
+	if (productUuids.length === 0) return 0;
+	const productSet = new Set(productUuids);
+
+	const result = await db
+		.prepare(
+			`SELECT transactions FROM index_documents
+			 WHERE shop_id = ? AND close_date >= ? AND close_date <= ?
+			   AND type IN ('SELL', 'PAYBACK')`
+		)
+		.bind(shopId, since, until)
+		.all<{ transactions: string }>();
+
+	let total = 0;
+	for (const row of result.results ?? []) {
+		try {
+			const txs = JSON.parse(row.transactions);
+			if (!Array.isArray(txs)) continue;
+			for (const tx of txs) {
+				if (
+					tx.type === "REGISTER_POSITION" &&
+					tx.commodityUuid &&
+					productSet.has(tx.commodityUuid)
+				) {
+					total += tx.sum ?? 0;
+				}
+			}
+		} catch { /* skip malformed JSON */ }
+	}
+	return total;
+}

@@ -25,7 +25,7 @@ import { assert, isValidSign } from "./src/utils";
 import { createSettingsTable } from "./src/db/repositories/settings";
 import { createIndexDocumentsTable, createOpeningPhotosTable, createOpenStorsTable, createSalaryBonusTable, createProductsTableIfNotExists } from "./src/utils";
 
-import { syncDocuments, updateProductsShope, updatePlan_, getDataForCurrentDate, updateDataSaleByPlan } from "./src/sync/cron";
+import { syncDocuments, syncShops, syncEmployees, updateProductsShope, updatePlan_, getDataForCurrentDate, updateDataSaleByPlan } from "./src/sync/cron";
 
 const DATA_DIR = process.env.DATA_DIR ?? "./data";
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
@@ -77,6 +77,9 @@ async function ensureTables(): Promise<void> {
 	await createOpenStorsTable(db as any);
 	await createSalaryBonusTable(db as any);
 	await createProductsTableIfNotExists(db as any);
+	const { createShopsTable, createEmployeesTable } = await import("./src/sync/db");
+	await createShopsTable(db as any);
+	await createEmployeesTable(db as any);
 	tablesReady = true;
 }
 
@@ -182,13 +185,17 @@ function setupCron() {
 
 	// Первичная синхронизация при старте
 	setTimeout(() => runSyncTask(() => syncDocuments(env), "первичная синхронизация"), 2000);
+	setTimeout(() => runSyncTask(() => syncShops(env), "syncShops"), 4000);
+	setTimeout(() => runSyncTask(() => syncEmployees(env), "syncEmployees"), 6000);
 
 	// После синхронизации — планы и зарплаты (через 15 сек)
 	setTimeout(() => initializePlansAndSalaries(), 15000);
 
-	// Каждые 30 минут — синхронизация документов
+	// Каждые 30 минут — синхронизация документов, магазинов и сотрудников
 	cron.schedule("*/30 * * * *", () => {
 		runSyncTask(() => syncDocuments(env), "syncDocuments");
+		runSyncTask(() => syncShops(env), "syncShops");
+		runSyncTask(() => syncEmployees(env), "syncEmployees");
 	});
 
 	// Каждые 6 часов — планы, продажи по плану, зарплаты

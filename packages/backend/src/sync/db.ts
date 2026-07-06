@@ -409,3 +409,101 @@ export async function updatePlan(
     }
   }
 }
+
+// ============================================================================
+// Table: shops
+// ============================================================================
+
+export async function createShopsTable(db: D1Database): Promise<void> {
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS shops (
+        uuid TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        address TEXT DEFAULT ''
+      )`
+    )
+    .run();
+  console.log("Таблица 'shops' успешно создана или уже существует.");
+}
+
+export async function upsertShops(
+  db: D1Database,
+  shops: { uuid: string; name: string; address?: string }[]
+): Promise<void> {
+  const stmt = db.prepare(
+    `INSERT INTO shops (uuid, name, address) VALUES (?, ?, ?)
+     ON CONFLICT(uuid) DO UPDATE SET name = excluded.name, address = excluded.address`
+  );
+  for (const s of shops) {
+    await stmt.bind(s.uuid, s.name, s.address ?? "").run();
+  }
+  console.log(`Синхронизировано магазинов: ${shops.length}`);
+}
+
+export async function getShopUuidsFromDB(db: D1Database): Promise<string[]> {
+  const result = await db.prepare("SELECT uuid FROM shops").all<{ uuid: string }>();
+  return (result.results ?? []).map((r) => r.uuid);
+}
+
+export async function getShopNameFromDB(db: D1Database, shopUuid: string): Promise<string> {
+  const result = await db.prepare("SELECT name FROM shops WHERE uuid = ?").bind(shopUuid).first<{ name: string }>();
+  return result?.name ?? shopUuid;
+}
+
+export async function getShopNameUuidsFromDB(db: D1Database): Promise<{ uuid: string; name: string }[]> {
+  const result = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+  return result.results ?? [];
+}
+
+// ============================================================================
+// Table: employees
+// ============================================================================
+
+export async function createEmployeesTable(db: D1Database): Promise<void> {
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS employees (
+        uuid TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        last_name TEXT DEFAULT '',
+        role TEXT DEFAULT '',
+        stores TEXT DEFAULT '[]'
+      )`
+    )
+    .run();
+  console.log("Таблица 'employees' успешно создана или уже существует.");
+}
+
+export async function upsertEmployees(
+  db: D1Database,
+  employees: { uuid: string; name: string; lastName?: string; role?: string; stores?: string[] }[]
+): Promise<void> {
+  const stmt = db.prepare(
+    `INSERT INTO employees (uuid, name, last_name, role, stores) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(uuid) DO UPDATE SET name = excluded.name, last_name = excluded.last_name, role = excluded.role, stores = excluded.stores`
+  );
+  for (const e of employees) {
+    await stmt.bind(e.uuid, e.name, e.lastName ?? "", e.role ?? "", JSON.stringify(e.stores ?? [])).run();
+  }
+  console.log(`Синхронизировано сотрудников: ${employees.length}`);
+}
+
+export async function getEmployeeNameFromDB(db: D1Database, lastName: string): Promise<string | null> {
+  const result = await db.prepare("SELECT name FROM employees WHERE last_name = ?").bind(lastName).first<{ name: string }>();
+  return result?.name ?? null;
+}
+
+export async function getEmployeeByLastNameDB(db: D1Database, lastName: string): Promise<{ uuid: string; name: string }[]> {
+  const result = await db.prepare("SELECT uuid, name FROM employees WHERE last_name = ?").bind(lastName).all<{ uuid: string; name: string }>();
+  return result.results ?? [];
+}
+
+export async function getEmployeesByShopIdDB(db: D1Database, shopId: string): Promise<{ uuid: string; name: string }[]> {
+  const result = await db.prepare("SELECT uuid, name, stores FROM employees").all<{ uuid: string; name: string; stores: string }>();
+  return (result.results ?? [])
+    .filter((r) => {
+      try { const s = JSON.parse(r.stores); return s.includes(shopId); } catch { return false; }
+    })
+    .map((r) => ({ uuid: r.uuid, name: r.name }));
+}

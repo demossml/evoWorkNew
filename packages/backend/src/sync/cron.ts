@@ -252,6 +252,56 @@ export async function syncStock(env: SyncEnv): Promise<void> {
 }
 
 // ============================================================================
+// Task: syncShops — синхронизация магазинов Эвотор → shops
+// ============================================================================
+
+export async function syncShops(env: SyncEnv): Promise<void> {
+  const token = env.EVOTOR_API_TOKEN;
+  const evo = new Evotor(token);
+
+  try {
+    const { createShopsTable, upsertShops } = await import("./db.js");
+    await createShopsTable(env.DB);
+    const shops = await evo.getShops();
+    const shopsData = Array.isArray(shops) ? shops.map((s: any) => ({
+      uuid: s.uuid,
+      name: s.name,
+      address: s.address ?? "",
+    })) : [];
+    await upsertShops(env.DB, shopsData);
+    console.log(`[syncShops] ${shopsData.length} магазинов синхронизировано`);
+  } catch (e) {
+    console.error("[syncShops] Ошибка:", e);
+  }
+}
+
+// ============================================================================
+// Task: syncEmployees — синхронизация сотрудников Эвотор → employees
+// ============================================================================
+
+export async function syncEmployees(env: SyncEnv): Promise<void> {
+  const token = env.EVOTOR_API_TOKEN;
+  const evo = new Evotor(token);
+
+  try {
+    const { createEmployeesTable, upsertEmployees } = await import("./db.js");
+    await createEmployeesTable(env.DB);
+    const employees = await evo.getEmployees();
+    const employeesData = Array.isArray(employees) ? employees.map((e: any) => ({
+      uuid: e.uuid,
+      name: e.name ?? "",
+      lastName: e.lastName ?? "",
+      role: e.role ?? "",
+      stores: e.stores ?? [],
+    })) : [];
+    await upsertEmployees(env.DB, employeesData);
+    console.log(`[syncEmployees] ${employeesData.length} сотрудников синхронизировано`);
+  } catch (e) {
+    console.error("[syncEmployees] Ошибка:", e);
+  }
+}
+
+// ============================================================================
 // Task: getDocuments (external API — demossml.cc, устаревшая)
 // ============================================================================
 
@@ -307,9 +357,6 @@ export async function updatePlan_(env: SyncEnv): Promise<void> {
 
 export async function getDataForCurrentDate(env: SyncEnv): Promise<void> {
   try {
-    const token = env.EVOTOR_API_TOKEN;
-    const evo = new Evotor(token);
-
     const date = new Date();
     date.setDate(date.getDate() - 1);
 
@@ -317,10 +364,13 @@ export async function getDataForCurrentDate(env: SyncEnv): Promise<void> {
     const sincetDate = formatDateWithTime(date, false);
     const untilDate = formatDateWithTime(date, true);
 
+    const { getOpenSessionsFromD1, getProductsByGroupFromD1, getSalesSumFromD1 } = await import("../evotor/utils.js");
+
     const groupIdsAks = await getAllUuid(env.DB);
     console.log("Accessories UUIDs:", groupIdsAks);
 
-    const docOpenSessions = await evo.getAllOpenSessions(sincetDate, untilDate);
+    // D1: открытые смены из index_documents
+    const docOpenSessions = await getOpenSessionsFromD1(env.DB, sincetDate, untilDate);
     const salaryAndBonus = await getSalaryAndBonus(datePlan, env.DB);
     console.log("Salary and bonus:", salaryAndBonus);
 
@@ -335,41 +385,33 @@ export async function getDataForCurrentDate(env: SyncEnv): Promise<void> {
         VAPE_GROUP_UUIDS,
       );
 
+      // D1: план из таблицы plan
       let plan = await getPlan(datePlan, env.DB);
       let datPlan: Record<string, number> = {};
 
       if (!plan) {
-        datPlan = await evo.getPlan(date, productUuids);
-        await updatePlanDb(datPlan, datePlan, env.DB);
+        console.warn(`[salary] План на ${datePlan} отсутствует в D1, пропускаем`);
+        continue;
       } else {
         datPlan = plan;
       }
 
-      // Accessories sales
-      const porodUuidAks = await evo.getProductsByGroup(
-        openShopUuid,
-        groupIdsAks,
-      );
-      const salesDataAks = await evo.getSalesSum(
-        openShopUuid,
-        sincetDate,
-        untilDate,
-        porodUuidAks,
-      );
-      console.log("Accessories sales:", salesDataAks);
+      // D1: продажи аксессуаров
+      let salesDataAks = 0;
+      if (groupIdsAks.length > 0) {
+        const porodUuidAks = await getProductsByGroupFromD1(env.DB, groupIdsAks);
+        salesDataAks = await getSalesSumFromD1(
+          env.DB, openShopUuid, sincetDate, untilDate, porodUuidAks
+        );
+        console.log("Accessories sales:", salesDataAks);
+      }
 
       const bonusAccessories = Math.floor(salesDataAks * 0.05);
 
-      // Vape sales
-      const porodUuidVape = await evo.getProductsByGroup(
-        openShopUuid,
-        VAPE_GROUP_UUIDS,
-      );
-      const salesDataVape = await evo.getSalesSum(
-        openShopUuid,
-        sincetDate,
-        untilDate,
-        porodUuidVape,
+      // D1: продажи vape
+      const porodUuidVape = await getProductsByGroupFromD1(env.DB, VAPE_GROUP_UUIDS);
+      const salesDataVape = await getSalesSumFromD1(
+        env.DB, openShopUuid, sincetDate, untilDate, porodUuidVape
       );
 
       const bonus = salaryAndBonus?.bonus || 0;
@@ -401,9 +443,6 @@ export async function getDataForCurrentDate(env: SyncEnv): Promise<void> {
 // ============================================================================
 
 export async function updateDataSaleByPlan(env: SyncEnv): Promise<void> {
-  const token = env.EVOTOR_API_TOKEN;
-  const evo = new Evotor(token);
-
   await initializeSaleByPlanTable(env.DB);
 
   const newDate = new Date();
@@ -415,19 +454,26 @@ export async function updateDataSaleByPlan(env: SyncEnv): Promise<void> {
 
   const productUuids = await getUuidsByParentUuidList(env.DB, VAPE_GROUP_UUIDS);
 
+  // D1: план из таблицы plan
   let plan = await getPlan(datePlan, env.DB);
   let datPlan: Record<string, number> = {};
 
   if (!plan) {
-    console.log("No existing plan found, fetching new plan...");
+    console.log("No existing plan found in D1, trying to fetch from Evotor...");
+    const token = env.EVOTOR_API_TOKEN;
+    const evo = new Evotor(token);
     datPlan = await evo.getPlan(newDate, productUuids);
-    console.log("Fetched new plan:", datPlan);
+    console.log("Fetched new plan from Evotor:", datPlan);
     await updatePlan(datPlan, datePlan, env.DB);
   } else {
     datPlan = plan;
   }
 
-  const shopUuids = await evo.getShopUuids();
+  // D1: список магазинов
+  const { getShopUuidsFromDB, getShopNameFromDB } = await import("./db.js");
+  const shopUuids = await getShopUuidsFromDB(env.DB);
+
+  const { getProductsByGroupFromD1, getSalesSumFromD1 } = await import("../evotor/utils.js");
 
   const salesData: Record<
     string,
@@ -441,13 +487,38 @@ export async function updateDataSaleByPlan(env: SyncEnv): Promise<void> {
 
   for (const shopId of shopUuids) {
     try {
-      const productUuids = await evo.getProductsByGroup(shopId, VAPE_GROUP_UUIDS);
-      const shopName = await evo.getShopName(shopId);
+      const productUuids = await getProductsByGroupFromD1(env.DB, VAPE_GROUP_UUIDS);
+      const shopName = await getShopNameFromDB(env.DB, shopId);
 
-      const [sumSalesData, podQuantity] = await Promise.all([
-        evo.getSalesSum(shopId, since, until, productUuids),
-        evo.getSalesSumQuantity(shopId, since, until, productUuids),
-      ]);
+      const sumSalesData = await getSalesSumFromD1(env.DB, shopId, since, until, productUuids);
+      // quantity: aggregate from index_documents
+      const productSet = new Set(productUuids);
+      const quantityResult = await env.DB
+        .prepare(
+          `SELECT transactions FROM index_documents
+           WHERE shop_id = ? AND close_date >= ? AND close_date <= ?
+             AND type IN ('SELL', 'PAYBACK')`
+        )
+        .bind(shopId, since, until)
+        .all<{ transactions: string }>();
+
+      const podQuantity: Record<string, number> = {};
+      for (const row of quantityResult.results ?? []) {
+        try {
+          const txs = JSON.parse(row.transactions);
+          if (!Array.isArray(txs)) continue;
+          for (const tx of txs) {
+            if (
+              tx.type === "REGISTER_POSITION" &&
+              tx.commodityUuid &&
+              productSet.has(tx.commodityUuid)
+            ) {
+              const name = tx.commodityName || "—";
+              podQuantity[name] = (podQuantity[name] || 0) + (tx.quantity || 0);
+            }
+          }
+        } catch { /* skip */ }
+      }
 
       salesData[shopName] = {
         date: datePlan,
