@@ -570,22 +570,30 @@ export async function getAccessoriesSalesFromD1(
 	};
 
 	try {
-		// 1. Получаем UUID всех товаров-аксессуаров через группы с "АКСЕСУАР" в названии
-		const accResult = await db
-			.prepare(`
-				SELECT DISTINCT p.uuid
-				FROM shopProduct p
-				JOIN shopProduct g ON p.parentUuid = g.uuid
-				WHERE g.product_group = 1
-				  AND (g.name LIKE '%АКСЕСУАР%' OR g.name LIKE '%аксесуар%' OR g.name LIKE '%аксессуар%' OR g.name LIKE '%АКСЕССУАР%')
-				  AND p.product_group = 0
-			`)
-			.all();
+		// 1. Получаем группы аксессуаров из таблицы accessories (настройки)
+		const groupResult = await db.prepare("SELECT uuid FROM accessories").all();
+		const groupUuids: string[] = [];
+		if (groupResult?.results) {
+			for (const row of groupResult.results as { uuid: string }[]) {
+				groupUuids.push(row.uuid);
+			}
+		}
 
+		// 2. Получаем UUID товаров, входящих в эти группы, из shopProduct
 		const accessoryUuids = new Set<string>();
-		if (accResult?.results) {
-			for (const row of accResult.results as { uuid: string }[]) {
-				accessoryUuids.add(row.uuid);
+		if (groupUuids.length > 0) {
+			const placeholders = groupUuids.map(() => "?").join(",");
+			const productResult = await db
+				.prepare(
+					`SELECT DISTINCT uuid FROM shopProduct WHERE parentUuid IN (${placeholders}) AND product_group = 0`
+				)
+				.bind(...groupUuids)
+				.all();
+
+			if (productResult?.results) {
+				for (const row of productResult.results as { uuid: string }[]) {
+					accessoryUuids.add(row.uuid);
+				}
 			}
 		}
 
