@@ -24,6 +24,7 @@ import { authenticate, initializeDrizzle } from "./src/helpers";
 import { assert, isValidSign } from "./src/utils";
 import { createSettingsTable } from "./src/db/repositories/settings";
 import { createIndexDocumentsTable, createOpeningPhotosTable, createOpenStorsTable, createSalaryBonusTable, createProductsTableIfNotExists } from "./src/utils";
+import { createProductsTableIfNotExists as createProductsTable } from "./src/sync/db";
 
 import { syncDocuments, syncShops, syncEmployees, updateProductsShope, updatePlan_, getDataForCurrentDate, updateDataSaleByPlan } from "./src/sync/cron";
 
@@ -77,6 +78,7 @@ async function ensureTables(): Promise<void> {
 	await createOpenStorsTable(db as any);
 	await createSalaryBonusTable(db as any);
 	await createProductsTableIfNotExists(db as any);
+	await createProductsTable(db as any);
 	const { createShopsTable, createEmployeesTable } = await import("./src/sync/db");
 	await createShopsTable(db as any);
 	await createEmployeesTable(db as any);
