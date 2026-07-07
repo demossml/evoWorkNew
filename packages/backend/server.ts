@@ -199,32 +199,32 @@ function setupCron() {
 		"Telegram-алерты"
 	), 25000);
 
-	// Каждые 30 минут — синхронизация документов, магазинов и сотрудников
-	cron.schedule("*/30 * * * *", () => {
+	// Каждые 5 минут — синхронизация документов, магазинов и сотрудников
+	cron.schedule("*/5 * * * *", () => {
 		runSyncTask(() => syncDocuments(env), "syncDocuments");
 		runSyncTask(() => syncShops(env), "syncShops");
 		runSyncTask(() => syncEmployees(env), "syncEmployees");
 	});
 
-	// Каждые 6 часов — планы, продажи по плану, зарплаты, алерты
-	cron.schedule("0 */6 * * *", () => {
+	// Каждые 25 минут — обновление товаров (shopProduct)
+	cron.schedule("*/25 * * * *", () => {
+		runSyncTask(() => updateProductsShope(env), "updateProductsShope");
+	});
+
+	// Каждый день в 01:00 — планы, продажи по плану, зарплаты, алерты
+	cron.schedule("0 1 * * *", () => {
 		runSyncTask(() => updatePlan_(env), "updatePlans");
 		runSyncTask(() => updateDataSaleByPlan(env), "updateSalesByPlan");
 		runSyncTask(() => getDataForCurrentDate(env), "calcSalary");
 		runSyncTask(() => checkAndSendCriticalAlerts(env, db as any), "criticalAlerts");
 	});
 
-	// Каждые 6 часов — обновление shopProduct
-	cron.schedule("0 */6 * * *", () => {
-		runSyncTask(() => updateProductsShope(env), "updateProductsShope");
-	});
-
 	console.log("[cron] Планировщик запущен:");
-	console.log("  syncDocuments      — каждые 30 минут");
-	console.log("  updatePlans        — каждые 6 часов");
-	console.log("  updateSalesByPlan  — каждые 6 часов");
-	console.log("  calcSalary         — каждые 6 часов");
-	console.log("  updateProductsShope — каждые 6 часов");
+	console.log("  syncDocuments       — каждые 5 минут");
+	console.log("  updateProductsShope — каждые 25 минут");
+	console.log("  updatePlans         — каждый день в 01:00");
+	console.log("  updateSalesByPlan   — каждый день в 01:00");
+	console.log("  calcSalary          — каждый день в 01:00");
 }
 
 // --- Запуск сервера ---
