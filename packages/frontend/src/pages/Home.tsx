@@ -9,6 +9,7 @@ import {
   TodayAlertsWidget,
   StockHealthWidget,
 } from "@widgets/home";
+import { SellerDNAWidget } from "@widgets/sellers";
 import { buildHomeAccessModel } from "@features/dashboard/model/homePageModel";
 import { SellerPerformanceWidget } from "@widgets/home/SellerPerformanceWidget";
 import { DailyBriefing } from "@widgets/home/DailyBriefing";
@@ -144,6 +145,11 @@ export default function Home() {
         {(isSuperAdmin || isAdmin) && (
           <ErrorBoundary variant="widget" name="Состояние склада">
             <StockHealthWidget />
+          </ErrorBoundary>
+        )}
+        {(isSuperAdmin || isAdmin) && (
+          <ErrorBoundary variant="widget" name="Seller DNA">
+            <SellerDNAWidget dateFilter={dateFilter} />
           </ErrorBoundary>
         )}
         <ErrorBoundary variant="widget" name="Быстрые действия">

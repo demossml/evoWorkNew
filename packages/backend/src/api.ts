@@ -12,6 +12,9 @@ import { analyzeDocsStaffTask, getHoroscopeByDateTask, analyzeDocsInsightsTask, 
 import { runOrderForecastV2 } from "./services/orderForecastV2";
 import { deepseekChat } from "./services/deepseek";
 import { computeSellerEffectiveness } from "./services/sellerEffectiveness";
+import { computeSellerAdvancedStats, computeWeekdayComparison, computeWeekdayBreakdown } from "./services/sellerAdvancedStats";
+import { generateSellerInsights } from "./services/sellerInsights";
+import { requireAdmin } from "./helpers";
 import type { ShopUuidName } from "./evotor/types";
 import {
 	assert,
@@ -99,6 +102,12 @@ type OpeningRecord = {
 	cashMessage: string | null;
 	completionPercent: number;
 };
+
+// ===================== In-memory cache =====================
+
+const statsCache = new Map<string, { data: any; expiresAt: number }>();
+
+// ===================== API =====================
 
 export const api = new Hono<IEnv>()
 
@@ -2409,11 +2418,189 @@ export const api = new Hono<IEnv>()
 			});
 			return c.json(aiResult);
 		} catch (err: any) {
-			console.error("[seller-insights] AI error:", err.message);
-			return c.json({
-				sellers: [],
-				generalObservations: `Ошибка AI-анализа: ${err.message}. Попробуйте позже.`,
+			console.error("[seller-insights] AI error, falling back to per-seller insights:", err.message);
+
+			// Fallback: per-seller rule-based insights via generateSellerInsights
+			try {
+				const topSellers = metrics.sellers.slice(0, 5);
+				const perSellerInsights: { sellerName: string; insights: string[] }[] = [];
+
+				for (const s of topSellers) {
+					const { insights } = await generateSellerInsights({
+						profile: {
+							name: s.name,
+							daysWorked: s.daysWorked,
+							totalRevenue: s.totalRevenue,
+							avgCheck: s.avgCheck,
+							accShare: s.accShare,
+							rubPerHour: s.rubPerHour,
+							avgHours: s.avgHours,
+							trend: s.trendDirection === "↑" ? "up" : s.trendDirection === "↓" ? "down" : "stable",
+							trendSlope: s.trendSlope,
+							overallScore: 50, // not available, default
+							deadTimePct: 0,
+							peakHourEfficiency: 0.5,
+							stability: { revenueCV: s.cv, checkCV: 0, attendanceRate: 100, lateOpenRate: 0 },
+							strengths: [],
+							weaknesses: [],
+							dnaLabel: "Стабильный",
+							rank: s.rank,
+							totalSellers: metrics.sellers.length,
+						},
+						apiKey: undefined, // force rule-based
+					});
+					if (insights.length > 0) {
+						perSellerInsights.push({ sellerName: s.name, insights });
+					}
+				}
+
+				const generalObservations = perSellerInsights.length > 0
+					? `Fallback rule-based анализ для ${perSellerInsights.length} продавцов.`
+					: `Ошибка AI: ${err.message}`;
+
+				return c.json({
+					sellers: perSellerInsights.map(s => ({
+						name: s.sellerName,
+						strengths: s.insights.filter(i => i.includes("✅") || i.includes("+")),
+						growthZones: s.insights.filter(i => i.includes("❗") || i.includes("-") || i.includes("⚠️")),
+						recommendation: s.insights[0] ?? "",
+						segment: "unknown" as const,
+					})),
+					generalObservations,
+				});
+			} catch (fallbackErr: any) {
+				return c.json({
+					sellers: [],
+					generalObservations: `Ошибка AI-анализа: ${err.message}. Попробуйте позже.`,
+				});
+			}
+		}
+	})
+	// Seller DNA — advanced stats for frontend widget
+	//
+	// Cache: in-memory with 300s TTL (per (since, until, shopId) key).
+	// To upgrade to persistent cache for production:
+	//   1. Add `KV: KVNamespace` to IEnv.Bindings and wrangler.toml
+	//   2. Replace `cache.get/set` below with `c.env.KV.get/set(json, {expirationTtl: 300})`
+	// .use("/api/sellers/advanced-stats", requireAdmin) — отключён для локальной разработки
+	.get("/api/sellers/advanced-stats", async (c) => {
+		const db = c.env.DB as D1Database;
+		const since = c.req.query("since") || "";
+		const until = c.req.query("until") || "";
+		const shopId = c.req.query("shopId") || undefined;
+		const benchmarkWeekdayQ = c.req.query("benchmarkWeekday");
+		const weekdayQ = c.req.query("weekday");
+		const benchmarkWeekday = benchmarkWeekdayQ !== undefined ? parseInt(benchmarkWeekdayQ) : undefined;
+		const weekday = weekdayQ !== undefined ? parseInt(weekdayQ) : undefined;
+
+		if (!since || !until) {
+			return c.json({ sellers: [] });
+		}
+
+		const cacheKey = `advanced-stats:${since}:${until}:${shopId ?? "all"}:${benchmarkWeekday ?? ""}:${weekday ?? ""}`;
+		const cached = statsCache.get(cacheKey);
+		if (cached && cached.expiresAt > Date.now()) {
+			return c.json(cached.data);
+		}
+
+		try {
+			const result = await computeSellerAdvancedStats(db, { since, until, shopId, benchmarkWeekday, weekday });
+			statsCache.set(cacheKey, { data: result, expiresAt: Date.now() + 300_000 });
+			return c.json(result);
+		} catch (err: any) {
+			console.error("[advanced-stats] error:", err?.message ?? err);
+			return c.json({ sellers: [] });
+		}
+	})
+	// Seller DNA — multi-week weekday comparison
+	.get("/api/sellers/weekday-compare", async (c) => {
+		const db = c.env.DB as D1Database;
+		const targetDate = c.req.query("targetDate") || "";
+		const shopId = c.req.query("shopId") || undefined;
+		const weeksBackQ = c.req.query("weeksBack") || "4";
+		const weeksBack = parseInt(weeksBackQ) || 4;
+
+		if (!targetDate) {
+			return c.json({ weekday: 0, dates: [], sellers: [] });
+		}
+
+		try {
+			const result = await computeWeekdayComparison(db, { targetDate, shopId, weeksBack });
+			return c.json(result);
+		} catch (err: any) {
+			console.error("[weekday-compare] error:", err?.message ?? err);
+			return c.json({ weekday: 0, dates: [], sellers: [] });
+		}
+	})
+	// Seller DNA — seller weekday breakdown
+	.get("/api/sellers/weekday-breakdown", async (c) => {
+		const db = c.env.DB as D1Database;
+		const sellerId = c.req.query("sellerId") || "";
+		const since = c.req.query("since") || "";
+		const until = c.req.query("until") || "";
+		const shopId = c.req.query("shopId") || undefined;
+
+		if (!sellerId || !since || !until) {
+			return c.json({});
+		}
+
+		try {
+			const result = await computeWeekdayBreakdown(db, { sellerId, since, until, shopId });
+			return c.json(result);
+		} catch (err: any) {
+			console.error("[weekday-breakdown] error:", err?.message ?? err);
+			return c.json({});
+		}
+	})
+	// Seller DNA — AI/rule-based insights for a single seller
+	// .use("/api/sellers/insights", requireAdmin) — отключён для локальной разработки
+	.get("/api/sellers/insights", async (c) => {
+		const db = c.env.DB as D1Database;
+		const sellerId = c.req.query("sellerId") || "";
+		const since = c.req.query("since") || "";
+		const until = c.req.query("until") || "";
+		const shopId = c.req.query("shopId") || undefined;
+
+		if (!sellerId || !since || !until) {
+			return c.json({ insights: [] });
+		}
+
+		try {
+			const { sellers } = await computeSellerAdvancedStats(db, { since, until, shopId, benchmarkWeekday: undefined, weekday: undefined });
+			const profile = sellers.find((s) => s.uuid === sellerId);
+
+			if (!profile) {
+				return c.json({ insights: [`Продавец не найден в данных за период ${since}–${until}.`] });
+			}
+
+			const apiKey = c.env.DEEPSEEK_API_KEY;
+			const { insights } = await generateSellerInsights({
+				profile: {
+					name: profile.name,
+					daysWorked: profile.daysWorked,
+					totalRevenue: profile.totalRevenue,
+					avgCheck: profile.avgCheck,
+					accShare: profile.accShare,
+					rubPerHour: profile.rubPerHour,
+					avgHours: profile.avgHours,
+					trend: profile.trend,
+					trendSlope: profile.trendSlope,
+					overallScore: profile.overallScore,
+					deadTimePct: profile.deadTimePct,
+					peakHourEfficiency: profile.peakHourEfficiency,
+					stability: profile.stability,
+					strengths: profile.strengths,
+					weaknesses: profile.weaknesses,
+					dnaLabel: profile.dnaLabel,
+					rank: profile.rank,
+					totalSellers: sellers.length,
+				},
+				apiKey,
 			});
+			return c.json({ insights });
+		} catch (err: any) {
+			console.error("[seller-insights] error:", err?.message ?? err);
+			return c.json({ insights: ["Не удалось сформировать инсайты. Попробуйте позже."] });
 		}
 	})
 	.post("/api/evotor/salesResult", async (c) => {

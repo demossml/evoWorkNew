@@ -1,7 +1,17 @@
 // services/sellerEffectiveness.ts
 // Расчёт эффективности продавцов на основе D1-данных (index_documents).
 
-import { VAPE_GROUP_UUIDS } from "../sync/cron";
+import {
+  avg,
+  stddev,
+  linearRegression,
+  median,
+  mad,
+  parseDate,
+  dayOfWeek,
+  daysBetween,
+  buildCategoryMap,
+} from "./sharedStats";
 
 export interface SellerStoreMetrics {
   store: string;
@@ -123,110 +133,14 @@ const MIN_DAYS_FOR_TREND = 5;
 // Helpers
 // ──────────────────────────────────────────────
 
-function avg(arr: number[]): number {
-  if (arr.length === 0) return 0;
-  return arr.reduce((s, v) => s + v, 0) / arr.length;
-}
-
-function stddev(arr: number[], mean: number): number {
-  if (arr.length < 2) return 0;
-  const variance = arr.reduce((s, v) => s + (v - mean) ** 2, 0) / (arr.length - 1);
-  return Math.sqrt(variance);
-}
-
-function linearRegression(xs: number[], ys: number[]): { slope: number; intercept: number; r2: number } {
-  const n = xs.length;
-  if (n < 2) return { slope: 0, intercept: avg(ys), r2: 0 };
-  const mx = avg(xs);
-  const my = avg(ys);
-  let num = 0, den = 0;
-  for (let i = 0; i < n; i++) {
-    num += (xs[i] - mx) * (ys[i] - my);
-    den += (xs[i] - mx) ** 2;
-  }
-  const slope = den === 0 ? 0 : num / den;
-  const intercept = my - slope * mx;
-  // R²
-  let ssRes = 0, ssTot = 0;
-  for (let i = 0; i < n; i++) {
-    const pred = slope * xs[i] + intercept;
-    ssRes += (ys[i] - pred) ** 2;
-    ssTot += (ys[i] - my) ** 2;
-  }
-  const r2 = ssTot === 0 ? 0 : 1 - ssRes / ssTot;
-  return { slope, intercept, r2 };
-}
-
-function mad(values: number[], median: number): number {
-  const absDeviations = values.map(v => Math.abs(v - median));
-  absDeviations.sort((a, b) => a - b);
-  const mid = Math.floor(absDeviations.length / 2);
-  return absDeviations.length % 2 === 0
-    ? (absDeviations[mid - 1] + absDeviations[mid]) / 2
-    : absDeviations[mid];
-}
-
-function median(arr: number[]): number {
-  if (arr.length === 0) return 0;
-  const sorted = [...arr].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1] + sorted[mid]) / 2
-    : sorted[mid];
-}
-
-function dayOfWeek(dateStr: string): number {
-  // "YYYY-MM-DD" → 0=Sun..6=Sat (JS getDay)
-  return new Date(dateStr + "T12:00:00+03:00").getDay();
-}
+// ──────────────────────────────────────────────
+// Local helpers (only used in this file)
+// ──────────────────────────────────────────────
 
 function formatDateLocal(d: Date): string {
   const offset = 3 * 60 * 60 * 1000; // MSK
   const local = new Date(d.getTime() + offset);
   return local.toISOString().slice(0, 10);
-}
-
-function daysBetween(from: string, to: string): number {
-  const f = new Date(from + "T00:00:00+03:00");
-  const t = new Date(to + "T00:00:00+03:00");
-  return Math.max(1, Math.round((t.getTime() - f.getTime()) / 86400000) + 1);
-}
-
-// ──────────────────────────────────────────────
-// Category mapping
-// ──────────────────────────────────────────────
-
-async function buildCategoryMap(db: D1Database): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
-
-  // Vape products: parentUuid IN VAPE_GROUP_UUIDS
-  const placeholders = VAPE_GROUP_UUIDS.map(() => "?").join(",");
-  const vapeRows = await db
-    .prepare(`SELECT uuid FROM shopProduct WHERE parentUuid IN (${placeholders})`)
-    .bind(...VAPE_GROUP_UUIDS)
-    .all<{ uuid: string }>();
-  for (const r of vapeRows.results ?? []) map.set(r.uuid, "vape");
-  console.log(`[buildCategoryMap] vape: ${vapeRows.results?.length ?? 0} products, acc: ${map.size - (vapeRows.results?.length ?? 0)} accessories`);
-
-  // Accessories: parentUuid from accessories table
-  try {
-    const accParentRows = await db.prepare("SELECT uuid FROM accessories").all<{ uuid: string }>();
-    const accParents = (accParentRows.results ?? []).map(r => r.uuid);
-    if (accParents.length > 0) {
-      const accPlaceholders = accParents.map(() => "?").join(",");
-      const accRows = await db
-        .prepare(`SELECT uuid FROM shopProduct WHERE parentUuid IN (${accPlaceholders})`)
-        .bind(...accParents)
-        .all<{ uuid: string }>();
-      for (const r of accRows.results ?? []) {
-        if (!map.has(r.uuid)) map.set(r.uuid, "accessory");
-      }
-    }
-  } catch {
-    console.warn("[sellerEffectiveness] accessories table not found, skipping");
-  }
-
-  return map;
 }
 
 // ──────────────────────────────────────────────

@@ -58,3 +58,75 @@ export async function sendCriticalAlerts(
 
   await sendMessage(config, text);
 }
+
+/**
+ * Уведомление по продавцам, отстающим >20% от плана.
+ * planCompletion < 80% — повод для внимания руководителя.
+ */
+export async function sendPlanLagAlerts(
+  config: TelegramConfig,
+  laggingSellers: Array<{
+    name: string;
+    planCompletion: number;
+    revenue: number;
+    planTarget: number;
+    store: string;
+  }>,
+): Promise<void> {
+  if (!laggingSellers.length) return;
+
+  const lines = laggingSellers.map((s) => {
+    const gap = s.planTarget - s.revenue;
+    return [
+      `• <b>${s.name}</b> (${s.store})`,
+      `  └ Выполнение плана: <b>${s.planCompletion}%</b>`,
+      `  └ Выручка: ${s.revenue.toLocaleString("ru")}₽ / план: ${s.planTarget.toLocaleString("ru")}₽`,
+      `  └ Отставание: <b>${gap.toLocaleString("ru")}₽</b>`,
+    ].join("\n");
+  });
+
+  const text = [
+    `<b>⚠️ Отставание от плана (>20%)</b>`,
+    ``,
+    ...lines,
+    ``,
+    `<i>Рекомендуется проверить график, мотивацию и трафик.</i>`,
+  ].join("\n");
+
+  await sendMessage(config, text);
+}
+
+/**
+ * Ежедневный топ-3 продавцов по выручке.
+ */
+export async function sendTopSellers(
+  config: TelegramConfig,
+  topSellers: Array<{
+    rank: number;
+    name: string;
+    revenue: number;
+    avgCheck: number;
+    store: string;
+  }>,
+): Promise<void> {
+  if (!topSellers.length) return;
+
+  const medals = ["🥇", "🥈", "🥉"];
+  const lines = topSellers.map((s) => {
+    const medal = medals[s.rank - 1] ?? `#${s.rank}`;
+    return [
+      `${medal} <b>${s.name}</b> (${s.store})`,
+      `   └ Выручка: <b>${s.revenue.toLocaleString("ru")}₽</b> | Средний чек: ${s.avgCheck.toLocaleString("ru")}₽`,
+    ].join("\n");
+  });
+
+  const text = [
+    `<b>🏆 Ежедневный рейтинг — Топ-3 продавцов</b>`,
+    ``,
+    ...lines,
+    ``,
+    `<i>Так держать! 🚀</i>`,
+  ].join("\n");
+
+  await sendMessage(config, text);
+}

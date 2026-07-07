@@ -10,6 +10,10 @@ import {
   updateProductsShope,
   syncDocuments,
   syncStock,
+  aggregateSellerDailyMetrics,
+  checkAndSendCriticalAlerts,
+  checkPlanLagAndAlert,
+  sendDailyTopSellers,
 } from "./sync/cron";
 import type { IEnv } from "./types";
 
@@ -44,6 +48,14 @@ export default {
       "0 3 * * *": [
         { label: "план-факт", run: getDataForCurrentDate },
         { label: "обновление плана (vape)", run: updatePlan_ },
+        { label: "алерт: критические продавцы", run: checkAndSendCriticalAlerts },
+      ],
+      "0 4 * * *": [
+        { label: "агрегация метрик продавцов (daily)", run: aggregateSellerDailyMetrics },
+      ],
+      "0 5 * * *": [
+        { label: "алерт: отставание от плана >20%", run: checkPlanLagAndAlert },
+        { label: "топ-3 продавцов дня", run: sendDailyTopSellers },
       ],
     };
 

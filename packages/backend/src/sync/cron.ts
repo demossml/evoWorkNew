@@ -22,6 +22,8 @@ import {
   updatePlan,
   updatePlanDb,
   upsertSaleByPlanData,
+  createSellerDailyMetricsTable,
+  upsertSellerDailyMetrics,
 } from "./db";
 
 // ============================================================================
@@ -545,10 +547,10 @@ export async function updateDataSaleByPlan(env: SyncEnv): Promise<void> {
 
 export async function checkAndSendCriticalAlerts(
   env: SyncEnv & { TELEGRAM_BOT_TOKEN?: string; TELEGRAM_ALERT_CHAT_ID?: string },
-  db: D1Database,
 ): Promise<void> {
-  const token = env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
-  const chatId = env.TELEGRAM_ALERT_CHAT_ID || process.env.TELEGRAM_ALERT_CHAT_ID;
+  const token = (env as any).TELEGRAM_BOT_TOKEN || (env as any).BOT_TOKEN;
+  const chatId = (env as any).TELEGRAM_ALERT_CHAT_ID;
+  const db = env.DB;
 
   if (!token || !chatId) {
     console.log("[alerts] Telegram not configured, skipping");
@@ -579,5 +581,360 @@ export async function checkAndSendCriticalAlerts(
     }
   } catch (err: any) {
     console.error("[alerts] Error:", err.message);
+  }
+}
+
+// ============================================================================
+// Task: aggregateSellerDailyMetrics
+//
+// Runs nightly. Aggregates yesterday's SELL documents from index_documents
+// into seller_daily_metrics for fast queries by computeSellerAdvancedStats.
+// ============================================================================
+
+export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
+  try {
+    // 1. Ensure target table exists
+    await createSellerDailyMetricsTable(env.DB);
+
+    // 2. Determine yesterday (UTC → MSK date string)
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const dateStr = yesterday.toISOString().slice(0, 10);
+
+    const since = dateStr;
+    const until = dateStr + "T23:59:59";
+
+    // 3. Fetch SELL docs for yesterday
+    const docs = await env.DB
+      .prepare(
+        `SELECT shop_id, close_date, open_user_uuid, transactions
+         FROM index_documents
+         WHERE type = 'SELL'
+           AND close_date >= ? AND close_date <= ?`,
+      )
+      .bind(since, until)
+      .all<{
+        shop_id: string;
+        close_date: string;
+        open_user_uuid: string;
+        transactions: string;
+      }>();
+
+    const sellDocs = docs.results ?? [];
+    console.log(
+      `[aggregateSellerDailyMetrics] ${dateStr}: ${sellDocs.length} SELL documents`,
+    );
+
+    if (sellDocs.length === 0) {
+      console.log("[aggregateSellerDailyMetrics] No data, skipping.");
+      return;
+    }
+
+    // 4. Fetch OPEN_SESSION docs for shift hours
+    const sessions = await env.DB
+      .prepare(
+        `SELECT shop_id, open_user_uuid, close_date
+         FROM index_documents
+         WHERE type = 'OPEN_SESSION'
+           AND close_date >= ? AND close_date <= ?`,
+      )
+      .bind(since, until)
+      .all<{
+        shop_id: string;
+        open_user_uuid: string;
+        close_date: string;
+      }>();
+
+    const sessionMap = new Map<string, { openTime: string; closeTime: string }[]>();
+    for (const r of sessions.results ?? []) {
+      const key = `${r.open_user_uuid}|${r.close_date.slice(0, 10)}`;
+      if (!sessionMap.has(key)) sessionMap.set(key, []);
+      sessionMap.get(key)!.push({
+        openTime: r.close_date,
+        closeTime: r.close_date,
+      });
+    }
+
+    // 5. Fetch employee names
+    const empRows = await env.DB
+      .prepare("SELECT uuid, name FROM employees")
+      .all<{ uuid: string; name: string }>();
+    const empNames: Record<string, string> = {};
+    for (const r of empRows.results ?? []) empNames[r.uuid] = r.name;
+
+    // 6. Build category map (vape + accessories)
+    const categoryMap = new Map<string, string>();
+
+    const vapePlaceholders = VAPE_GROUP_UUIDS.map(() => "?").join(",");
+    const vapeRows = await env.DB
+      .prepare(
+        `SELECT uuid FROM shopProduct WHERE parentUuid IN (${vapePlaceholders})`,
+      )
+      .bind(...VAPE_GROUP_UUIDS)
+      .all<{ uuid: string }>();
+    for (const r of vapeRows.results ?? []) categoryMap.set(r.uuid, "vape");
+
+    try {
+      const accParents = await env.DB
+        .prepare("SELECT uuid FROM accessories")
+        .all<{ uuid: string }>();
+      const parentUuids = (accParents.results ?? []).map((r) => r.uuid);
+      if (parentUuids.length > 0) {
+        const accPlaceholders = parentUuids.map(() => "?").join(",");
+        const accRows = await env.DB
+          .prepare(
+            `SELECT uuid FROM shopProduct WHERE parentUuid IN (${accPlaceholders})`,
+          )
+          .bind(...parentUuids)
+          .all<{ uuid: string }>();
+        for (const r of accRows.results ?? []) {
+          if (!categoryMap.has(r.uuid)) categoryMap.set(r.uuid, "accessory");
+        }
+      }
+    } catch {
+      // accessories table may not exist
+    }
+
+    // 7. Aggregate per (seller_uuid, shop_id)
+    const agg = new Map<
+      string,
+      {
+        revenue: number;
+        checks: number;
+        accRevenue: number;
+        vapeRevenue: number;
+        discountChecks: number;
+        discountAmount: number;
+        firstCheckTs: string | null;
+      }
+    >();
+
+    for (const doc of sellDocs) {
+      const uuid = doc.open_user_uuid || "unknown";
+      const shopId = doc.shop_id || "unknown";
+      const key = `${uuid}|${shopId}`;
+
+      if (!agg.has(key)) {
+        agg.set(key, {
+          revenue: 0,
+          checks: 0,
+          accRevenue: 0,
+          vapeRevenue: 0,
+          discountChecks: 0,
+          discountAmount: 0,
+          firstCheckTs: null,
+        });
+      }
+      const entry = agg.get(key)!;
+
+      let txs: any[];
+      try {
+        txs = JSON.parse(doc.transactions);
+      } catch {
+        continue;
+      }
+      if (!Array.isArray(txs)) continue;
+
+      let checkRevenue = 0;
+      let hasDiscount = false;
+      let discAmount = 0;
+
+      for (const tx of txs) {
+        if (tx.type === "REGISTER_POSITION" && tx.commodityUuid) {
+          const cat = categoryMap.get(tx.commodityUuid) ?? "other";
+          const amt = tx.resultSum ?? tx.sum ?? 0;
+          if (cat === "vape") entry.vapeRevenue += amt;
+          if (cat === "accessory") entry.accRevenue += amt;
+          const d = tx.discount ?? tx.discountSum ?? 0;
+          if (d > 0) {
+            hasDiscount = true;
+            discAmount += d;
+          }
+        }
+        if (tx.type === "DISCOUNT" && (tx.sum ?? 0) > 0) {
+          hasDiscount = true;
+          discAmount += tx.sum ?? 0;
+        }
+        if (tx.type === "PAYMENT" && tx.sum > 0) {
+          checkRevenue += tx.sum;
+        } else if (tx.type === "REFUND" && tx.sum > 0) {
+          checkRevenue -= tx.sum;
+        }
+      }
+
+      entry.revenue += checkRevenue;
+      entry.checks += 1;
+      if (hasDiscount) {
+        entry.discountChecks += 1;
+        entry.discountAmount += discAmount;
+      }
+      if (!entry.firstCheckTs || doc.close_date < entry.firstCheckTs) {
+        entry.firstCheckTs = doc.close_date;
+      }
+    }
+
+    // 8. Compute shift hours per uuid
+    const shiftHoursMap = new Map<string, number>();
+    for (const [sessKey, sessList] of sessionMap) {
+      const [uuid] = sessKey.split("|");
+      const timestamps = sessList.map((s) => s.openTime).sort();
+      let hours = 0;
+      if (timestamps.length >= 2) {
+        const a = new Date(
+          timestamps[0] + (timestamps[0].includes("T") ? "" : "T00:00:00") + "+03:00",
+        );
+        const b = new Date(
+          timestamps[timestamps.length - 1] +
+            (timestamps[timestamps.length - 1].includes("T") ? "" : "T00:00:00") +
+            "+03:00",
+        );
+        hours = Math.max(0, (b.getTime() - a.getTime()) / 3600000);
+      } else {
+        hours = 8;
+      }
+      shiftHoursMap.set(uuid, hours);
+    }
+
+    // 9. Build rows
+    const rows: {
+      date: string;
+      seller_uuid: string;
+      seller_name: string;
+      shop_id: string;
+      revenue: number;
+      checks: number;
+      acc_revenue: number;
+      vape_revenue: number;
+      discount_checks: number;
+      discount_amount: number;
+      shift_hours: number;
+      first_check_ts: string | null;
+    }[] = [];
+
+    for (const [key, entry] of agg) {
+      const [uuid, shopId] = key.split("|");
+      rows.push({
+        date: dateStr,
+        seller_uuid: uuid,
+        seller_name: empNames[uuid] || uuid.slice(0, 8),
+        shop_id: shopId,
+        revenue: Math.round(entry.revenue),
+        checks: entry.checks,
+        acc_revenue: Math.round(entry.accRevenue),
+        vape_revenue: Math.round(entry.vapeRevenue),
+        discount_checks: entry.discountChecks,
+        discount_amount: Math.round(entry.discountAmount),
+        shift_hours: parseFloat((shiftHoursMap.get(uuid) ?? 8).toFixed(1)),
+        first_check_ts: entry.firstCheckTs,
+      });
+    }
+
+    // 10. Upsert
+    await upsertSellerDailyMetrics(env.DB, rows);
+    console.log(
+      `[aggregateSellerDailyMetrics] Done: ${rows.length} seller-day rows for ${dateStr}`,
+    );
+  } catch (err: any) {
+    console.error(
+      "[aggregateSellerDailyMetrics] Error:",
+      err.message,
+      err.stack,
+    );
+  }
+}
+
+// ============================================================================
+// Task: checkPlanLagAndAlert
+//
+// Проверяет текущее выполнение плана продавцами.
+// Если planCompletion < 80% — отправляет уведомление в Telegram.
+// ============================================================================
+
+export async function checkPlanLagAndAlert(env: SyncEnv): Promise<void> {
+  const token = (env as any).TELEGRAM_BOT_TOKEN || (env as any).BOT_TOKEN;
+  const chatId = (env as any).TELEGRAM_ALERT_CHAT_ID;
+
+  if (!token || !chatId) {
+    console.log("[plan-lag] Telegram not configured, skipping");
+    return;
+  }
+
+  try {
+    const { computeSellerEffectiveness } = await import("../services/sellerEffectiveness.js");
+    const { sendPlanLagAlerts } = await import("../services/telegramAlerts.js");
+
+    const today = new Date().toISOString().slice(0, 10);
+    const result = await computeSellerEffectiveness(env.DB, { period: 7 });
+
+    const laggingSellers = result.sellers
+      .filter(
+        (s) =>
+          s.planCompletion != null &&
+          s.planCompletion < 80 &&
+          s.planCompletion > 0,
+      )
+      .slice(0, 10)
+      .map((s) => ({
+        name: s.name,
+        planCompletion: s.planCompletion!,
+        revenue: s.totalRevenue,
+        planTarget: Math.round(
+          s.totalRevenue / (s.planCompletion! / 100),
+        ),
+        store: s.stores[0]?.store ?? "неизвестно",
+      }));
+
+    if (laggingSellers.length > 0) {
+      await sendPlanLagAlerts({ botToken: token, chatId }, laggingSellers);
+      console.log(
+        `[plan-lag] Sent alerts for ${laggingSellers.length} sellers below 80% plan`,
+      );
+    } else {
+      console.log("[plan-lag] All sellers meeting plan target");
+    }
+  } catch (err: any) {
+    console.error("[plan-lag] Error:", err.message);
+  }
+}
+
+// ============================================================================
+// Task: sendDailyTopSellers
+//
+// Ежедневный топ-3 продавцов по выручке → Telegram.
+// ============================================================================
+
+export async function sendDailyTopSellers(env: SyncEnv): Promise<void> {
+  const token = (env as any).TELEGRAM_BOT_TOKEN || (env as any).BOT_TOKEN;
+  const chatId = (env as any).TELEGRAM_ALERT_CHAT_ID;
+
+  if (!token || !chatId) {
+    console.log("[top-sellers] Telegram not configured, skipping");
+    return;
+  }
+
+  try {
+    const { computeSellerEffectiveness } = await import("../services/sellerEffectiveness.js");
+    const { sendTopSellers } = await import("../services/telegramAlerts.js");
+
+    const result = await computeSellerEffectiveness(env.DB, { period: 1 });
+
+    const top3 = result.sellers
+      .sort((a, b) => b.totalRevenue - a.totalRevenue)
+      .slice(0, 3)
+      .map((s, i) => ({
+        rank: i + 1,
+        name: s.name,
+        revenue: s.totalRevenue,
+        avgCheck: s.avgCheck,
+        store: s.stores[0]?.store ?? "неизвестно",
+      }));
+
+    if (top3.length > 0) {
+      await sendTopSellers({ botToken: token, chatId }, top3);
+      console.log(`[top-sellers] Sent daily top-${top3.length}`);
+    }
+  } catch (err: any) {
+    console.error("[top-sellers] Error:", err.message);
   }
 }

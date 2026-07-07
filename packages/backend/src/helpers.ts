@@ -78,3 +78,55 @@ export const authenticate = async (c: IContext, next: Next) => {
 
 	return next();
 };
+
+// SUPERADMIN Telegram IDs (hardcoded)
+const SUPERADMIN_IDS = new Set(["5700958253", "475039971"]);
+
+/**
+ * requireAdmin — middleware that checks the user has Admin or SuperAdmin rights.
+ * Must be placed AFTER authenticate and initialize in the middleware chain.
+ *
+ * Logic:
+ *   1. SuperAdmin → hardcoded by Telegram user ID
+ *   2. Admin        → check employee role in DB (ADMIN)
+ *   3. Any other    → 403 Forbidden
+ */
+export const requireAdmin = async (c: IContext, next: Next) => {
+	const userId = c.get("userId") as string;
+
+	// SuperAdmin: hardcoded list
+	if (SUPERADMIN_IDS.has(userId)) {
+		return next();
+	}
+
+	// Check DB for employee role
+	try {
+		const db = c.get("db") as D1Database;
+		const role = await getEmployeeRoleFromDBSimple(db, userId);
+		if (role === "ADMIN" || role === "SUPERADMIN") {
+			return next();
+		}
+	} catch {
+		// fall through to 403
+	}
+
+	return c.json(
+		{
+			success: false,
+			message: "Forbidden: требуется роль Admin или SuperAdmin",
+		},
+		403,
+	);
+};
+
+/** Lightweight version — doesn't require import from sync/db */
+async function getEmployeeRoleFromDBSimple(
+	db: D1Database,
+	userId: string,
+): Promise<string | null> {
+	const res = await db
+		.prepare("SELECT role FROM employees WHERE uuid = ? OR last_name = ?")
+		.bind(userId, userId)
+		.first<{ role: string }>();
+	return res?.role ?? null;
+}

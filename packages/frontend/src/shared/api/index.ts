@@ -41,4 +41,8 @@ export {
   fetchStockReport,
   fetchStockSummary,
   fetchSalesGardenReport,
+  fetchSellerAdvancedStats,
+  fetchWeekdayCompare,
+  fetchWeekdayBreakdown,
+  fetchSellerInsights,
 } from "./endpoints";

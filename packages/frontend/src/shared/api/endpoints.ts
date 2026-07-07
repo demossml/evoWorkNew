@@ -413,3 +413,60 @@ export async function fetchSalesGardenReport(params: {
   if (!res.ok) throw new Error("Ошибка загрузки sales garden");
   return res.json();
 }
+
+// ============================================================================
+// Sellers
+// ============================================================================
+
+export async function fetchSellerAdvancedStats(params: {
+  since: string;
+  until: string;
+  benchmarkWeekday?: number;
+  weekday?: number;
+}) {
+  const q = new URLSearchParams({ since: params.since, until: params.until });
+  if (params.benchmarkWeekday !== undefined) q.set("benchmarkWeekday", String(params.benchmarkWeekday));
+  if (params.weekday !== undefined) q.set("weekday", String(params.weekday));
+  const res = await apiGet(`/api/sellers/advanced-stats?${q.toString()}`);
+  return (res as any).sellers ?? [];
+}
+
+export async function fetchSellerInsights(params: {
+  sellerId: string;
+  since: string;
+  until: string;
+}) {
+  const q = new URLSearchParams({
+    sellerId: params.sellerId,
+    since: params.since,
+    until: params.until,
+  }).toString();
+  const res = await apiGet(`/api/sellers/insights?${q}`);
+  return res as { insights: string[] };
+}
+
+export async function fetchWeekdayCompare(params: {
+  targetDate: string;
+  shopId?: string;
+  weeksBack?: number;
+}) {
+  const q = new URLSearchParams({ targetDate: params.targetDate });
+  if (params.shopId) q.set("shopId", params.shopId);
+  if (params.weeksBack) q.set("weeksBack", String(params.weeksBack));
+  const res = await apiGet(`/api/sellers/weekday-compare?${q.toString()}`);
+  return res as { weekday: number; dates: string[]; sellers: import("@/widgets/sellers/SellerDNAWidget/types").WeekdayCompareProfile[] };
+}
+
+export async function fetchWeekdayBreakdown(params: {
+  sellerId: string;
+  since: string;
+  until: string;
+}) {
+  const q = new URLSearchParams({
+    sellerId: params.sellerId,
+    since: params.since,
+    until: params.until,
+  }).toString();
+  const res = await apiGet(`/api/sellers/weekday-breakdown?${q}`);
+  return res as Record<number, { days: number; totalRevenue: number; totalChecks: number; avgCheck: number; rubPerHour: number | null }>;
+}

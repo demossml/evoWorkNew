@@ -531,3 +531,118 @@ export async function getShopNameUuidsDictFromDB(db: D1Database): Promise<Record
   for (const r of result.results ?? []) dict[r.uuid] = r.name;
   return dict;
 }
+
+// ============================================================================
+// Table: seller_daily_metrics — precomputed per-seller per-day stats
+// Used by computeSellerAdvancedStats as a fast cache layer.
+// Aggregated nightly via aggregateSellerDailyMetrics cron task.
+// ============================================================================
+
+export async function createSellerDailyMetricsTable(db: D1Database): Promise<void> {
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS seller_daily_metrics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        seller_uuid TEXT NOT NULL,
+        seller_name TEXT NOT NULL DEFAULT '',
+        shop_id TEXT NOT NULL DEFAULT '',
+        revenue REAL NOT NULL DEFAULT 0,
+        checks INTEGER NOT NULL DEFAULT 0,
+        acc_revenue REAL NOT NULL DEFAULT 0,
+        vape_revenue REAL NOT NULL DEFAULT 0,
+        discount_checks INTEGER NOT NULL DEFAULT 0,
+        discount_amount REAL NOT NULL DEFAULT 0,
+        shift_hours REAL NOT NULL DEFAULT 0,
+        first_check_ts TEXT,
+        UNIQUE(seller_uuid, date, shop_id)
+      )`,
+    )
+    .run();
+  await db
+    .prepare(`CREATE INDEX IF NOT EXISTS idx_sdm_seller_date ON seller_daily_metrics (seller_uuid, date)`)
+    .run();
+  await db
+    .prepare(`CREATE INDEX IF NOT EXISTS idx_sdm_shop_date ON seller_daily_metrics (shop_id, date)`)
+    .run();
+  console.log("Таблица 'seller_daily_metrics' создана или уже существует.");
+}
+
+export interface SellerDailyMetric {
+  date: string;
+  seller_uuid: string;
+  seller_name: string;
+  shop_id: string;
+  revenue: number;
+  checks: number;
+  acc_revenue: number;
+  vape_revenue: number;
+  discount_checks: number;
+  discount_amount: number;
+  shift_hours: number;
+  first_check_ts: string | null;
+}
+
+export async function upsertSellerDailyMetrics(
+  db: D1Database,
+  rows: SellerDailyMetric[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  const stmt = db.prepare(
+    `INSERT INTO seller_daily_metrics
+       (date, seller_uuid, seller_name, shop_id, revenue, checks,
+        acc_revenue, vape_revenue, discount_checks, discount_amount,
+        shift_hours, first_check_ts)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(seller_uuid, date, shop_id) DO UPDATE SET
+       seller_name = excluded.seller_name,
+       revenue = excluded.revenue,
+       checks = excluded.checks,
+       acc_revenue = excluded.acc_revenue,
+       vape_revenue = excluded.vape_revenue,
+       discount_checks = excluded.discount_checks,
+       discount_amount = excluded.discount_amount,
+       shift_hours = excluded.shift_hours,
+       first_check_ts = excluded.first_check_ts`,
+  );
+  const batch = rows.map((r) =>
+    stmt.bind(
+      r.date,
+      r.seller_uuid,
+      r.seller_name,
+      r.shop_id,
+      r.revenue,
+      r.checks,
+      r.acc_revenue,
+      r.vape_revenue,
+      r.discount_checks,
+      r.discount_amount,
+      r.shift_hours,
+      r.first_check_ts,
+    ),
+  );
+  await db.batch(batch);
+  console.log(`[seller_daily_metrics] upserted ${rows.length} rows`);
+}
+
+export async function getSellerDailyMetrics(
+  db: D1Database,
+  since: string,
+  until: string,
+  shopId?: string,
+): Promise<SellerDailyMetric[]> {
+  try {
+    let sql = `SELECT * FROM seller_daily_metrics WHERE date >= ? AND date <= ?`;
+    const binds: any[] = [since, until];
+    if (shopId && shopId !== "all") {
+      sql += ` AND shop_id = ?`;
+      binds.push(shopId);
+    }
+    sql += ` ORDER BY date, seller_uuid`;
+    const res = await db.prepare(sql).bind(...binds).all<SellerDailyMetric>();
+    return res.results ?? [];
+  } catch {
+    // Table may not exist yet (never aggregated)
+    return [];
+  }
+}
