@@ -199,9 +199,13 @@ function setupCron() {
 		"Telegram-алерты"
 	), 25000);
 
-	// Каждые 5 минут — синхронизация документов, магазинов и сотрудников
+	// Каждые 5 минут — синхронизация документов (чеки, продажи) из Эвотор
 	cron.schedule("*/5 * * * *", () => {
 		runSyncTask(() => syncDocuments(env), "syncDocuments");
+	});
+
+	// Каждые 20 минут — магазины и сотрудники
+	cron.schedule("*/20 * * * *", () => {
 		runSyncTask(() => syncShops(env), "syncShops");
 		runSyncTask(() => syncEmployees(env), "syncEmployees");
 	});
@@ -221,6 +225,8 @@ function setupCron() {
 
 	console.log("[cron] Планировщик запущен:");
 	console.log("  syncDocuments       — каждые 5 минут");
+	console.log("  syncShops           — каждые 20 минут");
+	console.log("  syncEmployees       — каждые 20 минут");
 	console.log("  updateProductsShope — каждые 25 минут");
 	console.log("  updatePlans         — каждый день в 01:00");
 	console.log("  updateSalesByPlan   — каждый день в 01:00");
