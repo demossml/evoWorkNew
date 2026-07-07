@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { DynamicTableV2 } from "./DynamicTableV2";
-import { DynamicTableClassic } from "./DynamicTableClassic";
 
 interface TableData {
   [key: string]: string | number | string[];
@@ -11,27 +10,14 @@ interface DynamicTableProps {
   columns?: string[];
 }
 
-const STORAGE_KEY = "dynamic_table_version";
-type TableVersion = "v2" | "classic";
-
+/**
+ * Previously this rendered either DynamicTableV2 or DynamicTableClassic
+ * behind a user-facing "Новый/Старый" toggle persisted to localStorage.
+ * The two were near-identical — same structure, same behavior, only
+ * cosmetic differences (padding, gray vs slate, a couple px of spacing).
+ * Classic added no functionality V2 didn't already have, so it's been
+ * removed rather than maintained as a second copy of the same table.
+ */
 export const DynamicTable: React.FC<DynamicTableProps> = (props) => {
-  const [version, setVersion] = useState<TableVersion>(() => {
-    try { return localStorage.getItem(STORAGE_KEY) === "classic" ? "classic" : "v2"; }
-    catch { return "v2"; }
-  });
-  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, version); } catch {} }, [version]);
-
-  return (
-    <div>
-      <div className="flex items-center justify-end gap-2 px-2 pb-2">
-        <span className={`text-xs transition ${version === "v2" ? "text-foreground font-semibold" : "text-muted-foreground"}`}>Новый</span>
-        <button type="button" onClick={() => setVersion(p => p === "v2" ? "classic" : "v2")} role="switch"
-          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${version === "classic" ? "bg-primary" : "bg-muted"}`}>
-          <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${version === "classic" ? "translate-x-5" : "translate-x-0"}`} />
-        </button>
-        <span className={`text-xs transition ${version === "classic" ? "text-foreground font-semibold" : "text-muted-foreground"}`}>Старый</span>
-      </div>
-      {version === "v2" ? <DynamicTableV2 {...props} /> : <DynamicTableClassic {...props} />}
-    </div>
-  );
+  return <DynamicTableV2 {...props} />;
 };

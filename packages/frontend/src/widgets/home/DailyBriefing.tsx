@@ -38,6 +38,35 @@ function BriefingSkeleton() {
   );
 }
 
+function PlanRing({ percent, size = 44 }: { percent: number; size?: number }) {
+  const r = (size - 6) / 2;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference * (1 - Math.min(Math.max(percent, 0), 1));
+  return (
+    <svg width={size} height={size} className="-rotate-90 shrink-0">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        strokeWidth={4}
+        className="stroke-primary-foreground/25"
+        fill="none"
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        strokeWidth={4}
+        className="stroke-primary-foreground transition-[stroke-dashoffset] duration-700 ease-out"
+        fill="none"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 // ====== Main widget ======
 
 export function DailyBriefing() {
@@ -67,12 +96,23 @@ export function DailyBriefing() {
     return null;
   }, [name, workingData]);
 
-  // Today's plan for the shop they're at
-  const todayPlan = useMemo(() => {
-    if (!todayShop || !reportData?.planData) return null;
+  // Today's plan and fact for the shop they're at.
+  // NB: the API returns { datePlan, dataSales, dataQuantity } per shop name —
+  // this previously read `.plan`, a field that doesn't exist in that shape,
+  // so the "План" chip was silently never rendering.
+  const { todayPlan, todayFact } = useMemo(() => {
+    if (!todayShop || !reportData?.planData) return { todayPlan: null, todayFact: null };
     const plan = (reportData.planData as Record<string, any>)[todayShop];
-    return plan?.plan ?? null;
+    return {
+      todayPlan: typeof plan?.datePlan === "number" ? plan.datePlan : null,
+      todayFact: typeof plan?.dataSales === "number" ? plan.dataSales : null,
+    };
   }, [todayShop, reportData]);
+
+  const planProgress =
+    todayPlan && todayPlan > 0 && todayFact != null
+      ? Math.min(todayFact / todayPlan, 1)
+      : null;
 
   // Loading state
   if (!name) return <BriefingSkeleton />;
@@ -94,7 +134,7 @@ export function DailyBriefing() {
   if (todayPlan) {
     chips.push({
       label: "План",
-      value: `${fmtRub(todayPlan)} ₽`,
+      value: todayFact != null ? `${fmtRub(todayFact)} / ${fmtRub(todayPlan)} ₽` : `${fmtRub(todayPlan)} ₽`,
       icon: <Target className="w-3 h-3" />,
       color: "bg-primary-foreground/15",
     });
@@ -129,17 +169,30 @@ export function DailyBriefing() {
       }}
     >
       <div className="bg-primary rounded-xl p-4 shadow-lg text-primary-foreground">
-        <div className="text-primary-foreground/70 text-xs font-medium mb-0.5">
-          {greeting}
-        </div>
-        <h2 className="text-lg font-bold mb-3 leading-tight">
-          {name.split(" ")[0]}
-          {seller && (
-            <span className="text-primary-foreground/60 text-sm font-normal ml-1">
-              · #{seller.rank} в рейтинге
-            </span>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-primary-foreground/70 text-xs font-medium mb-0.5">
+              {greeting}
+            </div>
+            <h2 className="text-lg font-bold mb-3 leading-tight truncate">
+              {name.split(" ")[0]}
+              {seller && (
+                <span className="text-primary-foreground/60 text-sm font-normal ml-1">
+                  · #{seller.rank} в рейтинге
+                </span>
+              )}
+            </h2>
+          </div>
+
+          {planProgress != null && (
+            <div className="relative shrink-0">
+              <PlanRing percent={planProgress} />
+              <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold">
+                {Math.round(planProgress * 100)}%
+              </span>
+            </div>
           )}
-        </h2>
+        </div>
 
         {chips.length > 0 && (
           <div className="flex flex-wrap gap-2">

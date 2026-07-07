@@ -150,30 +150,30 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
     value: string | number | string[] | undefined
   ) => {
     if (key === "confidencePct" && typeof value === "number") {
-      if (value < 55) return "text-red-600 dark:text-red-400 font-semibold";
-      if (value < 75) return "text-amber-600 dark:text-amber-400 font-semibold";
+      if (value < 55) return "text-destructive font-semibold";
+      if (value < 75) return "text-warning font-semibold";
       return "text-emerald-600 dark:text-emerald-400 font-semibold";
     }
     if (key === "orderQuantity" && typeof value === "number" && value > 0) {
-      return "text-blue-700 dark:text-blue-300 font-semibold";
+      return "text-primary font-semibold";
     }
     if (key === "sum" && typeof value === "number" && value < 0) {
-      return "text-red-600 dark:text-red-400";
+      return "text-destructive";
     }
-    return "text-foreground";
+    return "text-foreground/80";
   };
 
   const reasonBadgeClass = (code: string) => {
     if (code === "LOW_STOCK") {
-      return "bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-200";
+      return "bg-destructive/10 text-destructive";
     }
     if (code === "HIGH_VARIABILITY") {
-      return "bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200";
+      return "bg-warning/10 text-warning";
     }
     if (code === "BUDGET_LIMIT") {
-      return "bg-violet-100 text-violet-800 dark:bg-violet-900/60 dark:text-violet-200";
+      return "bg-violet-500/10 text-violet-600 dark:text-violet-400";
     }
-    return "bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200";
+    return "bg-primary/10 text-primary";
   };
 
   const renderReasonCodes = (value: string[]) => (
@@ -219,10 +219,10 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
   const mobileSortColumns = columns.filter((key) => key !== "productName");
 
   return (
-    <div className="w-full rounded-2xl min-h-screen bg-card px-2 sm:px-4">
+    <div className="w-full rounded-2xl min-h-screen bg-background px-2 sm:px-4">
       <motion.div
         style={{ scaleX, transformOrigin: "0%" }}
-        className="h-1 bg-blue-500 mb-2 rounded-full"
+        className="h-1 bg-primary mb-2 rounded-full"
       />
 
       {/* === MOBILE LAYOUT (V2) === */}
@@ -231,7 +231,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
         onScroll={handleContainerScroll}
       >
         {/* Sort chips — bigger, better spacing */}
-        <div className="sticky top-0 z-20 -mx-2 px-2 py-2.5 bg-card/95 backdrop-blur-sm border-b border-border">
+        <div className="sticky top-0 z-20 -mx-2 px-2 py-2.5 bg-background/95 backdrop-blur-sm border-b border-border">
           <div className="flex gap-2 overflow-x-auto no-scrollbar">
             {mobileSortColumns.map((key) => {
               const isActive = sortConfig.key === key;
@@ -242,8 +242,8 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
                   onClick={() => handleSort(key)}
                   className={`rounded-full px-3.5 py-2 text-xs font-medium border transition shrink-0 ${
                     isActive
-                      ? "border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-700"
-                      : "border-gray-300 text-gray-600 dark:border-border dark:text-muted-foreground"
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground"
                   }`}
                 >
                   {tableN[key] || key}
@@ -292,7 +292,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
               </div>
 
               {/* KPI grid — bigger numbers, clearer labels */}
-              <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl border border-border bg-muted/40 px-3.5 py-3">
+              <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl border border-border bg-muted px-3.5 py-3">
                 {mobilePriorityColumns.map((key) => {
                   const value = row[key];
                   return (
@@ -323,7 +323,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
             <button
               type="button"
               onClick={loadMoreRows}
-              className="w-full h-12 rounded-xl border border-border bg-card text-foreground text-sm font-medium hover:bg-accent transition"
+              className="w-full h-12 rounded-xl border border-border bg-card text-foreground/80 text-sm font-medium hover:bg-muted transition"
             >
               Показать еще ({Math.max(sortedData.length - visibleRowsCount, 0)})
             </button>
@@ -360,7 +360,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
                       <span
                         className={`text-xs ${
                           isActive
-                            ? "text-blue-600 dark:text-blue-400"
+                            ? "text-primary"
                             : "text-muted-foreground"
                         }`}
                       >
@@ -390,9 +390,9 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
                 const zebraClass =
                   rowIndex % 2 === 0
                     ? "bg-card"
-                    : "bg-muted/50";
+                    : "bg-muted/40";
                 const hoverClass =
-                  "hover:bg-blue-50/50 dark:hover:bg-blue-900/10";
+                  "hover:bg-primary/5";
                 const animationDelay = rowIndex < 20 ? rowIndex * 0.012 : 0;
                 const productName =
                   typeof row.productName === "string" ? row.productName : "—";
@@ -410,7 +410,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
                       className={`${zebraClass} ${hoverClass} transition-colors`}
                     >
                       <td
-                        className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm text-left text-foreground font-medium"
+                        className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm text-left text-foreground/90 font-medium"
                         colSpan={columns.length}
                         style={{
                           wordWrap: "break-word",
@@ -478,7 +478,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
               <button
                 type="button"
                 onClick={loadMoreRows}
-                className="w-full h-11 rounded-lg border border-border text-sm text-muted-foreground font-medium hover:bg-accent transition"
+                className="w-full h-11 rounded-lg border border-border text-sm text-muted-foreground font-medium hover:bg-muted transition"
               >
                 Показать еще ({Math.max(sortedData.length - visibleRowsCount, 0)})
               </button>
