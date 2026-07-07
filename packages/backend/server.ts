@@ -26,7 +26,7 @@ import { createSettingsTable } from "./src/db/repositories/settings";
 import { createIndexDocumentsTable, createOpeningPhotosTable, createOpenStorsTable, createSalaryBonusTable, createProductsTableIfNotExists } from "./src/utils";
 import { createProductsTableIfNotExists as createProductsTable } from "./src/sync/db";
 
-import { syncDocuments, syncShops, syncEmployees, updateProductsShope, updatePlan_, getDataForCurrentDate, updateDataSaleByPlan } from "./src/sync/cron";
+import { syncDocuments, syncShops, syncEmployees, updateProductsShope, updatePlan_, getDataForCurrentDate, updateDataSaleByPlan, checkAndSendCriticalAlerts } from "./src/sync/cron";
 
 const DATA_DIR = process.env.DATA_DIR ?? "./data";
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
@@ -193,6 +193,12 @@ function setupCron() {
 	// После синхронизации — планы и зарплаты (через 15 сек)
 	setTimeout(() => initializePlansAndSalaries(), 15000);
 
+	// После зарплат — проверка критических продавцов (через 25 сек)
+	setTimeout(() => runSyncTask(
+		() => checkAndSendCriticalAlerts(env, db as any),
+		"Telegram-алерты"
+	), 25000);
+
 	// Каждые 30 минут — синхронизация документов, магазинов и сотрудников
 	cron.schedule("*/30 * * * *", () => {
 		runSyncTask(() => syncDocuments(env), "syncDocuments");
@@ -200,11 +206,12 @@ function setupCron() {
 		runSyncTask(() => syncEmployees(env), "syncEmployees");
 	});
 
-	// Каждые 6 часов — планы, продажи по плану, зарплаты
+	// Каждые 6 часов — планы, продажи по плану, зарплаты, алерты
 	cron.schedule("0 */6 * * *", () => {
 		runSyncTask(() => updatePlan_(env), "updatePlans");
 		runSyncTask(() => updateDataSaleByPlan(env), "updateSalesByPlan");
 		runSyncTask(() => getDataForCurrentDate(env), "calcSalary");
+		runSyncTask(() => checkAndSendCriticalAlerts(env, db as any), "criticalAlerts");
 	});
 
 	// Каждые 6 часов — обновление shopProduct

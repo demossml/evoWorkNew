@@ -28,7 +28,7 @@ import {
 // Vape group UUIDs (shared across tasks)
 // ============================================================================
 
-const VAPE_GROUP_UUIDS = [
+export const VAPE_GROUP_UUIDS = [
   "78ddfd78-dc52-11e8-b970-ccb0da458b5a",
   "bc9e7e4c-fdac-11ea-aaf2-2cf05d04be1d",
   "0627db0b-4e39-11ec-ab27-2cf05d04be1d",
@@ -537,4 +537,47 @@ export async function updateDataSaleByPlan(env: SyncEnv): Promise<void> {
   }
 
   console.log("Final sales data:", salesData);
+}
+
+// ──────────────────────────────────────────────
+// Telegram alert for critical sellers
+// ──────────────────────────────────────────────
+
+export async function checkAndSendCriticalAlerts(
+  env: SyncEnv & { TELEGRAM_BOT_TOKEN?: string; TELEGRAM_ALERT_CHAT_ID?: string },
+  db: D1Database,
+): Promise<void> {
+  const token = env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
+  const chatId = env.TELEGRAM_ALERT_CHAT_ID || process.env.TELEGRAM_ALERT_CHAT_ID;
+
+  if (!token || !chatId) {
+    console.log("[alerts] Telegram not configured, skipping");
+    return;
+  }
+
+  try {
+    const { computeSellerEffectiveness } = await import("../services/sellerEffectiveness.js");
+    const { sendCriticalAlerts } = await import("../services/telegramAlerts.js");
+
+    const result = await computeSellerEffectiveness(db, { period: 14 });
+
+    const criticalSellers = result.sellers
+      .filter((s: { segment: string }) => s.segment === "critical")
+      .map((s: { name: string; planCompletion: number | null; trendSlope: number; stores: Array<{ store: string }> }) => ({
+        name: s.name,
+        daysBelow: 3,
+        planCompletion: s.planCompletion,
+        trendSlope: s.trendSlope,
+        store: s.stores[0]?.store ?? "неизвестно",
+      }));
+
+    if (criticalSellers.length > 0) {
+      await sendCriticalAlerts({ botToken: token, chatId }, criticalSellers);
+      console.log(`[alerts] Sent ${criticalSellers.length} critical alerts`);
+    } else {
+      console.log("[alerts] No critical sellers");
+    }
+  } catch (err: any) {
+    console.error("[alerts] Error:", err.message);
+  }
 }

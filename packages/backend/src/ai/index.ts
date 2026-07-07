@@ -507,3 +507,36 @@ export const getHoroscopeByDateTask = createTask({
 	maxTokens: 8000,
 	temperature: 1,
 });
+
+// ── Seller performance analysis ──
+import { sellerAnalysisInput, sellerAnalysisOutput } from "./sellerSchemas";
+
+export const analyzeSellerPerformanceTask = createTask({
+	task: `Ты — бизнес-аналитик сети вейп-шопов. Проанализируй метрики продавцов и выдай структурированный разбор.
+
+Контекст метрик:
+- vapeShare / accShare — доля выручки от продажи вейпов и аксессуаров (в %). Норма: vapeShare 15-35%, accShare 20-40%.
+- liquidShare — доля жидкостей (в %).
+- unknownItemsPct — доля неклассифицированных товаров (должна быть низкой).
+- rubPerHour — выручка в час (₽). Норма: 1500-3500.
+- trendSlope — наклон тренда выручки (₽/день). Отрицательный = падение.
+- cv — коэффициент вариации дневной выручки (%). <30% = стабильно, >40% = нестабильно.
+- planCompletion — выполнение плана (%). null = нет плана.
+- segment — сегмент продавца: newcomer / star / stable / declining / critical / attention.
+- daysWorked — количество отработанных смен.
+
+Для каждого продавца дай:
+1. summary — краткая оценка (1-2 предложения)
+2. strengths — 1-3 сильные стороны
+3. weaknesses — 1-3 слабые стороны
+4. risks — 1-2 конкретных риска (если есть)
+5. concreteActions — 1-3 конкретных действия для руководителя (на русском, actionable)
+6. rating — оценка от 1 до 10, где 7+ = хороший, 5-6 = средний, <5 = проблемный
+7. generalObservations — общие наблюдения по всем продавцам (2-4 предложения)
+
+Будь конкретным, используй цифры из метрик, избегай общих фраз.`,
+	inputSchema: sellerAnalysisInput,
+	outputSchema: sellerAnalysisOutput,
+	maxTokens: 4096,
+	temperature: 0.5,
+});

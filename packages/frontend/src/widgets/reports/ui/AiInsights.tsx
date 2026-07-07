@@ -62,22 +62,22 @@ export default function AiInsights({ data, isLoading, onAnalyze }: Props) {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-6 border border-purple-200"
+        className="bg-violet-500/10 rounded-2xl p-6 border border-violet-500/30"
       >
         <div className="flex flex-col items-center text-center space-y-4">
-          <div className="bg-white p-4 rounded-full shadow-lg">
-            <Sparkles className="w-8 h-8 text-purple-600" />
+          <div className="bg-card p-4 rounded-full shadow-lg">
+            <Sparkles className="w-8 h-8 text-violet-600 dark:text-violet-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-800">
+          <h3 className="text-lg font-semibold text-foreground">
             AI Анализ продаж
           </h3>
-          <p className="text-sm text-gray-600 max-w-md">
+          <p className="text-sm text-muted-foreground max-w-md">
             Получите умные рекомендации, найдите аномалии и скрытые паттерны в
             данных о продажах с помощью ИИ
           </p>
           <button
             onClick={onAnalyze}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all transform hover:scale-105"
+            className="bg-violet-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-violet-700 transition-all transform hover:scale-105"
           >
             Запустить AI анализ
           </button>
@@ -91,20 +91,20 @@ export default function AiInsights({ data, isLoading, onAnalyze }: Props) {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="bg-white rounded-2xl p-6 border border-gray-200"
+        className="bg-card rounded-2xl p-6 border border-border"
       >
         <div className="flex items-center space-x-3">
           <div className="relative">
-            <div className="w-10 h-10 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full animate-spin">
-              <div className="absolute inset-2 bg-white rounded-full" />
+            <div className="w-10 h-10 bg-violet-600 rounded-full animate-spin">
+              <div className="absolute inset-2 bg-card rounded-full" />
             </div>
-            <Sparkles className="w-5 h-5 text-purple-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+            <Sparkles className="w-5 h-5 text-violet-600 dark:text-violet-400 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
           </div>
           <div>
-            <p className="font-medium text-gray-800">
+            <p className="font-medium text-foreground">
               AI анализирует данные...
             </p>
-            <p className="text-sm text-gray-500">Это может занять минуту</p>
+            <p className="text-sm text-muted-foreground">Это может занять минуту</p>
           </div>
         </div>
       </motion.div>
@@ -122,15 +122,15 @@ export default function AiInsights({ data, isLoading, onAnalyze }: Props) {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="bg-yellow-50 rounded-2xl p-6 border border-yellow-200"
+        className="bg-warning/10 rounded-2xl p-6 border border-warning/30"
       >
         <div className="flex items-start space-x-3">
-          <AlertTriangle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-1" />
+          <AlertTriangle className="w-6 h-6 text-warning flex-shrink-0 mt-1" />
           <div>
-            <h3 className="font-semibold text-yellow-900">
+            <h3 className="font-semibold text-warning">
               Нет данных за выбранный период
             </h3>
-            <p className="text-sm text-yellow-700 mt-1">
+            <p className="text-sm text-warning mt-1">
               Попробуйте выбрать другой период для анализа
             </p>
           </div>
@@ -149,29 +149,29 @@ export default function AiInsights({ data, isLoading, onAnalyze }: Props) {
       {data.insights.length > 0 && (
         <motion.div
           layout
-          className="bg-white rounded-2xl border border-gray-200 overflow-hidden"
+          className="bg-card rounded-2xl border border-border overflow-hidden"
         >
           <button
             onClick={() => toggleSection("insights")}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted transition-colors"
           >
             <div className="flex items-center space-x-3">
-              <div className="bg-green-100 p-2 rounded-lg">
-                <Lightbulb className="w-5 h-5 text-green-600" />
+              <div className="bg-success/15 p-2 rounded-lg">
+                <Lightbulb className="w-5 h-5 text-success" />
               </div>
               <div className="text-left">
-                <h3 className="font-semibold text-gray-800">
+                <h3 className="font-semibold text-foreground">
                   Рекомендации ({data.insights.length})
                 </h3>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Умные советы для бизнеса
                 </p>
               </div>
             </div>
             {expandedSections.insights ? (
-              <ChevronUp className="w-5 h-5 text-gray-400" />
+              <ChevronUp className="w-5 h-5 text-muted-foreground" />
             ) : (
-              <ChevronDown className="w-5 h-5 text-gray-400" />
+              <ChevronDown className="w-5 h-5 text-muted-foreground" />
             )}
           </button>
 
@@ -182,7 +182,7 @@ export default function AiInsights({ data, isLoading, onAnalyze }: Props) {
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="border-t border-gray-100"
+                className="border-t border-border"
               >
                 <div className="px-6 py-4 space-y-3">
                   {data.insights.map((insight, idx) => {
@@ -199,19 +199,19 @@ export default function AiInsights({ data, isLoading, onAnalyze }: Props) {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: idx * 0.1 }}
-                        className="flex items-start space-x-3 bg-green-50 p-4 rounded-xl"
+                        className="flex items-start space-x-3 bg-success/10 p-4 rounded-xl"
                       >
                         <span className="text-xl flex-shrink-0">
                           {priorityIcon}
                         </span>
                         <div className="flex-1 space-y-1">
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-foreground">
                             {insight.action}
                           </p>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-muted-foreground">
                             {insight.reason}
                           </p>
-                          <p className="text-sm text-green-700 font-medium">
+                          <p className="text-sm text-success font-medium">
                             💰 {insight.expectedResult}
                           </p>
                         </div>
@@ -229,27 +229,27 @@ export default function AiInsights({ data, isLoading, onAnalyze }: Props) {
       {data.anomalies.length > 0 && (
         <motion.div
           layout
-          className="bg-white rounded-2xl border border-gray-200 overflow-hidden"
+          className="bg-card rounded-2xl border border-border overflow-hidden"
         >
           <button
             onClick={() => toggleSection("anomalies")}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted transition-colors"
           >
             <div className="flex items-center space-x-3">
-              <div className="bg-red-100 p-2 rounded-lg">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
+              <div className="bg-destructive/15 p-2 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-destructive" />
               </div>
               <div className="text-left">
-                <h3 className="font-semibold text-gray-800">
+                <h3 className="font-semibold text-foreground">
                   Аномалии ({data.anomalies.length})
                 </h3>
-                <p className="text-xs text-gray-500">Подозрительные операции</p>
+                <p className="text-xs text-muted-foreground">Подозрительные операции</p>
               </div>
             </div>
             {expandedSections.anomalies ? (
-              <ChevronUp className="w-5 h-5 text-gray-400" />
+              <ChevronUp className="w-5 h-5 text-muted-foreground" />
             ) : (
-              <ChevronDown className="w-5 h-5 text-gray-400" />
+              <ChevronDown className="w-5 h-5 text-muted-foreground" />
             )}
           </button>
 
@@ -260,7 +260,7 @@ export default function AiInsights({ data, isLoading, onAnalyze }: Props) {
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="border-t border-gray-100"
+                className="border-t border-border"
               >
                 <div className="px-6 py-4 space-y-3">
                   {data.anomalies.map((anomaly, idx) => {
@@ -277,21 +277,21 @@ export default function AiInsights({ data, isLoading, onAnalyze }: Props) {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: idx * 0.1 }}
-                        className="bg-red-50 p-4 rounded-xl space-y-2"
+                        className="bg-destructive/10 p-4 rounded-xl space-y-2"
                       >
                         <div className="flex items-start space-x-2">
                           <span className="text-xl flex-shrink-0">
                             {priorityIcon}
                           </span>
                           <div className="flex-1">
-                            <p className="font-medium text-sm text-red-900">
+                            <p className="font-medium text-sm text-destructive">
                               {anomaly.type}
                             </p>
-                            <p className="text-sm text-red-700 mt-1">
+                            <p className="text-sm text-destructive mt-1">
                               {anomaly.reason}
                             </p>
                             {anomaly.details && (
-                              <p className="text-xs text-red-600 mt-2 bg-red-100 p-2 rounded">
+                              <p className="text-xs text-destructive mt-2 bg-destructive/15 p-2 rounded">
                                 💡 {anomaly.details}
                               </p>
                             )}
@@ -311,27 +311,27 @@ export default function AiInsights({ data, isLoading, onAnalyze }: Props) {
       {data.patterns.length > 0 && (
         <motion.div
           layout
-          className="bg-white rounded-2xl border border-gray-200 overflow-hidden"
+          className="bg-card rounded-2xl border border-border overflow-hidden"
         >
           <button
             onClick={() => toggleSection("patterns")}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted transition-colors"
           >
             <div className="flex items-center space-x-3">
-              <div className="bg-blue-100 p-2 rounded-lg">
-                <TrendingUp className="w-5 h-5 text-blue-600" />
+              <div className="bg-primary/15 p-2 rounded-lg">
+                <TrendingUp className="w-5 h-5 text-primary" />
               </div>
               <div className="text-left">
-                <h3 className="font-semibold text-gray-800">
+                <h3 className="font-semibold text-foreground">
                   Паттерны ({data.patterns.length})
                 </h3>
-                <p className="text-xs text-gray-500">Скрытые корреляции</p>
+                <p className="text-xs text-muted-foreground">Скрытые корреляции</p>
               </div>
             </div>
             {expandedSections.patterns ? (
-              <ChevronUp className="w-5 h-5 text-gray-400" />
+              <ChevronUp className="w-5 h-5 text-muted-foreground" />
             ) : (
-              <ChevronDown className="w-5 h-5 text-gray-400" />
+              <ChevronDown className="w-5 h-5 text-muted-foreground" />
             )}
           </button>
 
@@ -342,7 +342,7 @@ export default function AiInsights({ data, isLoading, onAnalyze }: Props) {
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="border-t border-gray-100"
+                className="border-t border-border"
               >
                 <div className="px-6 py-4 space-y-3">
                   {data.patterns.map((pattern, idx) => {
@@ -363,21 +363,21 @@ export default function AiInsights({ data, isLoading, onAnalyze }: Props) {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: idx * 0.1 }}
-                        className="bg-blue-50 p-4 rounded-xl space-y-2"
+                        className="bg-primary/10 p-4 rounded-xl space-y-2"
                       >
                         <div className="flex items-start space-x-2">
                           <span className="text-xl flex-shrink-0">
                             {categoryIcon}
                           </span>
                           <div className="flex-1">
-                            <p className="text-sm text-gray-900 font-medium">
+                            <p className="text-sm text-foreground font-medium">
                               {pattern.pattern}
                             </p>
-                            <p className="text-xs text-blue-700 mt-1">
+                            <p className="text-xs text-primary mt-1">
                               📊 {pattern.data}
                             </p>
                             {pattern.recommendation && (
-                              <p className="text-xs text-green-700 mt-2 bg-green-50 p-2 rounded">
+                              <p className="text-xs text-success mt-2 bg-success/10 p-2 rounded">
                                 💡 {pattern.recommendation}
                               </p>
                             )}
@@ -394,7 +394,7 @@ export default function AiInsights({ data, isLoading, onAnalyze }: Props) {
       )}
 
       {data.documentsCount !== undefined && (
-        <p className="text-xs text-gray-500 text-center">
+        <p className="text-xs text-muted-foreground text-center">
           Проанализировано документов: {data.documentsCount}
         </p>
       )}

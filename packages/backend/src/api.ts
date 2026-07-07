@@ -8,7 +8,7 @@ import type { IEnv, SaveDeadStocksRequest } from "./types";
 
 // const JWT_SECRET = "your_secret_key"; // Секретный ключ для подписи токена
 
-import { analyzeDocsStaffTask, getHoroscopeByDateTask, analyzeDocsInsightsTask, analyzeDocsAnomaliesTask, analyzeDocsPatternsTask } from "./ai";
+import { analyzeDocsStaffTask, getHoroscopeByDateTask, analyzeDocsInsightsTask, analyzeDocsAnomaliesTask, analyzeDocsPatternsTask, analyzeSellerPerformanceTask } from "./ai";
 import { runOrderForecastV2 } from "./services/orderForecastV2";
 import { deepseekChat } from "./services/deepseek";
 import { computeSellerEffectiveness } from "./services/sellerEffectiveness";
@@ -2371,6 +2371,50 @@ export const api = new Hono<IEnv>()
 		const store = c.req.query("store") || undefined;
 		const result = await computeSellerEffectiveness(db, { period, since, until, store });
 		return c.json(result);
+	})
+	// AI-powered seller insights
+	.get("/api/employees/seller-insights", async (c) => {
+		const db = c.env.DB as D1Database;
+		const period = c.req.query("period") ? parseInt(c.req.query("period")!) : 30;
+		const store = c.req.query("store") || undefined;
+
+		const metrics = await computeSellerEffectiveness(db, { period, store });
+		if (!metrics.sellers.length) {
+			return c.json({ sellers: [], generalObservations: "Нет данных для анализа." });
+		}
+
+		const storeNames = [...new Set(metrics.sellers.flatMap(s => s.stores.map(st => st.store)))];
+
+		try {
+			const aiResult = await analyzeSellerPerformanceTask(c, {
+				sellers: metrics.sellers.map(s => ({
+					name: s.name,
+					daysWorked: s.daysWorked,
+					totalChecks: s.totalChecks,
+					avgDailyRev: s.avgDailyRev,
+					avgCheck: s.avgCheck,
+					trendSlope: s.trendSlope,
+					cv: s.cv,
+					vapeShare: s.vapeShare,
+					accShare: s.accShare,
+					liquidShare: s.liquidShare,
+					unknownItemsPct: s.unknownItemsPct,
+					rubPerHour: s.rubPerHour,
+					planCompletion: s.planCompletion,
+					segment: s.segment,
+					stores: s.stores.map(st => st.store),
+				})),
+				period,
+				storeContext: storeNames.join(", "),
+			});
+			return c.json(aiResult);
+		} catch (err: any) {
+			console.error("[seller-insights] AI error:", err.message);
+			return c.json({
+				sellers: [],
+				generalObservations: `Ошибка AI-анализа: ${err.message}. Попробуйте позже.`,
+			});
+		}
 	})
 	.post("/api/evotor/salesResult", async (c) => {
 		try {

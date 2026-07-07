@@ -96,12 +96,12 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
           return (
             <div
               key={shopName}
-              className="bg-muted rounded-lg p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              className="bg-muted rounded-lg p-3 hover:bg-muted/70 transition-colors"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Store className="w-4 h-4 text-blue-500" />
-                  <span className="font-semibold text-gray-900 dark:text-white">
+                  <Store className="w-4 h-4 text-primary" />
+                  <span className="font-semibold text-foreground">
                     {shopName}
                   </span>
                 </div>
@@ -115,7 +115,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
                   <div className="text-muted-foreground">
                     Продажи
                   </div>
-                  <div className="font-semibold text-green-600 dark:text-green-400">
+                  <div className="font-semibold text-success">
                     {formatCurrency(totalSell)} ₽
                   </div>
                 </div>
@@ -123,13 +123,13 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
                   <div className="text-muted-foreground">
                     Возвраты
                   </div>
-                  <div className="font-semibold text-red-600 dark:text-red-400">
+                  <div className="font-semibold text-destructive">
                     {formatCurrency(totalRefund)} ₽
                   </div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Чистая</div>
-                  <div className="font-semibold text-blue-600 dark:text-blue-400">
+                  <div className="font-semibold text-primary">
                     {formatCurrency(netShopSales)} ₽
                   </div>
                 </div>
@@ -140,7 +140,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
                   <div
                     className={`font-semibold ${
                       refundRate > 10
-                        ? "text-red-600 dark:text-red-400"
+                        ? "text-destructive"
                         : "text-muted-foreground"
                     }`}
                   >
@@ -170,7 +170,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
                               <span className="text-muted-foreground">
                                 {paymentType}
                               </span>
-                              <span className="font-medium text-green-600 dark:text-green-400">
+                              <span className="font-medium text-success">
                                 {formatCurrency(amount)} ₽
                               </span>
                             </div>
@@ -201,7 +201,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
                               <span className="text-muted-foreground">
                                 {paymentType}
                               </span>
-                              <span className="font-medium text-red-600 dark:text-red-400">
+                              <span className="font-medium text-destructive">
                                 {formatCurrency(amount)} ₽
                               </span>
                             </div>

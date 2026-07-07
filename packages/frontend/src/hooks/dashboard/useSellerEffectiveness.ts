@@ -30,17 +30,20 @@ export interface SellerMetrics {
   efficiencyVsStore: number;
   riskLevel: "ok" | "warn" | "critical";
   riskReasons: string[];
+  segment: "star" | "stable" | "declining" | "critical" | "cashier_robot" | "newcomer" | "attention";
   dailyRevenue: { date: string; value: number }[];
   dow: Record<string, number>;  // day-of-week: "0"=Sun.."6"=Sat → avg revenue
   rank: number;                 // current position (1-based)
   prevRank: number | null;      // position in previous period
   deltaRank: number | null;     // prevRank - rank: positive = improved
   prevAvgDailyRev: number | null;
-  targetAvgCheck: number;       // KPI target: средний чек
-  targetVapeShare: number;      // KPI target: vape-доля %
+  planCompletion: number | null;     // % выполнения плана по выручке
+  planDiagnostics: { avgCheckDelta: number; receiptsDelta: number } | null;
+  liquidShare: number;              // доля жидкостей в выручке (%)
+  unknownItemsPct: number;          // доля неизвестных категорий в выручке (%)
   categoryBreakdown: { name: string; share: number }[];
-  avgHours: number | null;       // avg shift duration from first→last sell
-  rubPerHour: number | null;     // avgDailyRev / avgHours
+  avgHours: number | null;           // avg shift duration from first→last sell
+  rubPerHour: number | null;         // avgDailyRev / avgHours
 }
 
 export interface StoreBaseline {
@@ -75,6 +78,15 @@ export interface KpiSnapshot {
   activeToday: number;
 }
 
+export interface Recommendation {
+  priority: "high" | "medium" | "low";
+  sellerUuid: string;
+  sellerName: string;
+  store: string;
+  rule: string;
+  action: string;
+}
+
 export interface SellerEffectivenessResponse {
   snapshot: KpiSnapshot;
   prevSnapshot: KpiSnapshot | null;
@@ -82,6 +94,7 @@ export interface SellerEffectivenessResponse {
   baselines: StoreBaseline[];
   dowData: DowData[];
   hypotheses: HypothesisResult[];
+  recommendations: Recommendation[];
 }
 
 async function fetchSellerEffectiveness(params: {
