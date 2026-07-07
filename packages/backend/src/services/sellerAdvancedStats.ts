@@ -119,6 +119,12 @@ export interface WeekdayCompareResult {
   weekday: number;           // 0=Sun..6=Sat
   dates: string[];           // the actual dates queried
   sellers: WeekdayCompareProfile[];
+  recommendation?: {
+    message: string;
+    bestWeekday?: number;
+    bestWeekdayLabel?: string;
+    bestCount?: number;
+  };
 }
 
 /** Per-weekday aggregated stats for a single seller */
@@ -537,11 +543,20 @@ function computeDNA(
 
 // ===================== Main export =====================
 
+function filterBySellerIds(
+  result: { sellers: SellerDNAProfile[] },
+  sellerIds: string[] | undefined,
+): { sellers: SellerDNAProfile[] } {
+  if (!sellerIds || sellerIds.length === 0) return result;
+  const idSet = new Set(sellerIds);
+  return { sellers: result.sellers.filter((s) => idSet.has(s.uuid)) };
+}
+
 export async function computeSellerAdvancedStats(
   db: D1Database,
-  params: { since: string; until: string; shopId?: string; benchmarkWeekday?: number; weekday?: number },
+  params: { since: string; until: string; shopId?: string; benchmarkWeekday?: number; weekday?: number; sellerIds?: string[] },
 ): Promise<{ sellers: SellerDNAProfile[] }> {
-  const { since, until, shopId, benchmarkWeekday, weekday } = params;
+  const { since, until, shopId, benchmarkWeekday, weekday, sellerIds } = params;
 
   // 1. Try cached daily metrics first
   let cachedDays: Awaited<ReturnType<typeof getSellerDailyMetrics>> = [];
@@ -558,15 +573,19 @@ export async function computeSellerAdvancedStats(
     benchmarkHourly = await computeWeekdayBenchmark(db, since, until, shopId, benchmarkWeekday);
   }
 
+  let result: { sellers: SellerDNAProfile[] };
+
   if (hasCache) {
     console.log(
       `[advanced-stats] Using cache: ${cachedDays.length} seller-day rows for ${since}–${until}`,
     );
-    return buildFromCache(db, since, until, shopId, cachedDays, benchmarkHourly, weekday);
+    result = await buildFromCache(db, since, until, shopId, cachedDays, benchmarkHourly, weekday);
+  } else {
+    console.log("[advanced-stats] Cache miss — querying index_documents live");
+    result = await buildFromLive(db, since, until, shopId, benchmarkHourly, weekday);
   }
 
-  console.log("[advanced-stats] Cache miss — querying index_documents live");
-  return buildFromLive(db, since, until, shopId, benchmarkHourly, weekday);
+  return filterBySellerIds(result, sellerIds);
 }
 
 // ===================== 4-week same-weekday benchmark =====================
@@ -659,28 +678,182 @@ function getPreviousSameWeekdayDates(dateStr: string, count: number): string[] {
 
 // ===================== Multi-week weekday comparison =====================
 
+interface WeekdayOverlap {
+  weekday: number;
+  weekdayLabel: string;
+  commonDates: string[];
+  count: number;
+}
+
+async function findSameDayDates(
+  db: D1Database,
+  shopId: string | undefined,
+  sellerIds: string[],
+  refDate: string,
+  weeksBack: number,
+): Promise<{ commonDates: string[] }> {
+  const ref = new Date(refDate + "T12:00:00+03:00");
+  const from = new Date(ref);
+  from.setDate(from.getDate() - weeksBack * 7 - 1);
+  const since = from.toISOString().slice(0, 10);
+  const until = refDate;
+
+  let sql = `SELECT open_user_uuid, close_date
+             FROM index_documents
+             WHERE type = 'SELL'
+               AND close_date >= ? AND close_date <= ?
+               AND open_user_uuid IN (${sellerIds.map(() => "?").join(",")})`;
+  const binds: any[] = [since + "T00:00:00", until + "T23:59:59", ...sellerIds];
+  if (shopId && shopId !== "all") {
+    sql += ` AND shop_id = ?`;
+    binds.push(shopId);
+  }
+
+  const res = await db.prepare(sql).bind(...binds).all<{ open_user_uuid: string; close_date: string }>();
+  const rows = res.results ?? [];
+
+  const sellerDates = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const date = row.close_date.slice(0, 10);
+    if (!sellerDates.has(row.open_user_uuid)) {
+      sellerDates.set(row.open_user_uuid, new Set());
+    }
+    sellerDates.get(row.open_user_uuid)!.add(date);
+  }
+
+  const dateCounts = new Map<string, number>();
+  for (const dates of sellerDates.values()) {
+    for (const d of dates) {
+      dateCounts.set(d, (dateCounts.get(d) ?? 0) + 1);
+    }
+  }
+  const commonDates = [...dateCounts.entries()]
+    .filter(([, c]) => c === sellerIds.length)
+    .map(([d]) => d)
+    .sort();
+
+  return { commonDates };
+}
+
+async function findBestWeekdayOverlaps(
+  db: D1Database,
+  shopId: string | undefined,
+  sellerIds: string[],
+  refDate: string,
+  weeksBack: number,
+): Promise<WeekdayOverlap[]> {
+  const ref = new Date(refDate + "T12:00:00+03:00");
+  const from = new Date(ref);
+  from.setDate(from.getDate() - weeksBack * 7 - 1);
+  const since = from.toISOString().slice(0, 10);
+  const until = refDate;
+
+  let sql = `SELECT open_user_uuid, close_date
+             FROM index_documents
+             WHERE type = 'SELL'
+               AND close_date >= ? AND close_date <= ?
+               AND open_user_uuid IN (${sellerIds.map(() => "?").join(",")})`;
+  const binds: any[] = [since + "T00:00:00", until + "T23:59:59", ...sellerIds];
+  if (shopId && shopId !== "all") {
+    sql += ` AND shop_id = ?`;
+    binds.push(shopId);
+  }
+
+  const res = await db.prepare(sql).bind(...binds).all<{ open_user_uuid: string; close_date: string }>();
+  const rows = res.results ?? [];
+
+  const sellerWeekdays = new Map<string, Map<number, Set<string>>>();
+  for (const row of rows) {
+    const date = row.close_date.slice(0, 10);
+    const wd = new Date(date + "T12:00:00+03:00").getDay();
+    if (!sellerWeekdays.has(row.open_user_uuid)) {
+      sellerWeekdays.set(row.open_user_uuid, new Map());
+    }
+    const wdMap = sellerWeekdays.get(row.open_user_uuid)!;
+    if (!wdMap.has(wd)) wdMap.set(wd, new Set());
+    wdMap.get(wd)!.add(date);
+  }
+
+  const WD_LABELS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+  const overlaps: WeekdayOverlap[] = [];
+
+  for (let wd = 0; wd <= 6; wd++) {
+    let commonDates: Set<string> | null = null;
+    for (const wdMap of sellerWeekdays.values()) {
+      const sellerDates = wdMap.get(wd);
+      if (!sellerDates || sellerDates.size === 0) {
+        commonDates = null;
+        break;
+      }
+      if (commonDates === null) {
+        commonDates = new Set(sellerDates);
+      } else {
+        const arr: string[] = [...commonDates].filter((d: string) => sellerDates.has(d));
+        commonDates = new Set(arr);
+        if (commonDates.size === 0) break;
+      }
+    }
+    if (commonDates && commonDates.size > 0) {
+      overlaps.push({
+        weekday: wd,
+        weekdayLabel: WD_LABELS[wd],
+        commonDates: [...commonDates].sort(),
+        count: commonDates.size,
+      });
+    }
+  }
+
+  overlaps.sort((a, b) => b.count - a.count);
+  return overlaps;
+}
+
 export async function computeWeekdayComparison(
   db: D1Database,
-  params: { targetDate: string; shopId?: string; weeksBack?: number },
+  params: { targetDate: string; shopId?: string; weeksBack?: number; compareMode?: "same-day" | "same-weekday"; sellerIds?: string[] },
 ): Promise<WeekdayCompareResult> {
-  const { targetDate, shopId, weeksBack = 4 } = params;
+  const { targetDate, shopId, weeksBack = 4, compareMode = "same-weekday", sellerIds } = params;
   const refDate = new Date(targetDate + "T12:00:00+03:00");
   const targetWeekday = refDate.getDay(); // 0=Sun..6=Sat
 
-  // Generate matching dates going back weeksBack weeks
-  const dates: string[] = [];
-  let cursor = new Date(refDate);
-  for (let i = 0; i < weeksBack; i++) {
-    const y = cursor.getFullYear();
-    const m = String(cursor.getMonth() + 1).padStart(2, "0");
-    const d = String(cursor.getDate()).padStart(2, "0");
-    dates.unshift(`${y}-${m}-${d}`);
-    cursor = new Date(cursor.getTime() - 7 * 86400000);
+  let recommendation: { message: string; bestWeekday?: number; bestWeekdayLabel?: string; bestCount?: number } | undefined;
+
+  let dates: string[];
+
+  if (compareMode === "same-day" && sellerIds && sellerIds.length >= 2) {
+    const { commonDates } = await findSameDayDates(db, shopId, sellerIds, targetDate, weeksBack);
+
+    if (commonDates.length >= 2) {
+      dates = commonDates;
+    } else {
+      const overlaps = await findBestWeekdayOverlaps(db, shopId, sellerIds, targetDate, weeksBack);
+      if (overlaps.length > 0) {
+        const best = overlaps[0];
+        recommendation = {
+          message: `Лучше сравнивать по ${best.weekdayLabel.toLowerCase()} (продавцы работали вместе ${best.count} раз)`,
+          bestWeekday: best.weekday,
+          bestWeekdayLabel: best.weekdayLabel,
+          bestCount: best.count,
+        };
+        dates = best.commonDates;
+      } else {
+        return computeWeekdayComparison(db, { targetDate, shopId, weeksBack, compareMode: "same-weekday" });
+      }
+    }
+  } else {
+    dates = [];
+    let cursor = new Date(refDate);
+    for (let i = 0; i < weeksBack; i++) {
+      const y = cursor.getFullYear();
+      const m = String(cursor.getMonth() + 1).padStart(2, "0");
+      const d = String(cursor.getDate()).padStart(2, "0");
+      dates.unshift(`${y}-${m}-${d}`);
+      cursor = new Date(cursor.getTime() - 7 * 86400000);
+    }
   }
 
   const since = dates[0];
   const until = dates[dates.length - 1];
-  console.log(`[weekday-compare] targetWeekday=${targetWeekday}, dates=${dates.join(",")}, since=${since}, until=${until}`);
+  console.log(`[weekday-compare] compareMode=${compareMode}, dates=${dates.length}, since=${since}, until=${until}`);
 
   // Query docs and sessions for the full range, then filter to dates
   const [docs, sessions, employeeNames] = await Promise.all([
@@ -690,6 +863,7 @@ export async function computeWeekdayComparison(
   ]);
 
   const dateSet = new Set(dates);
+  const sellerSet = sellerIds && sellerIds.length > 0 ? new Set(sellerIds) : null;
 
   // Build per-seller day aggregations, filtering to matching dates
   const sellerDays = new Map<string, DayAgg[]>();
@@ -700,6 +874,8 @@ export async function computeWeekdayComparison(
     if (!dateSet.has(docDate)) continue;
 
     const uuid = doc.open_user_uuid || "unknown";
+    if (sellerSet && !sellerSet.has(uuid)) continue;
+
     const date = parseDate(doc.close_date);
     const hour = parseHour(doc.close_date);
 
@@ -849,12 +1025,13 @@ export async function computeWeekdayComparison(
   // Sort by rubPerHour descending
   profiles.sort((a, b) => (b.rubPerHour ?? 0) - (a.rubPerHour ?? 0));
 
-  console.log(`[weekday-compare] Found ${profiles.length} sellers for weekday ${targetWeekday}`);
+  console.log(`[weekday-compare] compareMode=${compareMode}, found ${profiles.length} sellers, dates=${dates.length}`);
 
   return {
     weekday: targetWeekday,
     dates,
     sellers: profiles,
+    recommendation,
   };
 }
 

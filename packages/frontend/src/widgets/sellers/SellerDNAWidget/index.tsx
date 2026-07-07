@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Store, Users } from "lucide-react";
 import { WidgetErrorBoundary } from "@/widgets/home/WidgetErrorBoundary";
 import type { DateFilterValue } from "@/widgets/home/DateFilter";
 import type { SellerDNAProfile } from "./types";
@@ -9,6 +10,7 @@ import { SellerComparisonView } from "./SellerComparisonView";
 import { useSellerStats } from "@/hooks/useSellerStats";
 import { useSellerInsights } from "@/hooks/useSellerInsights";
 import { useWeekdayCompare } from "@/hooks/useWeekdayCompare";
+import { fetchStoreList } from "@shared/api";
 
 // ===================== Tab type =====================
 type Tab = "rating" | "compare" | "detail";
@@ -49,8 +51,14 @@ function isSingleDay(df: DateFilterValue): boolean {
 
 export function SellerDNAWidget({
   dateFilter: externalDateFilter,
+  shopId: externalShopId,
+  sellerIds: externalSellerIds,
+  defaultShowAllSellers = false,
 }: {
   dateFilter?: DateFilterValue;
+  shopId?: string;
+  sellerIds?: string[];
+  defaultShowAllSellers?: boolean;
 }) {
   const [internalDateFilter, setInternalDateFilter] = useState<DateFilterValue>(() => {
     const d = new Date();
@@ -66,12 +74,36 @@ export function SellerDNAWidget({
   const [tab, setTab] = useState<Tab>("rating");
   const [selectedSellerUuid, setSelectedSellerUuid] = useState<string | null>(null);
 
-  // Show only today's sellers by default, allow expanding to all
-  const [showAllSellers, setShowAllSellers] = useState(false);
+  // Filters
+  const [shopId, setShopId] = useState<string>(externalShopId ?? "all");
+  const [sellerFilterIds, setSellerFilterIds] = useState<string[]>(externalSellerIds ?? []);
+  // If external props are set, use them; otherwise use internal state
+  const effectiveShopId = externalShopId !== undefined ? externalShopId : shopId;
+  const effectiveSellerIds = externalSellerIds !== undefined ? externalSellerIds : sellerFilterIds;
+  const showFilters = externalShopId === undefined; // hide filters if controlled externally
+
+  // Store list
+  const [storeList, setStoreList] = useState<{ key: string; name: string }[]>([]);
+  useEffect(() => {
+    fetchStoreList().then((shops) => {
+      const entries = (shops ?? []).map((s) => ({ key: s.name, name: s.name }));
+      setStoreList(entries);
+    }).catch(() => { /* ignore */ });
+  }, []);
+
+  // Show only today's sellers by default, allow expanding to all.
+  // When defaultShowAllSellers is true (e.g. on SellersAnalytics page), start with all sellers.
+  const [showAllSellers, setShowAllSellers] = useState(defaultShowAllSellers);
 
   // Weekday comparison mode
   const [compareMode, setCompareMode] = useState<"auto" | "weekday">("auto");
   const [compareWeekday, setCompareWeekday] = useState<number | undefined>(undefined);
+
+  // Resolve shop display name for AI context
+  const shopName = useMemo(() => {
+    if (effectiveShopId === "all" || !effectiveShopId) return undefined;
+    return storeList.find(s => s.key === effectiveShopId)?.name ?? effectiveShopId;
+  }, [effectiveShopId, storeList]);
 
   // Compute benchmarkWeekday for 4-week same-weekday comparison
   const benchmarkWeekday = useMemo(() => {
@@ -88,16 +120,28 @@ export function SellerDNAWidget({
 
   const { data: sellers = [] } = useSellerStats({
     dateFilter: effectiveDateFilter,
+    shopId: effectiveShopId !== "all" ? effectiveShopId : undefined,
+    sellerIds: effectiveSellerIds.length > 0 ? effectiveSellerIds : undefined,
     benchmarkWeekday,
     weekday: compareMode === "weekday" ? compareWeekday : undefined,
   });
-  const { insights } = useSellerInsights(selectedSellerUuid, dateFilter.since, dateFilter.until);
+  const { insights } = useSellerInsights({
+    sellerId: selectedSellerUuid,
+    since: dateFilter.since,
+    until: dateFilter.until,
+    shopId: effectiveShopId !== "all" ? effectiveShopId : undefined,
+    shopName,
+    compareSellerIds: effectiveSellerIds.length >= 2 ? effectiveSellerIds : undefined,
+  });
 
   // Multi-week weekday comparison data
-  const { data: weekdayCompareData } = useWeekdayCompare(
-    dateFilter.since,
-    4,
-  );
+  const { data: weekdayCompareData } = useWeekdayCompare({
+    targetDate: dateFilter.since,
+    weeksBack: 4,
+    shopId: effectiveShopId !== "all" ? effectiveShopId : undefined,
+    compareMode: effectiveSellerIds.length >= 2 ? "same-day" : "same-weekday",
+    sellerIds: effectiveSellerIds.length >= 2 ? effectiveSellerIds : undefined,
+  });
 
   const handleSellerSelect = (seller: SellerDNAProfile) => {
     setSelectedSellerUuid(seller.uuid);
@@ -113,6 +157,71 @@ export function SellerDNAWidget({
             🧬 Seller DNA — Анализ продавцов
           </h2>
         </div>
+
+        {/* Filters bar */}
+        {showFilters && (
+          <div className="flex flex-wrap gap-2 items-center">
+            {/* Store dropdown */}
+            <div className="flex items-center gap-1.5 bg-muted/60 rounded-lg px-2.5 py-1.5">
+              <Store className="w-3.5 h-3.5 text-muted-foreground" />
+              <select
+                value={shopId}
+                onChange={(e) => {
+                  setShopId(e.target.value);
+                  setSellerFilterIds([]);
+                }}
+                className="bg-transparent text-xs font-medium text-foreground outline-none cursor-pointer"
+              >
+                <option value="all">Все магазины</option>
+                {storeList.map((s) => (
+                  <option key={s.key} value={s.key}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Seller multi-select */}
+            {sellers.length > 0 && (
+              <div className="flex items-center gap-1.5 bg-muted/60 rounded-lg px-2.5 py-1.5 flex-1 min-w-0">
+                <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <div className="flex flex-wrap gap-1 items-center">
+                  {/* "All" toggle */}
+                  <button
+                    onClick={() => setSellerFilterIds([])}
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition ${
+                      sellerFilterIds.length === 0
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Все
+                  </button>
+                  {sellers.slice(0, 12).map((s) => {
+                    const isSelected = sellerFilterIds.includes(s.uuid);
+                    return (
+                      <button
+                        key={s.uuid}
+                        onClick={() => {
+                          setSellerFilterIds((prev) =>
+                            prev.includes(s.uuid)
+                              ? prev.filter((id) => id !== s.uuid)
+                              : [...prev, s.uuid],
+                          );
+                        }}
+                        className={`px-2 py-0.5 rounded text-[10px] font-medium transition whitespace-nowrap ${
+                          isSelected
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {s.name.split(" ")[0]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-1 bg-muted rounded-lg p-1">
@@ -148,6 +257,7 @@ export function SellerDNAWidget({
                 onDateFilterChange={setDateFilter}
                 showAllSellers={showAllSellers}
                 onToggleShowAll={() => setShowAllSellers(!showAllSellers)}
+                showDateFilter={!externalDateFilter}
               />
             )}
             {tab === "compare" && (

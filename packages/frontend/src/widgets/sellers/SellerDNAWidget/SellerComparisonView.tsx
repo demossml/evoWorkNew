@@ -28,7 +28,12 @@ import { useSellerComparison } from "@/hooks/useSellerComparison";
 
 interface SellerComparisonViewProps {
   allSellers: SellerDNAProfile[];
-  weekdayCompare?: { weekday: number; dates: string[]; sellers: WeekdayCompareProfile[] } | null;
+  weekdayCompare?: {
+    weekday: number;
+    dates: string[];
+    sellers: WeekdayCompareProfile[];
+    recommendation?: { message: string; bestWeekday?: number; bestWeekdayLabel?: string; bestCount?: number };
+  } | null;
   onBack: () => void;
   compareMode?: "auto" | "weekday";
   onCompareModeChange?: (mode: "auto" | "weekday") => void;
@@ -672,6 +677,17 @@ export function SellerComparisonView({
           >
             По дням недели
           </button>
+        </div>
+      )}
+
+      {/* Recommendation banner — when same-day mode finds too few matches */}
+      {weekdayCompare?.recommendation && (
+        <div className="bg-warning/5 border border-warning/20 rounded-lg p-3 text-xs flex items-start gap-2">
+          <Sparkles className="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" />
+          <div>
+            <div className="font-medium text-warning mb-0.5">Рекомендация</div>
+            <div className="text-muted-foreground">{weekdayCompare.recommendation.message}</div>
+          </div>
         </div>
       )}
 

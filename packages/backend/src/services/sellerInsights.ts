@@ -2,12 +2,31 @@
  * sellerInsights.ts
  *
  * Generates 3-5 AI-powered insights for a single seller.
- * Falls back to rule-based if DeepSeek is unavailable.
+ * When comparison context (store + peers) is provided, answers
+ * focus on store-level peer comparison rather than generic advice.
  *
  * Used by GET /api/sellers/insights
  */
 
 import { deepseekChat } from "./deepseek";
+
+// ===================== Types =====================
+
+interface PeerSummary {
+  name: string;
+  overallScore: number;
+  avgCheck: number;
+  rubPerHour: number | null;
+  accShare: number;
+  deadTimePct: number;
+  rank: number;
+}
+
+export interface ComparisonContext {
+  shopName?: string;
+  peers?: PeerSummary[];
+  totalSellers?: number;
+}
 
 // Minimal profile shape needed for insights
 interface InsightInput {
@@ -34,65 +53,125 @@ interface InsightInput {
   dnaLabel: string;
   rank: number;
   totalSellers: number;
+  comparison?: ComparisonContext;
 }
 
 // ===================== Rule-based fallback =====================
 
 function ruleBasedInsights(p: InsightInput): string[] {
   const insights: string[] = [];
+  const peers = p.comparison?.peers ?? [];
+  const shopName = p.comparison?.shopName;
+  const hasComparison = peers.length >= 2 && shopName;
 
-  // DNA overview
+  // DNA overview — contextual
+  const location = shopName ? `в магазине «${shopName}»` : "";
   insights.push(
-    `DNA-профиль: «${p.dnaLabel}» (Score ${p.overallScore}/100, ранг ${p.rank}/${p.totalSellers}). ` +
-    `За период отработано ${p.daysWorked} смен, выручка ${p.totalRevenue.toLocaleString("ru")}₽.`,
+    `DNA-профиль ${location}: «${p.dnaLabel}» (Score ${p.overallScore}/100, ранг ${p.rank}/${p.totalSellers}). ` +
+    `Отработано ${p.daysWorked} смен, выручка ${p.totalRevenue.toLocaleString("ru")}₽.`,
   );
 
-  // Strengths highlight
-  if (p.strengths.length > 0) {
+  // Comparison insights — when peers available
+  if (hasComparison) {
+    const topByScore = [...peers].sort((a, b) => b.overallScore - a.overallScore);
+    const best = topByScore[0];
+    const isLeader = best.name === p.name;
+    const topByRub = [...peers].sort((a, b) => (b.rubPerHour ?? 0) - (a.rubPerHour ?? 0));
+    const bestRub = topByRub[0];
+
+    if (!isLeader) {
+      const gap = best.overallScore - p.overallScore;
+      if (gap > 8) {
+        insights.push(
+          `${p.name} отстаёт от лидера «${best.name}» на ${gap} баллов DNA Score. ` +
+          `Основной разрыв: ${best.rubPerHour != null && p.rubPerHour != null ? `выручка/час ${p.rubPerHour.toLocaleString("ru")}₽ vs ${best.rubPerHour.toLocaleString("ru")}₽` : "метрики эффективности"}.`,
+        );
+      }
+
+      if (bestRub && bestRub.name !== p.name && bestRub.rubPerHour != null && p.rubPerHour != null && bestRub.rubPerHour > p.rubPerHour * 1.15) {
+        const pct = Math.round((bestRub.rubPerHour / p.rubPerHour - 1) * 100);
+        insights.push(
+          `${bestRub.name} превосходит ${p.name} на ${pct}% по выручке в час ` +
+          `(${bestRub.rubPerHour.toLocaleString("ru")}₽ vs ${p.rubPerHour.toLocaleString("ru")}₽). ` +
+          `Рекомендация: проанализировать технику работы ${bestRub.name} и перенять лучшие практики.`,
+        );
+      }
+
+      if (best.accShare > p.accShare + 8) {
+        insights.push(
+          `В магазине «${shopName}» ${best.name} продаёт аксессуары с долей ${best.accShare}% vs ${p.accShare}% у ${p.name}. ` +
+          `Рекомендация: перенять технику предложения доп. товаров.`,
+        );
+      }
+
+      if (p.deadTimePct > 20 && peers.some(pr => pr.deadTimePct < 15)) {
+        const lowDead = peers.filter(pr => pr.deadTimePct < 15).map(pr => pr.name).join(", ");
+        insights.push(
+          `Мёртвое время ${p.name}: ${p.deadTimePct}% против нормы <15%. ` +
+          `У ${lowDead} этот показатель в норме — стоит изучить их подход к управлению сменами.`,
+        );
+      }
+    } else {
+      // This seller IS the leader
+      const second = topByScore.length > 1 ? topByScore[1] : null;
+      if (second) {
+        const gap = p.overallScore - second.overallScore;
+        insights.push(
+          `${p.name} — лидер среди продавцов «${shopName}» с отрывом ${gap} баллов. ` +
+          `Рекомендация: масштабировать практики ${p.name} на остальных через наставничество.`,
+        );
+      }
+    }
+  } else if (p.strengths.length > 0) {
+    // Standalone: generic strengths
     insights.push(
       `Сильные стороны: ${p.strengths.slice(0, 2).join("; ")}.`,
     );
   }
 
-  // Weaknesses + recommendations
-  if (p.weaknesses.length > 0) {
-    const topWeak = p.weaknesses.slice(0, 2);
-    const recs: string[] = [];
-    for (const w of topWeak) {
-      if (w.includes("мёртвого времени")) {
-        recs.push("пересмотреть расписание смен для снижения простоев");
-      } else if (w.includes("чеков") || w.includes("чек")) {
-        recs.push("провести тренинг по допродажам аксессуаров");
-      } else if (w.includes("тренд") || w.includes("выручки")) {
-        recs.push("проанализировать причины снижения и усилить мотивацию");
-      } else if (w.includes("пики")) {
-        recs.push("оптимизировать график под часы пиковой нагрузки");
-      } else if (w.includes("аксессуаров")) {
-        recs.push("внедрить скрипты допродаж аксессуаров");
-      } else if (w.includes("посещаемость")) {
-        recs.push("провести беседу о дисциплине и важности стабильного графика");
-      } else if (w.includes("Опоздания")) {
-        recs.push("ужесточить контроль времени открытия смен");
+  // Weaknesses + recommendations — standalone only
+  if (!hasComparison) {
+    if (p.weaknesses.length > 0) {
+      const topWeak = p.weaknesses.slice(0, 2);
+      const recs: string[] = [];
+      for (const w of topWeak) {
+        if (w.includes("мёртвого времени")) {
+          recs.push("пересмотреть расписание смен для снижения простоев");
+        } else if (w.includes("чеков") || w.includes("чек")) {
+          recs.push("провести тренинг по допродажам аксессуаров");
+        } else if (w.includes("тренд") || w.includes("выручки")) {
+          recs.push("проанализировать причины снижения и усилить мотивацию");
+        } else if (w.includes("пики")) {
+          recs.push("оптимизировать график под часы пиковой нагрузки");
+        } else if (w.includes("аксессуаров")) {
+          recs.push("внедрить скрипты допродаж аксессуаров");
+        } else if (w.includes("посещаемость")) {
+          recs.push("провести беседу о дисциплине и важности стабильного графика");
+        } else if (w.includes("Опоздания")) {
+          recs.push("ужесточить контроль времени открытия смен");
+        }
       }
+      const recText = recs.length > 0
+        ? `Рекомендации: ${recs.join("; ")}.`
+        : `Рекомендуется детальный разбор метрик с руководителем.`;
+      insights.push(
+        `Зоны роста: ${topWeak.join("; ")}. ${recText}`,
+      );
+    } else {
+      insights.push(
+        `Явных зон роста не выявлено. Рекомендуется поддерживать текущий уровень и масштабировать успешные практики.`,
+      );
     }
-    const recText = recs.length > 0
-      ? `Рекомендации: ${recs.join("; ")}.`
-      : `Рекомендуется детальный разбор метрик с руководителем.`;
-    insights.push(
-      `Зоны роста: ${topWeak.join("; ")}. ${recText}`,
-    );
-  } else {
-    insights.push(
-      `Явных зон роста не выявлено. Рекомендуется поддерживать текущий уровень и масштабировать успешные практики.`,
-    );
   }
 
   // Specific metric-based insight
   if (p.deadTimePct > 20) {
-    insights.push(
-      `Внимание: мёртвое время составляет ${p.deadTimePct}% смены — это выше нормы. ` +
-      `Рекомендуется проанализировать почасовую загрузку и перераспределить задачи.`,
-    );
+    if (!hasComparison) {
+      insights.push(
+        `Внимание: мёртвое время составляет ${p.deadTimePct}% смены — это выше нормы. ` +
+        `Рекомендуется проанализировать почасовую загрузку и перераспределить задачи.`,
+      );
+    }
   }
 
   if (p.trend === "up" && p.trendSlope > 5) {
@@ -114,7 +193,7 @@ function ruleBasedInsights(p: InsightInput): string[] {
     );
   }
 
-  if (p.rubPerHour != null && p.rubPerHour > 3000) {
+  if (p.rubPerHour != null && p.rubPerHour > 3000 && !hasComparison) {
     insights.push(
       `Высокая производительность: ${p.rubPerHour.toLocaleString("ru")}₽/час — ` +
       `значительно выше среднего. Рекомендуется рассмотреть этого продавца как наставника для новичков.`,
@@ -134,8 +213,10 @@ function ruleBasedInsights(p: InsightInput): string[] {
 
 // ===================== AI-powered insights =====================
 
-function buildSystemPrompt(): string {
-  return `Ты — бизнес-аналитик сети вейп-шопов. Твоя задача — проанализировать метрики одного продавца и дать 3–5 конкретных, полезных инсайтов.
+function buildSystemPrompt(comparison?: ComparisonContext): string {
+  const hasComparison = comparison?.peers && comparison.peers.length >= 2 && comparison?.shopName;
+
+  const base = `Ты — бизнес-аналитик сети вейп-шопов. Твоя задача — проанализировать метрики одного продавца и дать 3–5 конкретных, полезных инсайтов.
 
 Контекст метрик:
 - overallScore (0–100) — интегральный DNA-балл. >80 = отлично, 60–80 = хорошо, 40–60 = средне, <40 = проблемно.
@@ -148,7 +229,33 @@ function buildSystemPrompt(): string {
 - rubPerHour — выручка в час. >2500 = высокая производительность.
 - revenueCV — коэффициент вариации дневной выручки (%). <30% = стабильно.
 - lateOpenRate — % дней с опозданием на открытие. >10% = проблема.
-- attendanceRate — % отработанных дней от календарных. >90% = отлично.
+- attendanceRate — % отработанных дней от календарных. >90% = отлично.`;
+
+  if (hasComparison) {
+    return base + `
+
+ВАЖНО — КОНТЕКСТ СРАВНЕНИЯ:
+В запросе будет поле "comparison" с метриками других продавцов из ТОГО ЖЕ магазина.
+Ты должен:
+1. Сравнивать продавца с его коллегами в этом магазине, называя конкретные имена.
+2. Указывать, кто лучший и на сколько процентов/баллов.
+3. Давать конкретную рекомендацию: что именно стоит перенять у лидера.
+4. Анализировать именно различия между продавцами, а не общие советы.
+
+Формат ответа:
+Верни ТОЛЬКО валидный JSON-объект. Без markdown-обёрток, без пояснений.
+
+{
+  "insights": [
+    "Конкретный инсайт 1 с цифрами, именами и рекомендацией",
+    "Конкретный инсайт 2 с цифрами, именами и рекомендацией"
+  ]
+}
+
+Каждый инсайт — 1-2 предложения на русском языке.`;
+  }
+
+  return base + `
 
 Формат ответа:
 Верни ТОЛЬКО валидный JSON-объект. Без markdown-обёрток, без пояснений.
@@ -156,27 +263,26 @@ function buildSystemPrompt(): string {
 {
   "insights": [
     "Конкретный инсайт 1 с цифрами и рекомендацией",
-    "Конкретный инсайт 2 с цифрами и рекомендацией",
-    "Конкретный инсайт 3 с цифрами и рекомендацией"
+    "Конкретный инсайт 2 с цифрами и рекомендацией"
   ]
 }
 
-Инсайты должны быть конкретными, содержать цифры из метрик, и давать actionable рекомендации на русском языке.
-Каждый инсайт — 1-2 предложения.`;
+Каждый инсайт — 1-2 предложения на русском языке.`;
 }
 
 function buildUserPrompt(p: InsightInput): string {
-  return JSON.stringify({
+  const result: any = {
     seller: {
       name: p.name,
+      store: p.comparison?.shopName || "(все магазины)",
       rank: `${p.rank}/${p.totalSellers}`,
       dnaLabel: p.dnaLabel,
       overallScore: p.overallScore,
       daysWorked: p.daysWorked,
-      totalRevenue: p.totalRevenue,
+      totalRevenue: p.totalRevenue.toLocaleString("ru") + "₽",
       avgCheck: p.avgCheck,
       accShare: p.accShare,
-      rubPerHour: p.rubPerHour,
+      rubPerHour: p.rubPerHour != null ? p.rubPerHour.toLocaleString("ru") + "₽/ч" : null,
       avgHours: p.avgHours,
       trend: p.trend,
       trendSlopePctPerWeek: p.trendSlope,
@@ -189,7 +295,26 @@ function buildUserPrompt(p: InsightInput): string {
       strengths: p.strengths,
       weaknesses: p.weaknesses,
     },
-  });
+  };
+
+  if (p.comparison?.peers && p.comparison.peers.length >= 2 && p.comparison.shopName) {
+    result.comparison = {
+      store: p.comparison.shopName,
+      otherSellers: p.comparison.peers
+        .filter(pr => pr.name !== p.name)
+        .map(pr => ({
+          name: pr.name,
+          overallScore: pr.overallScore,
+          avgCheck: pr.avgCheck,
+          rubPerHour: pr.rubPerHour != null ? pr.rubPerHour.toLocaleString("ru") + "₽/ч" : null,
+          accShare: pr.accShare,
+          deadTimePct: pr.deadTimePct,
+          rank: pr.rank,
+        })),
+    };
+  }
+
+  return JSON.stringify(result);
 }
 
 function parseAIResponse(text: string): string[] {
@@ -227,11 +352,12 @@ export async function generateSellerInsights(
   params: GenerateInsightsParams,
 ): Promise<{ insights: string[] }> {
   const { profile, apiKey } = params;
+  const comparison = profile.comparison;
 
   // Try AI if key is available
   if (apiKey) {
     try {
-      const system = buildSystemPrompt();
+      const system = buildSystemPrompt(comparison);
       const user = buildUserPrompt(profile);
       const aiText = await deepseekChat({
         apiKey,

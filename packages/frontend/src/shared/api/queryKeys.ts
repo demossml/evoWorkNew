@@ -54,8 +54,8 @@ export const queryKeys = {
     dataMode: () => ["admin", "data-mode"] as const,
   },
   sellers: {
-    advancedStats: (since: string, until: string, benchmarkWeekday?: number, weekday?: number) =>
-      ["sellers", "advanced-stats", since, until, benchmarkWeekday, weekday] as const,
+    advancedStats: (since: string, until: string, shopId?: string, sellerIds?: string[], benchmarkWeekday?: number, weekday?: number) =>
+      ["sellers", "advanced-stats", since, until, shopId, sellerIds, benchmarkWeekday, weekday] as const,
     insights: (sellerId: string) =>
       ["sellers", "insights", sellerId] as const,
   },

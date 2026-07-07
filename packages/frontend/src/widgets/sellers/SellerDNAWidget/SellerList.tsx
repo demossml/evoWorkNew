@@ -24,6 +24,7 @@ interface SellerListProps {
   onDateFilterChange: (v: DateFilterValue) => void;
   showAllSellers?: boolean;
   onToggleShowAll?: () => void;
+  showDateFilter?: boolean;
 }
 
 const SORT_FIELDS: { key: SortField; label: string }[] = [
@@ -293,6 +294,7 @@ export function SellerList({
   onDateFilterChange,
   showAllSellers,
   onToggleShowAll,
+  showDateFilter = true,
 }: SellerListProps) {
   const [sortField, setSortField] = useState<SortField>("overallScore");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -323,8 +325,10 @@ export function SellerList({
 
   return (
     <div className="space-y-3">
-      {/* Date filter */}
-      <DateFilter value={dateFilter} onChange={onDateFilterChange} />
+      {/* Date filter — hidden when parent provides its own */}
+      {showDateFilter && (
+        <DateFilter value={dateFilter} onChange={onDateFilterChange} />
+      )}
 
       {/* Toggle: today only vs all sellers for period */}
       {onToggleShowAll && (

@@ -20,6 +20,7 @@ const DeadStocks = lazy(() => import("@/pages/deadstock/DeadStock"));
 const StoreOpeningsAdminReport = lazy(() => import("@/pages/reports/StoreOpeningsAdminReport"));
 const PeriodComparison = lazy(() => import("@/pages/reports/PeriodComparison"));
 const SellerPerformancePage = lazy(() => import("@/pages/SellerPerformance"));
+const SellersAnalytics = lazy(() => import("@/pages/SellersAnalytics"));
 
 export function AppRouter() {
   return (
@@ -50,6 +51,7 @@ export function AppRouter() {
         <Route path="/evotor/dead-stock" element={<DeadStocks />} />
         <Route path="/evotor/period-comparison" element={<PeriodComparison />} />
         <Route path="/evotor/seller-performance" element={<SellerPerformancePage />} />
+        <Route path="/evotor/sellers-analytics" element={<SellersAnalytics />} />
       </Routes>
     </Suspense>
   );

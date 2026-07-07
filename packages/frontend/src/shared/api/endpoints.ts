@@ -421,10 +421,14 @@ export async function fetchSalesGardenReport(params: {
 export async function fetchSellerAdvancedStats(params: {
   since: string;
   until: string;
+  shopId?: string;
+  sellerIds?: string[];
   benchmarkWeekday?: number;
   weekday?: number;
 }) {
   const q = new URLSearchParams({ since: params.since, until: params.until });
+  if (params.shopId) q.set("shopId", params.shopId);
+  if (params.sellerIds && params.sellerIds.length > 0) q.set("sellerIds", params.sellerIds.join(","));
   if (params.benchmarkWeekday !== undefined) q.set("benchmarkWeekday", String(params.benchmarkWeekday));
   if (params.weekday !== undefined) q.set("weekday", String(params.weekday));
   const res = await apiGet(`/api/sellers/advanced-stats?${q.toString()}`);
@@ -435,13 +439,21 @@ export async function fetchSellerInsights(params: {
   sellerId: string;
   since: string;
   until: string;
+  shopId?: string;
+  shopName?: string;
+  compareSellerIds?: string[];
 }) {
   const q = new URLSearchParams({
     sellerId: params.sellerId,
     since: params.since,
     until: params.until,
-  }).toString();
-  const res = await apiGet(`/api/sellers/insights?${q}`);
+  });
+  if (params.shopId) q.set("shopId", params.shopId);
+  if (params.shopName) q.set("shopName", params.shopName);
+  if (params.compareSellerIds && params.compareSellerIds.length > 0) {
+    q.set("compareSellerIds", params.compareSellerIds.join(","));
+  }
+  const res = await apiGet(`/api/sellers/insights?${q.toString()}`);
   return res as { insights: string[] };
 }
 
@@ -449,12 +461,16 @@ export async function fetchWeekdayCompare(params: {
   targetDate: string;
   shopId?: string;
   weeksBack?: number;
+  compareMode?: "same-day" | "same-weekday";
+  sellerIds?: string[];
 }) {
   const q = new URLSearchParams({ targetDate: params.targetDate });
   if (params.shopId) q.set("shopId", params.shopId);
   if (params.weeksBack) q.set("weeksBack", String(params.weeksBack));
+  if (params.compareMode) q.set("compareMode", params.compareMode);
+  if (params.sellerIds && params.sellerIds.length > 0) q.set("sellerIds", params.sellerIds.join(","));
   const res = await apiGet(`/api/sellers/weekday-compare?${q.toString()}`);
-  return res as { weekday: number; dates: string[]; sellers: import("@/widgets/sellers/SellerDNAWidget/types").WeekdayCompareProfile[] };
+  return res as { weekday: number; dates: string[]; sellers: import("@/widgets/sellers/SellerDNAWidget/types").WeekdayCompareProfile[]; recommendation?: { message: string; bestWeekday?: number; bestWeekdayLabel?: string; bestCount?: number } };
 }
 
 export async function fetchWeekdayBreakdown(params: {

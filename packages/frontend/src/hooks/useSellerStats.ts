@@ -9,17 +9,21 @@ import type { DateFilterValue } from "@/widgets/home/DateFilter";
 
 export interface SellerStatsParams {
   dateFilter: DateFilterValue;
+  shopId?: string;
+  sellerIds?: string[];
   benchmarkWeekday?: number;  // 0=Sun..6=Sat, for 4-week same-weekday benchmark
   weekday?: number;            // filter sessions to this weekday only
 }
 
 export function useSellerStats(params: SellerStatsParams) {
-  const { dateFilter, benchmarkWeekday, weekday } = params;
+  const { dateFilter, shopId, sellerIds, benchmarkWeekday, weekday } = params;
 
   return useQuery<SellerDNAProfile[]>({
     queryKey: queryKeys.sellers.advancedStats(
       dateFilter.since,
       dateFilter.until,
+      shopId,
+      sellerIds,
       benchmarkWeekday,
       weekday,
     ),
@@ -27,6 +31,8 @@ export function useSellerStats(params: SellerStatsParams) {
       const data = await fetchSellerAdvancedStats({
         since: dateFilter.since,
         until: dateFilter.until,
+        shopId,
+        sellerIds,
         benchmarkWeekday,
         weekday,
       });

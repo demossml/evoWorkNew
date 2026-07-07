@@ -17,6 +17,7 @@ import {
   Maximize2,
   TrendingUp,
   ClipboardCheck,
+  Users,
 } from "lucide-react";
 import { isTelegramMiniApp, telegram } from "@/helpers/telegram";
 
@@ -71,6 +72,12 @@ const moreGroups: Array<{
   {
     title: "Продажи",
     items: [
+      {
+        to: "/evotor/sellers-analytics",
+        label: "Аналитика продавцов",
+        icon: Users,
+        roles: ["SUPERADMIN", "ADMIN"],
+      },
       {
         to: "/evotor/period-comparison",
         label: "Сравнение периодов",

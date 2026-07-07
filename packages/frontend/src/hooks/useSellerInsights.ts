@@ -2,18 +2,34 @@
  * useSellerInsights — AI/rule-based insights for a single seller.
  *
  * Calls GET /api/sellers/insights?sellerId=...&since=...&until=...
+ * When comparison context (shopName + peer IDs) is provided, the AI
+ * generates store-level peer comparison insights rather than generic advice.
  */
 import { useQuery } from "@tanstack/react-query";
-import { fetchSellerInsights } from "@shared/api/endpoints";
+import { fetchSellerInsights } from "@shared/api";
 
-export function useSellerInsights(sellerId: string | null, since?: string, until?: string) {
+export interface SellerInsightsParams {
+  sellerId: string | null;
+  since?: string;
+  until?: string;
+  shopId?: string;
+  shopName?: string;
+  compareSellerIds?: string[];
+}
+
+export function useSellerInsights(params: SellerInsightsParams) {
+  const { sellerId, since, until, shopId, shopName, compareSellerIds } = params;
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ["seller-insights", sellerId, since, until],
+    queryKey: ["seller-insights", sellerId, since, until, shopId, shopName, compareSellerIds],
     queryFn: () =>
       fetchSellerInsights({
         sellerId: sellerId!,
         since: since!,
         until: until!,
+        shopId,
+        shopName,
+        compareSellerIds,
       }),
     enabled: !!sellerId && !!since && !!until,
     staleTime: 5 * 60 * 1000,

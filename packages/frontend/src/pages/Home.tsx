@@ -9,7 +9,6 @@ import {
   TodayAlertsWidget,
   StockHealthWidget,
 } from "@widgets/home";
-import { SellerDNAWidget } from "@widgets/sellers";
 import { buildHomeAccessModel } from "@features/dashboard/model/homePageModel";
 import { SellerPerformanceWidget } from "@widgets/home/SellerPerformanceWidget";
 import { DailyBriefing } from "@widgets/home/DailyBriefing";
@@ -24,6 +23,7 @@ import { isTelegramMiniApp } from "../helpers/telegram";
 import { useState, useEffect, useCallback } from "react";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 type WidgetKey = "revenue" | "tempo" | "finance" | "best" | "products" | "accessories";
 
@@ -77,7 +77,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center w-full min-h-screen bg-background pt-20 sm:pt-24 px-4 sm:px-6 pb-24">
-      <HomeTopBar queryClient={queryClient} />
+      <HomeTopBar queryClient={queryClient} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
       <div className="w-full max-w-7xl space-y-4">
 
         <ErrorBoundary variant="widget" name="Ежедневный брифинг">
@@ -147,11 +147,6 @@ export default function Home() {
             <StockHealthWidget />
           </ErrorBoundary>
         )}
-        {(isSuperAdmin || isAdmin) && (
-          <ErrorBoundary variant="widget" name="Seller DNA">
-            <SellerDNAWidget dateFilter={dateFilter} />
-          </ErrorBoundary>
-        )}
         <ErrorBoundary variant="widget" name="Быстрые действия">
           <QuickActionsWidget employeeRole={data.employeeRole} />
         </ErrorBoundary>
@@ -177,9 +172,10 @@ function LastUpdated() {
   );
 }
 
-function HomeTopBar({ queryClient }: { queryClient: QueryClient }) {
+function HomeTopBar({ queryClient, isAdmin, isSuperAdmin }: { queryClient: QueryClient; isAdmin: boolean; isSuperAdmin: boolean }) {
   const [online, setOnline] = useState(navigator.onLine);
   const [refreshing, setRefreshing] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const goOnline = () => setOnline(true);
@@ -208,6 +204,14 @@ function HomeTopBar({ queryClient }: { queryClient: QueryClient }) {
             <Wifi className="w-3.5 h-3.5 text-success" />
           ) : (
             <WifiOff className="w-3.5 h-3.5 text-destructive" />
+          )}
+          {(isAdmin || isSuperAdmin) && (
+            <button
+              onClick={() => navigate("/evotor/sellers-analytics")}
+              className="inline-flex items-center gap-1 ml-2 px-2.5 py-1 text-xs font-medium text-primary border border-primary/30 bg-primary/5 rounded-md hover:bg-primary/10 active:scale-95 transition-all"
+            >
+              🧬 Seller DNA
+            </button>
           )}
         </div>
         <div className="flex items-center gap-3">

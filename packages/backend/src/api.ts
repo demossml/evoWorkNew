@@ -2488,6 +2488,8 @@ export const api = new Hono<IEnv>()
 		const since = c.req.query("since") || "";
 		const until = c.req.query("until") || "";
 		const shopId = c.req.query("shopId") || undefined;
+		const sellerIdsRaw = c.req.query("sellerIds") || undefined;
+		const sellerIds = sellerIdsRaw ? sellerIdsRaw.split(",").filter(Boolean) : undefined;
 		const benchmarkWeekdayQ = c.req.query("benchmarkWeekday");
 		const weekdayQ = c.req.query("weekday");
 		const benchmarkWeekday = benchmarkWeekdayQ !== undefined ? parseInt(benchmarkWeekdayQ) : undefined;
@@ -2497,14 +2499,14 @@ export const api = new Hono<IEnv>()
 			return c.json({ sellers: [] });
 		}
 
-		const cacheKey = `advanced-stats:${since}:${until}:${shopId ?? "all"}:${benchmarkWeekday ?? ""}:${weekday ?? ""}`;
+		const cacheKey = `advanced-stats:${since}:${until}:${shopId ?? "all"}:${sellerIdsRaw ?? "all"}:${benchmarkWeekday ?? ""}:${weekday ?? ""}`;
 		const cached = statsCache.get(cacheKey);
 		if (cached && cached.expiresAt > Date.now()) {
 			return c.json(cached.data);
 		}
 
 		try {
-			const result = await computeSellerAdvancedStats(db, { since, until, shopId, benchmarkWeekday, weekday });
+			const result = await computeSellerAdvancedStats(db, { since, until, shopId, sellerIds, benchmarkWeekday, weekday });
 			statsCache.set(cacheKey, { data: result, expiresAt: Date.now() + 300_000 });
 			return c.json(result);
 		} catch (err: any) {
@@ -2519,13 +2521,16 @@ export const api = new Hono<IEnv>()
 		const shopId = c.req.query("shopId") || undefined;
 		const weeksBackQ = c.req.query("weeksBack") || "4";
 		const weeksBack = parseInt(weeksBackQ) || 4;
+		const compareMode = (c.req.query("compareMode") as "same-day" | "same-weekday" | undefined) || undefined;
+		const sellerIdsRaw = c.req.query("sellerIds") || undefined;
+		const sellerIds = sellerIdsRaw ? sellerIdsRaw.split(",").filter(Boolean) : undefined;
 
 		if (!targetDate) {
 			return c.json({ weekday: 0, dates: [], sellers: [] });
 		}
 
 		try {
-			const result = await computeWeekdayComparison(db, { targetDate, shopId, weeksBack });
+			const result = await computeWeekdayComparison(db, { targetDate, shopId, weeksBack, compareMode, sellerIds });
 			return c.json(result);
 		} catch (err: any) {
 			console.error("[weekday-compare] error:", err?.message ?? err);
@@ -2560,6 +2565,9 @@ export const api = new Hono<IEnv>()
 		const since = c.req.query("since") || "";
 		const until = c.req.query("until") || "";
 		const shopId = c.req.query("shopId") || undefined;
+		const shopName = c.req.query("shopName") || undefined;
+		const compareIdsRaw = c.req.query("compareSellerIds") || undefined;
+		const compareIds = compareIdsRaw ? compareIdsRaw.split(",").filter(Boolean) : undefined;
 
 		if (!sellerId || !since || !until) {
 			return c.json({ insights: [] });
@@ -2571,6 +2579,33 @@ export const api = new Hono<IEnv>()
 
 			if (!profile) {
 				return c.json({ insights: [`Продавец не найден в данных за период ${since}–${until}.`] });
+			}
+
+			// Build comparison context: when shop name + peer IDs provided
+			let comparison: { shopName?: string; peers?: { name: string; overallScore: number; avgCheck: number; rubPerHour: number | null; accShare: number; deadTimePct: number; rank: number }[]; totalSellers?: number } | undefined;
+			if (shopName && compareIds && compareIds.length >= 2) {
+				const peers = sellers
+					.filter(s => compareIds.includes(s.uuid) && s.uuid !== sellerId)
+					.map(s => ({
+						name: s.name,
+						overallScore: s.overallScore,
+						avgCheck: s.avgCheck,
+						rubPerHour: s.rubPerHour,
+						accShare: s.accShare,
+						deadTimePct: s.deadTimePct,
+						rank: s.rank,
+					}));
+				// Include the target seller itself for completeness
+				peers.push({
+					name: profile.name,
+					overallScore: profile.overallScore,
+					avgCheck: profile.avgCheck,
+					rubPerHour: profile.rubPerHour,
+					accShare: profile.accShare,
+					deadTimePct: profile.deadTimePct,
+					rank: profile.rank,
+				});
+				comparison = { shopName, peers, totalSellers: peers.length };
 			}
 
 			const apiKey = c.env.DEEPSEEK_API_KEY;
@@ -2594,6 +2629,7 @@ export const api = new Hono<IEnv>()
 					dnaLabel: profile.dnaLabel,
 					rank: profile.rank,
 					totalSellers: sellers.length,
+					comparison,
 				},
 				apiKey,
 			});
