@@ -23,8 +23,8 @@ import { api } from "./src/api";
 import { authenticate, initializeDrizzle } from "./src/helpers";
 import { assert, isValidSign } from "./src/utils";
 import { createSettingsTable } from "./src/db/repositories/settings";
-import { createIndexDocumentsTable, createOpeningPhotosTable, createOpenStorsTable, createSalaryBonusTable, createProductsTableIfNotExists } from "./src/utils";
-import { createProductsTableIfNotExists as createProductsTable } from "./src/sync/db";
+import { createIndexDocumentsTable, createOpeningPhotosTable, createOpenStorsTable, createSalaryBonusTable } from "./src/utils";
+import { createProductsTableIfNotExists } from "./src/sync/db";
 
 import { syncDocuments, syncShops, syncEmployees, updateProductsShope, updatePlan_, getDataForCurrentDate, updateDataSaleByPlan, checkAndSendCriticalAlerts } from "./src/sync/cron";
 

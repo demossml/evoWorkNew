@@ -2259,16 +2259,22 @@ export class Evotor {
 	}
 
 	// Вспомогательный метод для корректировки продаж
-	private adjustSales(sumSalesToday: number): number {
-		let adjustedSales: number = Math.floor(sumSalesToday / 4); // Среднее значение за 4 недели
-
-		if (adjustedSales > 5200) {
-			adjustedSales *= 1.05; // Увеличиваем на 3%, если больше 5200
-		} else {
-			adjustedSales = 5200; // Минимум 5200
+	private adjustSales(sumSalesLast4Weeks: number): number {
+		if (sumSalesLast4Weeks <= 0) {
+			return 5200; // минимальный план
 		}
 
-		return Math.floor(adjustedSales); // Округляем до целого числа
+		// Среднее за ДЕНЬ (4 недели = 28 дней)
+		let dailyAverage = Math.floor(sumSalesLast4Weeks / 28);
+
+		// Небольшая корректировка
+		if (dailyAverage > 15000) {
+			dailyAverage = Math.floor(dailyAverage * 1.05); // +5% при хороших продажах
+		} else if (dailyAverage < 5200) {
+			dailyAverage = 5200;
+		}
+
+		return dailyAverage;
 	}
 
 	/**
