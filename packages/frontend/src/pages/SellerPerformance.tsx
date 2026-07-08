@@ -158,9 +158,9 @@ function SellerTable({ sellers, filter, sortBy, onSort }: {
   const filtered = useMemo(() => {
     if (filter === "all") return sellers;
     return sellers.filter(s => s.storeLabels.some(l => {
-      if (filter === "Победа") return l === "П";
-      if (filter === "Твардоского") return l === "Т";
-      if (filter === "45") return l === "45";
+      if (filter === "Победа") return l.includes("П");
+      if (filter === "Твардоского") return l.includes("Т");
+      if (filter === "45") return l.includes("45");
       return false;
     }));
   }, [sellers, filter]);
@@ -1113,6 +1113,7 @@ export default function SellerPerformancePage() {
     if (storeFilter === "45") return s.storeLabels.some(l => l.includes("45"));
     return true;
   });
+  console.log("[SellerPerf] activeSellers.length=", activeSellers.length, "storeFilter=", storeFilter);
 
   const selected = sellers.find(s => s.uuid === selectedSeller) || null;
 
