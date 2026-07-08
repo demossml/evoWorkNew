@@ -165,3 +165,11 @@ body,
   padding-bottom: var(--app-bottom-clearance);
   overflow-y: auto;
 }
+
+/* Any element pinned to the physical top of the screen (fixed or sticky
+   top-0 header/toolbar) needs this, or it renders under/behind the iPhone
+   notch / Dynamic Island. Apply directly to the fixed/sticky element itself
+   — it adds padding, it does not move or resize anything else. */
+.app-safe-top {
+  padding-top: var(--tg-app-top-offset, var(--tg-safe-top, 0px));
+}

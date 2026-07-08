@@ -46,7 +46,7 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center w-full min-h-screen bg-background pt-20 sm:pt-24 px-4 sm:px-6 pb-24">
+      <div className="flex flex-col items-center w-full min-h-screen bg-background pt-[calc(var(--tg-app-top-offset,var(--tg-safe-top,0px))+3.5rem)] px-4 sm:px-6 pb-24">
         <div className="w-full max-w-7xl space-y-4">
           <SkeletonHome />
         </div>
@@ -76,7 +76,7 @@ export default function Home() {
   const isExpanded = (key: WidgetKey) => expanded === key;
 
   return (
-    <div className="flex flex-col items-center w-full min-h-screen bg-background pt-20 sm:pt-24 px-4 sm:px-6 pb-24">
+    <div className="flex flex-col items-center w-full min-h-screen bg-background pt-[calc(var(--tg-app-top-offset,var(--tg-safe-top,0px))+3.5rem)] px-4 sm:px-6 pb-24">
       <HomeTopBar queryClient={queryClient} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
       <div className="w-full max-w-7xl space-y-4">
 
@@ -196,7 +196,9 @@ function HomeTopBar({ queryClient, isAdmin, isSuperAdmin }: { queryClient: Query
   }, [queryClient]);
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-card/85 backdrop-blur-sm border-b border-border">
+    <div
+      className="app-safe-top fixed top-0 left-0 right-0 z-50 bg-card/85 backdrop-blur-sm border-b border-border"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-foreground">🏠 Evo App</span>

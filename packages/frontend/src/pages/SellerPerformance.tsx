@@ -1128,7 +1128,9 @@ export default function SellerPerformancePage() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-20 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-border">
+      <div
+        className="app-safe-top sticky top-0 z-20 bg-card/80 backdrop-blur-md border-b border-border"
+      >
         <div className="px-4 py-2.5">
           <div className="flex items-center gap-3">
             <button onClick={() => navigate(-1)} className="p-1 -ml-1">
