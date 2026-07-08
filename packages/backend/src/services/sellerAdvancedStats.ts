@@ -29,6 +29,34 @@ import {
   buildCategoryMap,
 } from "./sharedStats";
 
+// ===================== Store name → UUID resolution =====================
+
+async function getShopNames(db: D1Database): Promise<Record<string, string>> {
+  const res = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+  const map: Record<string, string> = {};
+  for (const r of res.results ?? []) map[r.uuid] = r.name;
+  return map;
+}
+
+function resolveStoreParam(
+  store: string | undefined,
+  shopNames: Record<string, string>,
+): string | undefined {
+  if (!store || store === "all") return undefined;
+
+  if (shopNames[store] != null) return store; // already a uuid
+
+  const entries = Object.entries(shopNames);
+  const exact = entries.find(([, name]) => name === store);
+  if (exact) return exact[0];
+
+  const needle = store.trim().toLowerCase();
+  const partial = entries.find(([, name]) => name.toLowerCase().includes(needle));
+  if (partial) return partial[0];
+
+  return undefined;
+}
+
 // ===================== Types (mirrors frontend) =====================
 
 interface HourlyPoint {
@@ -560,7 +588,11 @@ export async function computeSellerAdvancedStats(
   db: D1Database,
   params: { since: string; until: string; shopId?: string; benchmarkWeekday?: number; weekday?: number; sellerIds?: string[] },
 ): Promise<{ sellers: SellerDNAProfile[] }> {
-  const { since, until, shopId, benchmarkWeekday, weekday, sellerIds } = params;
+  const { since, until, shopId: rawShopId, benchmarkWeekday, weekday, sellerIds } = params;
+
+  // Resolve store name → UUID (same fix as sellerEffectiveness.ts)
+  const shopNames = await getShopNames(db);
+  const shopId = resolveStoreParam(rawShopId, shopNames);
 
   // 1. Try cached daily metrics first
   let cachedDays: Awaited<ReturnType<typeof getSellerDailyMetrics>> = [];
@@ -815,7 +847,12 @@ export async function computeWeekdayComparison(
   db: D1Database,
   params: { targetDate: string; shopId?: string; weeksBack?: number; compareMode?: "same-day" | "same-weekday"; sellerIds?: string[] },
 ): Promise<WeekdayCompareResult> {
-  const { targetDate, shopId, weeksBack = 4, compareMode = "same-weekday", sellerIds } = params;
+  const { targetDate, shopId: rawShopId, weeksBack = 4, compareMode = "same-weekday", sellerIds } = params;
+  
+  // Resolve store name → UUID (same fix as sellerEffectiveness.ts)
+  const shopNames = await getShopNames(db);
+  const shopId = resolveStoreParam(rawShopId, shopNames);
+  
   const refDate = new Date(targetDate + "T12:00:00+03:00");
   const targetWeekday = refDate.getDay(); // 0=Sun..6=Sat
 
@@ -1045,7 +1082,11 @@ export async function computeWeekdayBreakdown(
   db: D1Database,
   params: { sellerId: string; since: string; until: string; shopId?: string },
 ): Promise<WeekdayBreakdownMap> {
-  const { sellerId, since, until, shopId } = params;
+  const { sellerId, since, until, shopId: rawShopId } = params;
+
+  // Resolve store name → UUID
+  const shopNames = await getShopNames(db);
+  const shopId = resolveStoreParam(rawShopId, shopNames);
 
   // Query all docs for this seller
   let sql = `SELECT close_date, transactions
