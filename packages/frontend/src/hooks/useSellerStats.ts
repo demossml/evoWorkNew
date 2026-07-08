@@ -4,7 +4,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys, fetchSellerAdvancedStats } from "@shared/api";
 import type { SellerDNAProfile } from "@/widgets/sellers/SellerDNAWidget/types";
-import { MOCK_SELLERS } from "./mockSellers";
 import type { DateFilterValue } from "@/widgets/home/DateFilter";
 
 export interface SellerStatsParams {
@@ -27,21 +26,15 @@ export function useSellerStats(params: SellerStatsParams) {
       benchmarkWeekday,
       weekday,
     ),
-    queryFn: async () => {
-      const data = await fetchSellerAdvancedStats({
+    queryFn: () =>
+      fetchSellerAdvancedStats({
         since: dateFilter.since,
         until: dateFilter.until,
         shopId,
         sellerIds,
         benchmarkWeekday,
         weekday,
-      });
-      if (!data || data.length === 0) {
-        return MOCK_SELLERS;
-      }
-      return data;
-    },
-    placeholderData: (prev) => prev ?? MOCK_SELLERS,
+      }),
     staleTime: 60_000,
   });
 }

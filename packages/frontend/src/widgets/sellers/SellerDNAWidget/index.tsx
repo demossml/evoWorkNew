@@ -96,7 +96,7 @@ export function SellerDNAWidget({
   const [showAllSellers, setShowAllSellers] = useState(defaultShowAllSellers);
 
   // Weekday comparison mode
-  const [compareMode, setCompareMode] = useState<"auto" | "weekday">("auto");
+  const [compareMode, setCompareMode] = useState<"auto" | "weekday" | "timeline">("auto");
   const [compareWeekday, setCompareWeekday] = useState<number | undefined>(undefined);
 
   // Resolve shop display name for AI context
@@ -269,6 +269,9 @@ export function SellerDNAWidget({
                 onCompareModeChange={setCompareMode}
                 compareWeekday={compareWeekday}
                 onCompareWeekdayChange={setCompareWeekday}
+                targetDate={dateFilter.since}
+                shopId={effectiveShopId}
+                sellerIds={effectiveSellerIds}
               />
             )}
             {tab === "detail" && (

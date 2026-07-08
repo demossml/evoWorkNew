@@ -14,6 +14,7 @@ import { deepseekChat } from "./services/deepseek";
 import { computeSellerEffectiveness } from "./services/sellerEffectiveness";
 import { computeSellerAdvancedStats, computeWeekdayComparison, computeWeekdayBreakdown } from "./services/sellerAdvancedStats";
 import { generateSellerInsights } from "./services/sellerInsights";
+import { computeHourlyCompare } from "./services/sellerHourlyCompare";
 import { requireAdmin } from "./helpers";
 import type { ShopUuidName } from "./evotor/types";
 import {
@@ -106,6 +107,7 @@ type OpeningRecord = {
 // ===================== In-memory cache =====================
 
 const statsCache = new Map<string, { data: any; expiresAt: number }>();
+const hourlyCompareCache = new Map<string, { data: any; expiresAt: number }>();
 
 // ===================== API =====================
 
@@ -2637,6 +2639,37 @@ export const api = new Hono<IEnv>()
 		} catch (err: any) {
 			console.error("[seller-insights] error:", err?.message ?? err);
 			return c.json({ insights: ["Не удалось сформировать инсайты. Попробуйте позже."] });
+		}
+	})
+	// Seller DNA — hourly/minute-level same-weekday comparison table
+	.get("/api/sellers/hourly-compare", async (c) => {
+		const db = c.env.DB as D1Database;
+		const targetDate = c.req.query("targetDate") || "";
+		const weeksBackQ = c.req.query("weeksBack") || "5";
+		const weeksBack = parseInt(weeksBackQ) || 5;
+		const sellerIdsRaw = c.req.query("sellerIds") || "";
+		const sellerIds = sellerIdsRaw ? sellerIdsRaw.split(",").filter(Boolean) : [];
+		const granularityQ = c.req.query("granularityMinutes") || "60";
+		const granularityMinutes = parseInt(granularityQ) || 60;
+		const shopId = c.req.query("shopId") || undefined;
+
+		if (!targetDate || sellerIds.length === 0) {
+			return c.json({ weekday: 0, weekdayLabel: "", dates: [], sellers: [], slots: [] });
+		}
+
+		const cacheKey = `hourly-compare:${targetDate}:${weeksBack}:${sellerIdsRaw}:${granularityMinutes}:${shopId ?? "all"}`;
+		const cached = hourlyCompareCache.get(cacheKey);
+		if (cached && cached.expiresAt > Date.now()) {
+			return c.json(cached.data);
+		}
+
+		try {
+			const result = await computeHourlyCompare(db, { targetDate, weeksBack, shopId, sellerIds, granularityMinutes });
+			hourlyCompareCache.set(cacheKey, { data: result, expiresAt: Date.now() + 300_000 });
+			return c.json(result);
+		} catch (err: any) {
+			console.error("[hourly-compare] error:", err?.message ?? err);
+			return c.json({ weekday: 0, weekdayLabel: "", dates: [], sellers: [], slots: [] });
 		}
 	})
 	.post("/api/evotor/salesResult", async (c) => {

@@ -23,6 +23,8 @@ import {
 } from "recharts";
 import type { SellerDNAProfile, DNALabel, WeekdayCompareProfile, WeekdayCompareResult } from "./types";
 import { useSellerComparison } from "@/hooks/useSellerComparison";
+import { useHourlyCompare } from "@/hooks/useHourlyCompare";
+import { HourlyCompareTable } from "./HourlyCompareTable";
 
 // ===================== Props =====================
 
@@ -35,10 +37,13 @@ interface SellerComparisonViewProps {
     recommendation?: { message: string; bestWeekday?: number; bestWeekdayLabel?: string; bestCount?: number };
   } | null;
   onBack: () => void;
-  compareMode?: "auto" | "weekday";
-  onCompareModeChange?: (mode: "auto" | "weekday") => void;
+  compareMode?: "auto" | "weekday" | "timeline";
+  onCompareModeChange?: (mode: "auto" | "weekday" | "timeline") => void;
   compareWeekday?: number;
   onCompareWeekdayChange?: (wd: number) => void;
+  targetDate?: string;
+  shopId?: string;
+  sellerIds?: string[];
 }
 
 // ===================== Constants =====================
@@ -596,6 +601,9 @@ export function SellerComparisonView({
   onCompareModeChange,
   compareWeekday,
   onCompareWeekdayChange,
+  targetDate,
+  shopId,
+  sellerIds = [],
 }: SellerComparisonViewProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => {
     const ids = allSellers.slice(0, 3).map((s) => s.uuid);
@@ -622,14 +630,17 @@ export function SellerComparisonView({
   // Build weekday comparison if data available
   const weekdaySellers = weekdayCompare?.sellers ?? [];
   const hasWeekdayData = compareMode === "weekday" && weekdaySellers.length >= 2;
+  const isTimeline = compareMode === "timeline";
 
-  if (!hasWeekdayData && allSellers.length < 2) return <EmptyComparison />;
+  if (!hasWeekdayData && !isTimeline && allSellers.length < 2) return <EmptyComparison />;
 
-  const subContent = hasWeekdayData
-    ? <WeekdayCompareTable data={weekdayCompare!} />
-    : sellers.length < 2
-      ? <EmptyComparison />
-      : <ComparisonContent sellers={sellers} metrics={metrics} />;
+  const subContent = isTimeline
+    ? <TimelineView targetDate={targetDate ?? new Date().toISOString().slice(0, 10)} shopId={shopId} sellerIds={sellerIds} />
+    : hasWeekdayData
+      ? <WeekdayCompareTable data={weekdayCompare!} />
+      : sellers.length < 2
+        ? <EmptyComparison />
+        : <ComparisonContent sellers={sellers} metrics={metrics} />;
 
   const WD_LABELS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 
@@ -676,6 +687,16 @@ export function SellerComparisonView({
             }`}
           >
             По дням недели
+          </button>
+          <button
+            onClick={() => onCompareModeChange("timeline")}
+            className={`px-2.5 py-1 text-[10px] font-medium rounded transition ${
+              compareMode === "timeline"
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            По минутам
           </button>
         </div>
       )}
@@ -769,6 +790,38 @@ function ComparisonContent({
       {/* AI comparison summary */}
       <AIComparisonSummary sellers={sellers} />
     </>
+  );
+}
+
+// ===================== Timeline view (hourly-compare) =====================
+
+function TimelineView({
+  targetDate,
+  shopId,
+  sellerIds,
+}: {
+  targetDate: string;
+  shopId?: string;
+  sellerIds: string[];
+}) {
+  const [granularity, setGranularity] = useState(60);
+  const { data, isLoading } = useHourlyCompare({
+    targetDate,
+    weeksBack: 5,
+    shopId,
+    sellerIds,
+    granularityMinutes: granularity,
+  });
+
+  if (sellerIds.length < 2) return <EmptyComparison />;
+
+  return (
+    <HourlyCompareTable
+      data={data ?? { weekday: 0, weekdayLabel: "", dates: [], sellers: [], slots: [] }}
+      granularityMinutes={granularity}
+      onGranularityChange={setGranularity}
+      loading={isLoading}
+    />
   );
 }
 

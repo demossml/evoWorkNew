@@ -58,5 +58,7 @@ export const queryKeys = {
       ["sellers", "advanced-stats", since, until, shopId, sellerIds, benchmarkWeekday, weekday] as const,
     insights: (sellerId: string) =>
       ["sellers", "insights", sellerId] as const,
+    hourlyCompare: (targetDate: string, weeksBack: number, sellerIds: string[], granularityMinutes: number) =>
+      ["sellers", "hourly-compare", targetDate, weeksBack, sellerIds.join(","), granularityMinutes] as const,
   },
 };

@@ -109,3 +109,31 @@ export interface WeekdayCompareResult {
   dates: string[];
   sellers: WeekdayCompareProfile[];
 }
+
+/** Hourly/minute comparison types for /api/sellers/hourly-compare */
+
+export interface HourlySellerSlot {
+  revenue: number;
+  checks: number;
+  active: boolean;
+}
+
+export interface HourlyCompareSlot {
+  time: string; // "10:00" or "10:15"
+  sellers: Record<string, HourlySellerSlot>;
+}
+
+export interface HourlyCompareSeller {
+  uuid: string;
+  name: string;
+  daysWorked: number;
+  totalDates: number;
+}
+
+export interface HourlyCompareResult {
+  weekday: number;
+  weekdayLabel: string;
+  dates: string[];
+  sellers: HourlyCompareSeller[];
+  slots: HourlyCompareSlot[];
+}

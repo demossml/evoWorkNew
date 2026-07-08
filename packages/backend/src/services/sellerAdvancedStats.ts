@@ -483,6 +483,7 @@ function computeDNA(
   const maxRev = Math.max(...allRevs, 1);
   const allAcc = allSellers.map((s) => s.accShare);
   const maxAcc = Math.max(...allAcc, 1);
+  const maxDaysWorked = Math.max(...allSellers.map((s) => s.daysWorked), 1);
 
   const revenueScore = Math.min(100, (m.totalRevenue / maxRev) * 100);
   const checkScore = m.avgCheck > 2000 ? 100 : m.avgCheck > 1500 ? 75 : m.avgCheck > 1000 ? 50 : 25;
@@ -491,7 +492,10 @@ function computeDNA(
   const peakScore = Math.min(100, m.peakHourEfficiency * 100);
   const trendScore = m.trend === "up" ? 85 : m.trend === "stable" ? 65 : 35;
   const stabilityScore = Math.max(0, 100 - m.stability.revenueCV);
-  const attendanceScore = Math.min(100, m.stability.attendanceRate);
+  const relativeAttendance = maxDaysWorked > 0
+    ? Math.round((m.daysWorked / maxDaysWorked) * 100)
+    : 0;
+  const attendanceScore = Math.min(100, relativeAttendance);
 
   m.overallScore = Math.round(
     revenueScore   * 0.15 +
@@ -1561,7 +1565,11 @@ async function finishBuilding(
       dnaLabel: "Стабильный",
       dailyRevenue: dailyRevenues,
       hourlyRevenue: [...hrMap.entries()]
-        .map(([hour, agg]) => ({ hour, revenue: Math.round(agg.revenue), checks: agg.checks }))
+        .map(([hour, agg]) => ({
+          hour,
+          revenue: daysWorked > 0 ? Math.round(agg.revenue / daysWorked) : 0,
+          checks: daysWorked > 0 ? Math.round(agg.checks / daysWorked) : 0,
+        }))
         .sort((a, b) => a.hour - b.hour),
       storeAvgHourlyRevenue: storeAvgHourly,
       aiInsights: [],

@@ -486,3 +486,19 @@ export async function fetchWeekdayBreakdown(params: {
   const res = await apiGet(`/api/sellers/weekday-breakdown?${q}`);
   return res as Record<number, { days: number; totalRevenue: number; totalChecks: number; avgCheck: number; rubPerHour: number | null }>;
 }
+
+export async function fetchHourlyCompare(params: {
+  targetDate: string;
+  weeksBack?: number;
+  shopId?: string;
+  sellerIds: string[];
+  granularityMinutes?: number;
+}) {
+  const q = new URLSearchParams({ targetDate: params.targetDate });
+  if (params.weeksBack) q.set("weeksBack", String(params.weeksBack));
+  if (params.shopId) q.set("shopId", params.shopId);
+  q.set("sellerIds", params.sellerIds.join(","));
+  if (params.granularityMinutes) q.set("granularityMinutes", String(params.granularityMinutes));
+  const res = await apiGet(`/api/sellers/hourly-compare?${q.toString()}`);
+  return res as import("@/widgets/sellers/SellerDNAWidget/types").HourlyCompareResult;
+}
