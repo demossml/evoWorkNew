@@ -42,8 +42,7 @@ function riskBadge(level: "ok" | "warn" | "critical") {
 // ====== Sub-components ======
 
 function CriticalAlerts({ sellers }: { sellers: SellerMetrics[] }) {
-  const active = sellers.filter(s => s.daysWorked >= 10);
-  const critical = active.filter(s => s.trendSlope < -100 || s.cv > 40);
+  const critical = sellers.filter(s => s.rankEligible && s.riskLevel === "critical");
   if (critical.length === 0) return null;
 
   return (
@@ -61,9 +60,7 @@ function CriticalAlerts({ sellers }: { sellers: SellerMetrics[] }) {
         <div key={s.uuid} className="text-xs text-red-600 dark:text-red-300 flex items-center gap-2 bg-red-100/60 dark:bg-red-800/30 rounded px-2 py-1">
           <span className="font-medium">{s.name.split(" ")[0]}</span>
           <span className="text-red-400">—</span>
-          {s.trendSlope < -100 && <span>тренд {s.trendSlope} ₽/день</span>}
-          {s.trendSlope < -100 && s.cv > 40 && <span>·</span>}
-          {s.cv > 40 && <span>CV {s.cv}%</span>}
+          <span>{s.riskReasons.join(" · ")}</span>
         </div>
       ))}
     </motion.div>
@@ -216,7 +213,7 @@ function SellerTable({ sellers, filter, sortBy, onSort }: {
             const t = trendArrow(s.trendDirection);
             // cv badge computed but not displayed in this view
             const risk = riskBadge(s.riskLevel);
-            const isAdmin = s.uuid === "475039971";
+            const isAdmin = s.role === "SUPERADMIN" || s.role === "ADMIN";
             return (
               <motion.tr
                 key={s.uuid}
@@ -278,7 +275,7 @@ function SellerTable({ sellers, filter, sortBy, onSort }: {
       {sorted.map((s, idx) => {
         const t = trendArrow(s.trendDirection);
         const risk = riskBadge(s.riskLevel);
-        const isAdmin = s.uuid === "475039971";
+        const isAdmin = s.role === "SUPERADMIN" || s.role === "ADMIN";
         return (
           <motion.div
             key={s.uuid}
@@ -347,7 +344,7 @@ function SellerTable({ sellers, filter, sortBy, onSort }: {
 function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () => void }) {
   const t = trendArrow(seller.trendDirection);
   // risk badge computed but not displayed in detail view
-  const isAdmin = seller.uuid === "475039971";
+  const isAdmin = seller.role === "SUPERADMIN" || seller.role === "ADMIN";
   // Sparkline — real daily revenue from backend
   const sparkData = useMemo(() => {
     const raw = seller.dailyRevenue || [];
@@ -683,8 +680,8 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
             </div>
           )}
 
-          {isAdmin && (
-            <div className="bg-muted rounded-lg p-3 text-xs text-gray-500">
+          {isAdmin && !seller.rankEligible && (
+            <div className="bg-muted rounded-lg p-3 text-xs text-muted-foreground">
               ⚠️ Исключён из общего рейтинга — всего {seller.daysWorked} смен. Требуется минимум 20 смен для статистической значимости.
             </div>
           )}
@@ -696,7 +693,7 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
 
 function Charts({ sellers, dowData }: { sellers: SellerMetrics[]; dowData: DowData[] }) {
   // Revenue by seller bar chart
-  const barData = sellers.filter(s => s.uuid !== "475039971").map(s => ({
+  const barData = sellers.filter(s => s.role !== "SUPERADMIN" && s.role !== "ADMIN").map(s => ({
     name: s.name.split(" ")[0],
     revenue: s.avgDailyRev,
     cv: s.cv,

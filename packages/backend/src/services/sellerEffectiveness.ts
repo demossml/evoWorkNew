@@ -24,6 +24,7 @@ export interface SellerStoreMetrics {
 export interface SellerMetrics {
   uuid: string;
   name: string;
+  role: string;
   daysWorked: number;
   totalChecks: number;
   totalRevenue: number;
@@ -35,8 +36,18 @@ export interface SellerMetrics {
   trendR2: number;
   cv: number;
   mad: number;
-  vapeShare: number;
-  accShare: number;
+  /**
+   * Both null on purpose, not 0. There is no product/category data anywhere
+   * in the sync pipeline (index_documents only stores payment transactions,
+   * not line items) — computing a real vape/accessory share would require
+   * extending the sync job to pull item-level data from Evotor per
+   * document, which doesn't exist today. Returning 0 here would look
+   * identical to "this person sold 0% vapes" in the UI, which is a false
+   * and potentially unfair signal about a real person's job performance.
+   * null means "unknown", and the UI must treat it as such.
+   */
+  vapeShare: number | null;
+  accShare: number | null;
   stores: SellerStoreMetrics[];
   storeLabels: string[];
   efficiencyVsStore: number;
@@ -46,6 +57,10 @@ export interface SellerMetrics {
   dailyRevenue: { date: string; value: number }[];
   dow: Record<string, number>;
   rank: number;
+  /** False when daysWorked < MIN_DAYS_FOR_TREND — ranked competitively is
+   * unfair on this little data, so these sellers are shown but sorted to
+   * the bottom, separate from the confident ranking above them. */
+  rankEligible: boolean;
   prevRank: number | null;
   deltaRank: number | null;
   prevAvgDailyRev: number | null;
@@ -53,7 +68,17 @@ export interface SellerMetrics {
   planDiagnostics: { avgCheckDelta: number; receiptsDelta: number } | null;
   liquidShare: number;
   unknownItemsPct: number;
+  targetAvgCheck: number;
+  targetVapeShare: number;
   categoryBreakdown: { name: string; share: number }[];
+  /**
+   * Proxy for hours worked, not a real clock-in/out reading (no time-clock
+   * data exists in this system) — derived from the gap between the first
+   * and last sale timestamp on a given day, averaged across days worked.
+   * This under-counts real hours (misses time before the first sale and
+   * after the last), so treat rubPerHour as a lower bound / directional
+   * signal, not a precise figure.
+   */
   avgHours: number | null;
   rubPerHour: number | null;
 }
@@ -129,6 +154,16 @@ interface EmpDayKey {
 /** Нормализация: минимальное число дней для статистической значимости */
 const MIN_DAYS_FOR_TREND = 5;
 
+/**
+ * Minimum days worked to be ranked competitively against other sellers.
+ * Higher than MIN_DAYS_FOR_TREND on purpose: fitting *a* trend line only
+ * needs a handful of points, but comparing two people's typical daily
+ * performance fairly needs enough days that a couple of unusually good or
+ * bad shifts don't decide the ranking. 20 matches what this page's UI text
+ * already promised ("минимум 20 смен для статистической значимости").
+ */
+export const MIN_DAYS_FOR_RANKING = 20;
+
 // ──────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────
@@ -201,9 +236,12 @@ export async function computeSellerEffectiveness(
 
   // 7. Compute per-seller metrics
   const employeeNames = await getEmployeeNames(db);
+  const employeeRoles = await getEmployeeRoles(db);
   const shopNames = await getShopNames(db);
 
-  const sellers = buildSellerMetrics(empDay, prevEmpDay, employeeNames, shopNames, totalDays, planMap, openSessions, docs);
+  // Store-relative CV needs to exist before seller risk flags are computed
+  const storeCvMap = buildStoreCvMap(docs);
+  const sellers = buildSellerMetrics(empDay, prevEmpDay, employeeNames, employeeRoles, shopNames, totalDays, planMap, openSessions, docs, storeCvMap);
 
   // 7. Baselines (per store)
   const baselines = buildStoreBaselines(docs, shopNames);
@@ -246,6 +284,21 @@ async function getEmployeeNames(db: D1Database): Promise<Record<string, string>>
   const res = await db.prepare("SELECT uuid, name FROM employees").all<{ uuid: string; name: string }>();
   const map: Record<string, string> = {};
   for (const r of res.results ?? []) map[r.uuid] = r.name;
+  return map;
+}
+
+/**
+ * Previously the frontend identified "the admin row" (to visually de-weight
+ * it in the seller table — a manager occasionally covering the register
+ * shouldn't compete on the same leaderboard as full-time sales staff) with
+ * a hardcoded UUID string comparison. That breaks the moment that specific
+ * person's account changes or a second admin exists. employees.role is
+ * the actual source of truth for this.
+ */
+async function getEmployeeRoles(db: D1Database): Promise<Record<string, string>> {
+  const res = await db.prepare("SELECT uuid, role FROM employees").all<{ uuid: string; role: string }>();
+  const map: Record<string, string> = {};
+  for (const r of res.results ?? []) map[r.uuid] = r.role;
   return map;
 }
 
@@ -435,11 +488,13 @@ function buildSellerMetrics(
   empDay: EmpDayMap,
   prevEmpDay: EmpDayMap,
   employeeNames: Record<string, string>,
+  employeeRoles: Record<string, string>,
   shopNames: Record<string, string>,
   totalDays: number,
   planMap: Map<string, number>,
   openSessions: Map<string, string>,
   docs: DocRow[],
+  storeCvMap: Map<string, number>,
 ): SellerMetrics[] {
   const sellers: SellerMetrics[] = [];
 
@@ -455,6 +510,7 @@ function buildSellerMetrics(
 
   for (const [uuid, entries] of empDay.entries()) {
     const name = employeeNames[uuid] || uuid.slice(0, 8);
+    const role = employeeRoles[uuid] || "";
     if (entries.length === 0) continue;
 
     // Aggregate by date
@@ -650,6 +706,26 @@ function buildSellerMetrics(
       riskReasons.push("Требует внимания");
     }
 
+    // ── Store-relative CV risk ──
+    // Compare seller volatility to their own store's baseline — a CV of
+    // 40% is normal for a small, low-traffic store with lumpy weekend
+    // spikes and alarming for a steady, high-traffic one.
+    let relevantStoreCv = 40; // fallback to old flat default
+    {
+      let storeCvSum = 0;
+      let storeCvCount = 0;
+      for (const storeId of allStores) {
+        const c = storeCvMap.get(storeId);
+        if (c != null) { storeCvSum += c; storeCvCount++; }
+      }
+      if (storeCvCount > 0) relevantStoreCv = storeCvSum / storeCvCount;
+    }
+    if (cv > relevantStoreCv * 1.5 && cv > 30) {
+      riskReasons.push(`CV ${Math.round(cv)}% (магазин ~${Math.round(relevantStoreCv)}%)`);
+      riskLevel = riskLevel === "warn" ? "critical" : "warn";
+    }
+    if (riskReasons.length >= 2) riskLevel = "critical";
+
     // ── avgHours / rubPerHour ──
     const SHIFT_BUFFER_MIN = 45;
     let avgHours: number | null = null;
@@ -715,6 +791,7 @@ function buildSellerMetrics(
     sellers.push({
       uuid,
       name,
+      role,
       daysWorked,
       totalChecks,
       totalRevenue: Math.round(totalRevenue),
@@ -739,6 +816,7 @@ function buildSellerMetrics(
       dailyRevenue,
       dow,
       rank: 0,
+      rankEligible: daysWorked >= MIN_DAYS_FOR_RANKING,
       prevRank: null,
       deltaRank: null,
       prevAvgDailyRev: null,
@@ -747,12 +825,26 @@ function buildSellerMetrics(
       categoryBreakdown,
       avgHours,
       rubPerHour,
+      targetAvgCheck: 2000,
+      targetVapeShare: 60,
     });
   }
 
-  // Sort by avgDailyRev descending, assign ranks
-  sellers.sort((a, b) => b.avgDailyRev - a.avgDailyRev);
-  sellers.forEach((s, i) => { s.rank = i + 1; });
+  // Rank: eligible sellers (enough days worked to say anything meaningful)
+  // are ranked by efficiency vs. their own store's average, not raw
+  // revenue — otherwise whoever works the busiest location always wins
+  // regardless of actual selling skill. Sellers with too little data are
+  // still shown (managers may want to see them), but placed after the
+  // ranked group and flagged via rankEligible so the UI doesn't present
+  // them as if they'd earned a competitive position.
+  const eligible = sellers.filter(s => s.rankEligible);
+  const ineligible = sellers.filter(s => !s.rankEligible);
+  eligible.sort((a, b) => b.efficiencyVsStore - a.efficiencyVsStore);
+  eligible.forEach((s, i) => { s.rank = i + 1; });
+  ineligible.sort((a, b) => b.avgDailyRev - a.avgDailyRev);
+  ineligible.forEach((s, i) => { s.rank = eligible.length + i + 1; });
+  sellers.length = 0;
+  sellers.push(...eligible, ...ineligible);
 
   // Prev period ranks
   if (prevEmpDay.size > 0) {
@@ -835,6 +927,37 @@ function buildStoreBaselines(docs: DocRow[], shopNames: Record<string, string>):
   }
 
   return baselines;
+}
+
+/** Per-store CV of daily revenue, keyed by shop_id (uuid) — used to make
+ * seller volatility flags relative to their own store instead of a flat
+ * magic number. Cheaper than buildStoreBaselines() since it skips
+ * everything that function computes but this doesn't need. */
+function buildStoreCvMap(docs: DocRow[]): Map<string, number> {
+  const byStoreDate = new Map<string, Map<string, number>>();
+  for (const doc of docs) {
+    const store = doc.shop_id;
+    const date = doc.close_date.slice(0, 10);
+    let docSum = 0;
+    let transactions: TxRow[];
+    try { transactions = JSON.parse(doc.transactions); } catch { continue; }
+    if (!Array.isArray(transactions)) continue;
+    for (const tx of transactions) {
+      if (tx.type === "PAYMENT" && tx.sum > 0) docSum += tx.sum;
+      else if (tx.type === "REFUND" && tx.sum > 0) docSum -= tx.sum;
+    }
+    if (!byStoreDate.has(store)) byStoreDate.set(store, new Map());
+    const dateMap = byStoreDate.get(store)!;
+    dateMap.set(date, (dateMap.get(date) || 0) + docSum);
+  }
+
+  const cvMap = new Map<string, number>();
+  for (const [store, dateMap] of byStoreDate) {
+    const revs = [...dateMap.values()];
+    const a = avg(revs);
+    if (a > 0) cvMap.set(store, (stddev(revs, a) / a) * 100);
+  }
+  return cvMap;
 }
 
 function buildDowData(docs: DocRow[], shopNames: Record<string, string>, _totalDays: number): DowData[] {
@@ -921,7 +1044,7 @@ function buildRecommendations(sellers: SellerMetrics[], dowData: DowData[], shop
         const key = st.store;
         if (!storeComboAvg.has(key)) storeComboAvg.set(key, { sum: 0, count: 0 });
         const entry = storeComboAvg.get(key)!;
-        entry.sum += s.vapeShare + s.accShare;
+        entry.sum += (s.vapeShare ?? 0) + (s.accShare ?? 0);
         entry.count++;
       }
     }
@@ -930,7 +1053,7 @@ function buildRecommendations(sellers: SellerMetrics[], dowData: DowData[], shop
     if (s.daysWorked >= 7 && s.planCompletion !== null && s.planCompletion >= 80) {
       const storeAvg = storeComboAvg.get(primaryStore);
       const avgCombo = storeAvg && storeAvg.count > 0 ? storeAvg.sum / storeAvg.count : null;
-      const sellerCombo = s.vapeShare + s.accShare;
+      const sellerCombo = (s.vapeShare ?? 0) + (s.accShare ?? 0);
       if (avgCombo !== null && sellerCombo < avgCombo - 20) {
         recommendations.push({
           priority: "medium",

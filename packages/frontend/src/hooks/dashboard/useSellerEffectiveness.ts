@@ -12,6 +12,7 @@ export interface SellerStoreMetrics {
 export interface SellerMetrics {
   uuid: string;
   name: string;
+  role: string;
   daysWorked: number;
   totalChecks: number;
   totalRevenue: number;
@@ -34,6 +35,9 @@ export interface SellerMetrics {
   dailyRevenue: { date: string; value: number }[];
   dow: Record<string, number>;  // day-of-week: "0"=Sun.."6"=Sat → avg revenue
   rank: number;                 // current position (1-based)
+  /** False = too few days worked to rank fairly against peers; still
+   * shown, but sorted after the ranked group. */
+  rankEligible: boolean;
   prevRank: number | null;      // position in previous period
   deltaRank: number | null;     // prevRank - rank: positive = improved
   prevAvgDailyRev: number | null;
@@ -41,8 +45,10 @@ export interface SellerMetrics {
   planDiagnostics: { avgCheckDelta: number; receiptsDelta: number } | null;
   liquidShare: number;              // доля жидкостей в выручке (%)
   unknownItemsPct: number;          // доля неизвестных категорий в выручке (%)
+  targetAvgCheck: number;           // KPI target
+  targetVapeShare: number;          // KPI target
   categoryBreakdown: { name: string; share: number }[];
-  avgHours: number | null;           // avg shift duration from first→last sell
+  avgHours: number | null;           // lower-bound proxy: last sale minus first sale, per day
   rubPerHour: number | null;         // avgDailyRev / avgHours
 }
 
