@@ -213,10 +213,17 @@ export async function computeSellerEffectiveness(
   const prevSince = formatDateLocal(prevStart);
   const prevUntil = formatDateLocal(prevEnd);
 
+  // Fetched early (before fetchDocs) because the store filter needs it:
+  // the frontend sends a human shop name ("Победа"), but index_documents
+  // keys on shop UUID. Resolve name → UUID here so the SQL WHERE clause
+  // actually matches something.
+  const shopNames = await getShopNames(db);
+  const resolvedStore = resolveStoreParam(params.store, shopNames);
+
   // 2. Fetch SELL documents from D1 for both periods
   const [docs, prevDocs] = await Promise.all([
-    fetchDocs(db, since, until, params.store),
-    fetchDocs(db, prevSince, prevUntil, params.store),
+    fetchDocs(db, since, until, resolvedStore),
+    fetchDocs(db, prevSince, prevUntil, resolvedStore),
   ]);
 
   // 3. Compute snapshot
@@ -237,7 +244,6 @@ export async function computeSellerEffectiveness(
   // 7. Compute per-seller metrics
   const employeeNames = await getEmployeeNames(db);
   const employeeRoles = await getEmployeeRoles(db);
-  const shopNames = await getShopNames(db);
 
   // Store-relative CV needs to exist before seller risk flags are computed
   const storeCvMap = buildStoreCvMap(docs);
@@ -258,6 +264,37 @@ export async function computeSellerEffectiveness(
 // ──────────────────────────────────────────────
 // D1 queries
 // ──────────────────────────────────────────────
+
+/**
+ * The frontend's store filter is built from a hardcoded, human-typed list
+ * of shop names ("Победа", "Твардоского", "45") that doesn't necessarily
+ * match the real `shops.name` values exactly, and definitely isn't a UUID
+ * — but index_documents.shop_id IS a UUID. Without this resolution step,
+ * every store-filtered query silently returned zero rows.
+ *
+ * Tries, in order: already a real UUID → exact name match → case-insensitive
+ * substring match (covers "Победа" matching a full name like "Магазин
+ * Победа"). Returns undefined (no filter) if nothing matches, rather than
+ * silently filtering to nothing.
+ */
+function resolveStoreParam(
+  store: string | undefined,
+  shopNames: Record<string, string>,
+): string | undefined {
+  if (!store || store === "all") return undefined;
+
+  if (shopNames[store] != null) return store; // already a uuid
+
+  const entries = Object.entries(shopNames);
+  const exact = entries.find(([, name]) => name === store);
+  if (exact) return exact[0];
+
+  const needle = store.trim().toLowerCase();
+  const partial = entries.find(([, name]) => name.toLowerCase().includes(needle));
+  if (partial) return partial[0];
+
+  return undefined;
+}
 
 async function fetchDocs(
   db: D1Database,
