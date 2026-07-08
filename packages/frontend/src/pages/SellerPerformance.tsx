@@ -1107,7 +1107,6 @@ export default function SellerPerformancePage() {
   const pageRef = useRef<HTMLDivElement>(null);
 
   const activeSellers = sellers.filter(s => {
-    if (s.daysWorked < 10) return false;
     if (storeFilter === "all") return true;
     if (storeFilter === "Победа") return s.storeLabels.includes("П");
     if (storeFilter === "Твардоского") return s.storeLabels.includes("Т");
