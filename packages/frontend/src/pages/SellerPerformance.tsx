@@ -1108,9 +1108,9 @@ export default function SellerPerformancePage() {
 
   const activeSellers = sellers.filter(s => {
     if (storeFilter === "all") return true;
-    if (storeFilter === "Победа") return s.storeLabels.includes("П");
-    if (storeFilter === "Твардоского") return s.storeLabels.includes("Т");
-    if (storeFilter === "45") return s.storeLabels.includes("45");
+    if (storeFilter === "Победа") return s.storeLabels.some(l => l.includes("Победа"));
+    if (storeFilter === "Твардоского") return s.storeLabels.some(l => l.includes("Твардоского"));
+    if (storeFilter === "45") return s.storeLabels.some(l => l.includes("45"));
     return true;
   });
 

@@ -63,7 +63,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/api": "http://localhost:62972",
+      "/api": "http://localhost:8787",
     },
   },
 });
