@@ -45,4 +45,5 @@ export {
   fetchWeekdayCompare,
   fetchWeekdayBreakdown,
   fetchSellerInsights,
+  fetchHourlyCompare,
 } from "./endpoints";
