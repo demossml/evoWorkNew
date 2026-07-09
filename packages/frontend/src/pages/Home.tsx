@@ -215,6 +215,22 @@ function HomeTopBar({ queryClient, isAdmin, isSuperAdmin }: { queryClient: Query
               🧬 Seller DNA
             </button>
           )}
+          {(isAdmin || isSuperAdmin) && (
+            <button
+              onClick={() => navigate("/evotor/product-performance")}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-emerald-600 border border-emerald-300 bg-emerald-50 rounded-md hover:bg-emerald-100 active:scale-95 transition-all"
+            >
+              📦 Товары
+            </button>
+          )}
+          {(isAdmin || isSuperAdmin) && (
+            <button
+              onClick={() => navigate("/evotor/store-performance")}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-violet-600 border border-violet-300 bg-violet-50 rounded-md hover:bg-violet-100 active:scale-95 transition-all"
+            >
+              🏪 Точки
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {!online && (

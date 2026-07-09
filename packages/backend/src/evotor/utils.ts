@@ -463,6 +463,8 @@ export async function getTopProductsFromD1(
 				quantity: number;
 				refundRevenue: number;
 				refundQuantity: number;
+				grossProfitSum: number;
+				grossProfitRefund: number;
 			}
 		> = {};
 
@@ -484,14 +486,20 @@ export async function getTopProductsFromD1(
 						quantity: 0,
 						refundRevenue: 0,
 						refundQuantity: 0,
+						grossProfitSum: 0,
+						grossProfitRefund: 0,
 					};
 				}
 				if (isRefund) {
 					agg[name].refundRevenue += tx.sum ?? 0;
 					agg[name].refundQuantity += tx.quantity ?? 0;
+					agg[name].grossProfitRefund +=
+						((tx.price ?? 0) - (tx.costPrice ?? 0)) * (tx.quantity ?? 0);
 				} else {
 					agg[name].revenue += tx.sum ?? 0;
 					agg[name].quantity += tx.quantity ?? 0;
+					agg[name].grossProfitSum +=
+						((tx.price ?? 0) - (tx.costPrice ?? 0)) * (tx.quantity ?? 0);
 				}
 			}
 		}
@@ -501,6 +509,7 @@ export async function getTopProductsFromD1(
 				const netRevenue = d.revenue - d.refundRevenue;
 				const netQuantity = d.quantity - d.refundQuantity;
 				const grossRevenue = d.revenue + d.refundRevenue;
+				const grossProfit = d.grossProfitSum - d.grossProfitRefund;
 				return {
 					productName,
 					revenue: d.revenue,
@@ -509,8 +518,8 @@ export async function getTopProductsFromD1(
 					refundQuantity: d.refundQuantity,
 					netRevenue,
 					netQuantity,
-					grossProfit: 0,
-					marginPct: 0,
+					grossProfit,
+					marginPct: netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0,
 					averagePrice: netQuantity > 0 ? netRevenue / netQuantity : 0,
 					refundRate: grossRevenue > 0 ? (d.refundRevenue / grossRevenue) * 100 : 0,
 					dailyNetRevenue7: [0, 0, 0, 0, 0, 0, 0],

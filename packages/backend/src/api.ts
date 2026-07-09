@@ -8,10 +8,13 @@ import type { IEnv, SaveDeadStocksRequest } from "./types";
 
 // const JWT_SECRET = "your_secret_key"; // Секретный ключ для подписи токена
 
-import { analyzeDocsStaffTask, getHoroscopeByDateTask, analyzeDocsInsightsTask, analyzeDocsAnomaliesTask, analyzeDocsPatternsTask, analyzeSellerPerformanceTask } from "./ai";
+import { analyzeDocsStaffTask, getHoroscopeByDateTask, analyzeDocsInsightsTask, analyzeDocsAnomaliesTask, analyzeDocsPatternsTask, analyzeSellerPerformanceTask, analyzeProductEffectivenessTask, analyzeStoreEffectivenessTask } from "./ai";
 import { runOrderForecastV2 } from "./services/orderForecastV2";
 import { deepseekChat } from "./services/deepseek";
 import { computeSellerEffectiveness } from "./services/sellerEffectiveness";
+import { computeProductEffectiveness } from "./services/productEffectiveness";
+import { computeStoreEffectiveness } from "./services/storeEffectiveness";
+import { hashMetrics, getCachedAnalysis, saveCachedAnalysis, saveConversation, getConversationHistory, clearConversationHistory } from "./db/repositories/aiRepository";
 import { computeSellerAdvancedStats, computeWeekdayComparison, computeWeekdayBreakdown } from "./services/sellerAdvancedStats";
 import { generateSellerInsights } from "./services/sellerInsights";
 import { computeHourlyCompare } from "./services/sellerHourlyCompare";
@@ -2382,6 +2385,298 @@ export const api = new Hono<IEnv>()
 		const store = c.req.query("store") || undefined;
 		const result = await computeSellerEffectiveness(db, { period, since, until, store });
 		return c.json(result);
+	})
+	// Product effectiveness — глубокий анализ товара
+	.get("/api/products/effectiveness", async (c) => {
+		const db = c.env.DB as D1Database;
+		const period = c.req.query("period") ? parseInt(c.req.query("period")!) : undefined;
+		const since = c.req.query("since") || undefined;
+		const until = c.req.query("until") || undefined;
+		const store = c.req.query("store") || undefined;
+		const result = await computeProductEffectiveness(db, { period, since, until, store });
+		return c.json(result);
+	})
+	// Store effectiveness — глубокий анализ торговой точки
+	.get("/api/shops/effectiveness", async (c) => {
+		const db = c.env.DB as D1Database;
+		const period = c.req.query("period") ? parseInt(c.req.query("period")!) : undefined;
+		const since = c.req.query("since") || undefined;
+		const until = c.req.query("until") || undefined;
+		const result = await computeStoreEffectiveness(db, { period, since, until });
+		return c.json(result);
+	})
+	// AI-powered product insights
+	.get("/api/products/ai-insights", async (c) => {
+		const db = c.env.DB as D1Database;
+		const period = c.req.query("period") ? parseInt(c.req.query("period")!) : 90;
+		const store = c.req.query("store") || undefined;
+
+		const metrics = await computeProductEffectiveness(db, { period, store });
+		if (!metrics.products.length) {
+			return c.json({ executiveSummary: "Нет данных для анализа.", topIssues: [], topOpportunities: [], categoryInsight: "", actionableAdvice: [] });
+		}
+
+		// Подготовка данных для AI (топ-30 товаров)
+		const topProducts = metrics.products.filter(p => p.rankEligible).slice(0, 30).map(p => ({
+			productUuid: p.productUuid,
+			productName: p.productName,
+			categoryName: p.categoryName,
+			netRevenue: p.netRevenue,
+			netQuantity: p.netQuantity,
+			grossProfit: p.grossProfit,
+			marginPct: p.marginPct,
+			trendDirection: p.trendDirection,
+			trendR2: p.trendR2,
+			trendCI: p.trendCI,
+			cv: p.cv,
+			cvVsCategory: p.cvVsCategory,
+			refundRate: p.refundRate,
+			refundRateTrend: p.refundRateTrend,
+			storeHHI: p.storeHHI,
+			storeBreakdown: p.storeBreakdown.slice(0, 3),
+			basketPenetration: p.basketPenetration,
+			crossSell: p.crossSell.slice(0, 5),
+			abcClass: p.abcClass,
+			xyzClass: p.xyzClass,
+			healthScore: p.healthScore,
+			segment: p.segment,
+			daysInAssortment: p.daysInAssortment,
+			revenueChangePct: p.revenueChangePct,
+			marginChangePts: p.marginChangePts,
+			anomalyDays: p.anomalyDays.slice(0, 3),
+		}));
+
+		// Проверка кеша
+		const cacheKey = hashMetrics({ products: topProducts, period, store });
+		const cached = await getCachedAnalysis(db, { contextType: "product", period, metricsHash: cacheKey });
+		if (cached) {
+			return c.json(JSON.parse(cached));
+		}
+
+		try {
+			const aiResult = await analyzeProductEffectivenessTask(c, {
+				products: topProducts,
+				period,
+				storeContext: store || "все магазины",
+			});
+
+			// Кешируем на 24 часа
+			await saveCachedAnalysis(db, {
+				contextType: "product", period,
+				metricsHash: cacheKey,
+				analysisJson: JSON.stringify(aiResult),
+			});
+
+			return c.json(aiResult);
+		} catch (err: any) {
+			console.error("[product-ai-insights] AI error:", err.message);
+			return c.json({
+				executiveSummary: `Ошибка AI-анализа: ${err.message}. Попробуйте позже.`,
+				topIssues: [], topOpportunities: [], categoryInsight: "", actionableAdvice: [],
+			});
+		}
+	})
+	// AI-powered store insights
+	.get("/api/shops/ai-insights", async (c) => {
+		const db = c.env.DB as D1Database;
+		const period = c.req.query("period") ? parseInt(c.req.query("period")!) : 90;
+
+		const metrics = await computeStoreEffectiveness(db, { period });
+		if (!metrics.stores.length) {
+			return c.json({ executiveSummary: "Нет данных для анализа.", topIssues: [], topOpportunities: [], disciplineInsight: "", actionableAdvice: [] });
+		}
+
+		const storeData = metrics.stores.filter(s => s.rankEligible).map(s => ({
+			shopUuid: s.shopUuid,
+			shopName: s.shopName,
+			totalRevenue: s.totalRevenue,
+			marginPct: s.marginPct,
+			trendDirection: s.trendDirection,
+			trendR2: s.trendR2,
+			trendCI: s.trendCI,
+			cv: s.cv,
+			cvVsNetwork: s.cvVsNetwork,
+			rubPerHour: s.rubPerHour,
+			revenuePerSeller: s.revenuePerSeller,
+			uniqueSellers: s.uniqueSellers,
+			churnRate: s.churnRate,
+			lateOpenDays: s.lateOpenDays,
+			openingComplianceCorrelation: s.openingComplianceCorrelation,
+			lateOpenRevenueImpact: s.lateOpenRevenueImpact,
+			healthScore: s.healthScore,
+			segment: s.segment,
+			clusterLabel: s.clusterLabel,
+			revenueChangePct: s.revenueChangePct,
+			anomalyDays: s.anomalyDays.slice(0, 3),
+			peakHourCoverage: s.peakHourCoverage.filter(p => [10, 14, 18, 20].includes(p.hour)),
+		}));
+
+		const cacheKey = hashMetrics({ stores: storeData, period });
+		const cached = await getCachedAnalysis(db, { contextType: "store", period, metricsHash: cacheKey });
+		if (cached) {
+			return c.json(JSON.parse(cached));
+		}
+
+		try {
+			const aiResult = await analyzeStoreEffectivenessTask(c, { stores: storeData, period });
+
+			await saveCachedAnalysis(db, {
+				contextType: "store", period,
+				metricsHash: cacheKey,
+				analysisJson: JSON.stringify(aiResult),
+			});
+
+			return c.json(aiResult);
+		} catch (err: any) {
+			console.error("[store-ai-insights] AI error:", err.message);
+			return c.json({
+				executiveSummary: `Ошибка AI-анализа: ${err.message}.`,
+				topIssues: [], topOpportunities: [], disciplineInsight: "", actionableAdvice: [],
+			});
+		}
+	})
+	// AI chat — диалоговый ассистент (товары)
+	.post("/api/products/ai-chat", async (c) => {
+		const db = c.env.DB as D1Database;
+		const { message, history, entityId } = await c.req.json<{
+			message: string;
+			history?: { role: string; content: string }[];
+			entityId?: string;
+		}>();
+		const userId = c.var.userId || "unknown";
+
+		// Загружаем контекст — метрики товара
+		let contextStr = "";
+		try {
+			const metrics = await computeProductEffectiveness(db, { period: 90 });
+			if (entityId) {
+				const product = metrics.products.find(p => p.productUuid === entityId);
+				if (product) {
+					contextStr = JSON.stringify({
+						productName: product.productName,
+						category: product.categoryName,
+						netRevenue: product.netRevenue,
+						marginPct: product.marginPct,
+						trendDirection: product.trendDirection,
+						cv: product.cv,
+						cvVsCategory: product.cvVsCategory,
+						refundRate: product.refundRate,
+						storeHHI: product.storeHHI,
+						basketPenetration: product.basketPenetration,
+						abcClass: product.abcClass,
+						xyzClass: product.xyzClass,
+						healthScore: product.healthScore,
+						crossSell: product.crossSell.slice(0, 5),
+					});
+				}
+			}
+		} catch { /* use empty context */ }
+
+		// Загружаем историю диалога
+		const savedHistory = await getConversationHistory(db, {
+			userId, contextType: "product", entityId, limit: 20,
+		});
+		const chatHistory = history || savedHistory.map(h => ({ role: h.role, content: h.content }));
+
+		// Сохраняем сообщение пользователя
+		await saveConversation(db, { userId, contextType: "product", entityId, role: "user", content: message });
+
+		try {
+			const systemPrompt = `Ты — AI-аналитик товарного ассортимента сети вейп-шопов.
+У тебя есть доступ к метрикам товара: ${contextStr || "данные не загружены"}.
+Используй цифры из контекста для ответов. Если данных недостаточно — честно скажи.
+Не придумывай цифры, которых нет в контексте. Отвечай на русском, кратко и по делу.`;
+
+			const { deepseekChat } = await import("./services/deepseek");
+			const reply = await deepseekChat({
+				apiKey: c.env.DEEPSEEK_API_KEY || "",
+				system: systemPrompt,
+				user: message,
+				maxTokens: 1024,
+			});
+
+			await saveConversation(db, { userId, contextType: "product", entityId, role: "assistant", content: reply });
+			return c.json({ reply });
+		} catch (err: any) {
+			return c.json({ reply: `Ошибка AI: ${err.message}` }, 500);
+		}
+	})
+	// AI chat clear — очистка истории диалога (товары)
+	.post("/api/products/ai-chat-clear", async (c) => {
+		const db = c.env.DB as D1Database;
+		const { entityId } = await c.req.json<{ entityId?: string }>();
+		const userId = c.var.userId || "unknown";
+		await clearConversationHistory(db, { userId, contextType: "product", entityId });
+		return c.json({ ok: true });
+	})
+	// AI chat — диалоговый ассистент (магазины)
+	.post("/api/shops/ai-chat", async (c) => {
+		const db = c.env.DB as D1Database;
+		const { message, history, entityId } = await c.req.json<{
+			message: string;
+			history?: { role: string; content: string }[];
+			entityId?: string;
+		}>();
+		const userId = c.var.userId || "unknown";
+
+		let contextStr = "";
+		try {
+			const metrics = await computeStoreEffectiveness(db, { period: 90 });
+			if (entityId) {
+				const store = metrics.stores.find(s => s.shopUuid === entityId);
+				if (store) {
+					contextStr = JSON.stringify({
+						shopName: store.shopName,
+						totalRevenue: store.totalRevenue,
+						marginPct: store.marginPct,
+						trendDirection: store.trendDirection,
+						cv: store.cv,
+						rubPerHour: store.rubPerHour,
+						uniqueSellers: store.uniqueSellers,
+						churnRate: store.churnRate,
+						lateOpenDays: store.lateOpenDays,
+						openingComplianceCorrelation: store.openingComplianceCorrelation,
+						healthScore: store.healthScore,
+						clusterLabel: store.clusterLabel,
+					});
+				}
+			}
+		} catch { /* use empty context */ }
+
+		const savedHistory = await getConversationHistory(db, {
+			userId, contextType: "store", entityId, limit: 20,
+		});
+		const chatHistory = history || savedHistory.map(h => ({ role: h.role, content: h.content }));
+
+		await saveConversation(db, { userId, contextType: "store", entityId, role: "user", content: message });
+
+		try {
+			const systemPrompt = `Ты — AI-аналитик розничной сети вейп-шопов.
+У тебя есть доступ к метрикам магазина: ${contextStr || "данные не загружены"}.
+Используй цифры из контекста для ответов. Не придумывай цифры.
+Отвечай на русском, кратко и по делу.`;
+
+			const { deepseekChat } = await import("./services/deepseek");
+			const reply = await deepseekChat({
+				apiKey: c.env.DEEPSEEK_API_KEY || "",
+				system: systemPrompt,
+				user: message,
+				maxTokens: 1024,
+			});
+
+			await saveConversation(db, { userId, contextType: "store", entityId, role: "assistant", content: reply });
+			return c.json({ reply });
+		} catch (err: any) {
+			return c.json({ reply: `Ошибка AI: ${err.message}` }, 500);
+		}
+	})
+	// AI chat clear — очистка истории диалога (магазины)
+	.post("/api/shops/ai-chat-clear", async (c) => {
+		const db = c.env.DB as D1Database;
+		const { entityId } = await c.req.json<{ entityId?: string }>();
+		const userId = c.var.userId || "unknown";
+		await clearConversationHistory(db, { userId, contextType: "store", entityId });
+		return c.json({ ok: true });
 	})
 	// AI-powered seller insights
 	.get("/api/employees/seller-insights", async (c) => {

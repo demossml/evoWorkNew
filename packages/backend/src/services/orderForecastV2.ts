@@ -5,6 +5,7 @@
 
 import type { D1Database } from "@cloudflare/workers-types";
 import type { Evotor } from "../evotor";
+import { classifyABC, classifyXYZ } from "./sharedStats";
 
 // ── Типы ────────────────────────────────────────────────────────────────────
 
@@ -217,7 +218,7 @@ export async function runOrderForecastV2(
 		salesByProductDaily.set(uuid, daily);
 	}
 
-	// 6. ABC-классификация по общей выручке
+	// 6. ABC-классификация по общей выручке (переиспользует sharedStats.classifyABC)
 	const revenueByProduct = new Map<string, number>();
 	for (const [uuid, dailySales] of salesByProductDaily) {
 		const totalQty = dailySales.reduce((a, b) => a + b, 0);
@@ -226,21 +227,11 @@ export async function runOrderForecastV2(
 		revenueByProduct.set(uuid, totalQty * cost);
 	}
 
-	const sortedByRevenue = [...revenueByProduct.entries()]
-		.filter(([_, r]) => r > 0)
-		.sort((a, b) => b[1] - a[1]);
+	const abcItems = [...revenueByProduct.entries()].map(([key, value]) => ({ key, value }));
+	const abcMap = classifyABC(abcItems);
 
-	const totalRevenue = sortedByRevenue.reduce((s, [_, r]) => s + r, 0);
-	let cumulative = 0;
-	const abcMap = new Map<string, "A" | "B" | "C">();
-	for (const [uuid, revenue] of sortedByRevenue) {
-		cumulative += revenue;
-		const pct = cumulative / totalRevenue;
-		abcMap.set(uuid, pct <= 0.7 ? "A" : pct <= 0.9 ? "B" : "C");
-	}
-
-	// 7. XYZ-классификация по стабильности спроса
-	const xyzMap = new Map<string, "X" | "Y" | "Z">();
+	// 7. XYZ-классификация по стабильности спроса (переиспользует sharedStats.classifyXYZ)
+	const xyzItems: { key: string; cv: number }[] = [];
 	for (const [uuid, dailySales] of salesByProductDaily) {
 		const nonZero = dailySales.filter((v) => v > 0);
 		const mean = nonZero.length > 0
@@ -248,8 +239,9 @@ export async function runOrderForecastV2(
 			: 0;
 		const stdev = stdDev(nonZero);
 		const cv = coefficientOfVariation(mean, stdev);
-		xyzMap.set(uuid, cv <= 0.5 ? "X" : cv <= 1.0 ? "Y" : "Z");
+		xyzItems.push({ key: uuid, cv });
 	}
+	const xyzMap = classifyXYZ(xyzItems);
 
 	// 8. Прогноз и рекомендации
 	const smaWindow = Math.min(7, sortedDays.length);

@@ -21,6 +21,8 @@ const StoreOpeningsAdminReport = lazy(() => import("@/pages/reports/StoreOpening
 const PeriodComparison = lazy(() => import("@/pages/reports/PeriodComparison"));
 const SellerPerformancePage = lazy(() => import("@/pages/SellerPerformance"));
 const SellersAnalytics = lazy(() => import("@/pages/SellersAnalytics"));
+const ProductPerformancePage = lazy(() => import("@/pages/reports/ProductPerformance"));
+const StorePerformancePage = lazy(() => import("@/pages/reports/StorePerformance"));
 
 export function AppRouter() {
   return (
@@ -52,6 +54,8 @@ export function AppRouter() {
         <Route path="/evotor/period-comparison" element={<PeriodComparison />} />
         <Route path="/evotor/seller-performance" element={<SellerPerformancePage />} />
         <Route path="/evotor/sellers-analytics" element={<SellersAnalytics />} />
+        <Route path="/evotor/product-performance" element={<ProductPerformancePage />} />
+        <Route path="/evotor/store-performance" element={<StorePerformancePage />} />
       </Routes>
     </Suspense>
   );
