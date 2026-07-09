@@ -78,7 +78,6 @@ async function ensureTables(): Promise<void> {
 	await createOpenStorsTable(db as any);
 	await createSalaryBonusTable(db as any);
 	await createProductsTableIfNotExists(db as any);
-	await createProductsTable(db as any);
 	const { createShopsTable, createEmployeesTable } = await import("./src/sync/db");
 	await createShopsTable(db as any);
 	await createEmployeesTable(db as any);
