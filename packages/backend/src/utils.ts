@@ -666,7 +666,7 @@ export async function updatePlan(
 			const updateQuery = `
                 UPDATE plan
                 SET sum = ?
-                WHERE date = ? AND shopUuid = ?; // Добавляем условие для обновления по shopUuid
+                WHERE date = ? AND shopUuid = ?
             `;
 
 			const updateStatement = db.prepare(updateQuery);
