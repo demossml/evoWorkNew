@@ -21,8 +21,8 @@ const StoreOpeningsAdminReport = lazy(() => import("@/pages/reports/StoreOpening
 const PeriodComparison = lazy(() => import("@/pages/reports/PeriodComparison"));
 const SellerPerformancePage = lazy(() => import("@/pages/SellerPerformance"));
 const SellersAnalytics = lazy(() => import("@/pages/SellersAnalytics"));
-const ProductPerformancePage = lazy(() => import("@/pages/reports/ProductPerformance"));
-const StorePerformancePage = lazy(() => import("@/pages/reports/StorePerformance"));
+const ProductPerformancePage = lazy(() => import("@/pages/ProductPerformance"));
+const StorePerformancePage = lazy(() => import("@/pages/StorePerformance"));
 
 export function AppRouter() {
   return (

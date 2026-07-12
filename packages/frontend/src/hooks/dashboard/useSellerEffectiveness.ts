@@ -24,8 +24,11 @@ export interface SellerMetrics {
   trendR2: number;
   cv: number;
   mad: number;
-  vapeShare: number;
-  accShare: number;
+  /** null = unknown, not 0% — the sync pipeline has no product/category
+   * data, so this can't actually be computed. Never render it as if it
+   * were a real zero. */
+  vapeShare: number | null;
+  accShare: number | null;
   stores: SellerStoreMetrics[];
   storeLabels: string[];
   efficiencyVsStore: number;
@@ -48,8 +51,8 @@ export interface SellerMetrics {
   targetAvgCheck: number;           // KPI target
   targetVapeShare: number;          // KPI target
   categoryBreakdown: { name: string; share: number }[];
-  avgHours: number | null;           // lower-bound proxy: last sale minus first sale, per day
-  rubPerHour: number | null;         // avgDailyRev / avgHours
+  avgHours: number | null;       // lower-bound proxy: last sale minus first sale, per day
+  rubPerHour: number | null;     // avgDailyRev / avgHours
 }
 
 export interface StoreBaseline {

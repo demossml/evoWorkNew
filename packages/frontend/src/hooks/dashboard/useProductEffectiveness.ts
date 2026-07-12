@@ -1,86 +1,46 @@
 import { useQuery } from "@tanstack/react-query";
 import { client } from "@shared/api";
 
-export interface ProductStoreBreakdown {
-  store: string;
-  revenue: number;
-  share: number;
+export interface ProductMetrics {
+  uuid: string;
+  name: string;
+  category: string;
+  abcClass: "A" | "B" | "C";
+  daysListed: number;
+  firstSoldDate: string | null;
+  netRevenue: number;
+  netQuantity: number;
+  grossProfit: number;
+  marginPct: number;
+  averagePrice: number;
+  refundRate: number;
+  refundRateTrend: "↑" | "↓" | "→";
+  trendSlope: number;
+  trendDirection: "↑" | "↓" | "→";
+  trendR2: number;
+  cv: number;
+  categoryCv: number;
+  storeConcentration: number;
+  topStore: string | null;
+  crossSell: { name: string; coOccurrencePct: number }[];
+  riskLevel: "ok" | "warn" | "critical";
+  riskReasons: string[];
+  dailyRevenue: { date: string; value: number }[];
+  rankEligible: boolean;
 }
 
-export interface ProductCrossSell {
-  productName: string;
-  affinity: number;
-}
-
-export interface ProductHypothesis {
+export interface HypothesisResult {
   id: string;
   title: string;
   confirmed: boolean;
   summary: string;
 }
 
-export interface ProductMetrics {
-  productUuid: string;
-  productName: string;
-  categoryUuid: string | null;
-  categoryName: string | null;
-  netRevenue: number;
-  netQuantity: number;
-  grossProfit: number;
-  marginPct: number;
-  trendSlope: number;
-  trendDirection: "↑" | "↓" | "→";
-  trendR2: number;
-  dailyRevenue: { date: string; value: number }[];
-  cv: number;
-  categoryCv: number;
-  cvVsCategory: number | null;
-  refundRate: number;
-  refundRateTrend: number;
-  weeklyRefundRates: { week: string; rate: number }[];
-  storeHHI: number;
-  storeBreakdown: ProductStoreBreakdown[];
-  crossSell: ProductCrossSell[];
-  firstSaleDate: string | null;
-  daysInAssortment: number;
-  abcClass: "A" | "B" | "C";
-  xyzClass: "X" | "Y" | "Z";
-  segment: "star" | "cash_cow" | "problem" | "declining" | "new" | "local_hit";
-  rank: number;
-  rankEligible: boolean;
-  hypotheses: ProductHypothesis[];
-
-  // Расширенная аналитика
-  healthScore: number;
-  marginPercentile: number;
-  cvPercentile: number;
-  refundPercentile: number;
-  anomalyDays: { date: string; value: number; direction: "up" | "down" }[];
-  trendCI: { low: number; high: number; significant: boolean };
-  waterfall: {
-    prevRevenue: number; currRevenue: number; delta: number;
-    avgCheckDelta: number; checksDelta: number; refundDelta: number;
-  } | null;
-  basketPenetration: number;
-  prevNetRevenue: number | null;
-  prevMarginPct: number | null;
-  revenueChangePct: number | null;
-  marginChangePts: number | null;
-}
-
-export interface ProductKpiSnapshot {
-  totalSku: number;
-  totalRevenue: number;
-  totalGrossProfit: number;
-  avgMarginPct: number;
-  activeProducts: number;
-}
-
 export interface ProductEffectivenessResponse {
-  snapshot: ProductKpiSnapshot;
-  prevSnapshot: ProductKpiSnapshot | null;
   products: ProductMetrics[];
-  hypotheses: { id: string; title: string; confirmed: boolean; summary: string }[];
+  hypotheses: HypothesisResult[];
+  since: string;
+  until: string;
 }
 
 async function fetchProductEffectiveness(params: {
@@ -98,7 +58,7 @@ async function fetchProductEffectiveness(params: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const res = await (client.api.products as any).effectiveness.$get({ query });
   if (!res.ok) {
-    throw new Error("Ошибка загрузки данных эффективности товаров");
+    throw new Error("Ошибка загрузки данных анализа товаров");
   }
   return res.json();
 }

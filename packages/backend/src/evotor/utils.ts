@@ -444,7 +444,7 @@ export async function getTopProductsFromD1(
 	try {
 		const docs = await db
 			.prepare(`
-				SELECT type, transactions
+				SELECT type, close_date, transactions
 				FROM index_documents
 				WHERE close_date >= ?1 AND close_date <= ?2
 				  AND type IN ('SELL', 'PAYBACK')
@@ -463,13 +463,15 @@ export async function getTopProductsFromD1(
 				quantity: number;
 				refundRevenue: number;
 				refundQuantity: number;
-				grossProfitSum: number;
-				grossProfitRefund: number;
+				cost: number;       // себестоимость проданного (SELL)
+				refundCost: number; // себестоимость возвращённого (PAYBACK)
+				dailyNet: Map<string, number>; // "YYYY-MM-DD" → чистая выручка за день
 			}
 		> = {};
 
-		for (const row of docs.results as { type: string; transactions: string }[]) {
+		for (const row of docs.results as { type: string; close_date: string; transactions: string }[]) {
 			const isRefund = row.type === "PAYBACK";
+			const day = row.close_date.slice(0, 10);
 			let transactions: any[];
 			try {
 				transactions = JSON.parse(row.transactions);
@@ -486,30 +488,48 @@ export async function getTopProductsFromD1(
 						quantity: 0,
 						refundRevenue: 0,
 						refundQuantity: 0,
-						grossProfitSum: 0,
-						grossProfitRefund: 0,
+						cost: 0,
+						refundCost: 0,
+						dailyNet: new Map(),
 					};
 				}
+				const sum = tx.sum ?? 0;
+				const quantity = tx.quantity ?? 0;
+				// costPrice on Evotor's REGISTER_POSITION is cost per unit,
+				// not per line — multiply by quantity for the line's total cost.
+				const lineCost = (tx.costPrice ?? 0) * quantity;
+
 				if (isRefund) {
-					agg[name].refundRevenue += tx.sum ?? 0;
-					agg[name].refundQuantity += tx.quantity ?? 0;
-					agg[name].grossProfitRefund +=
-						((tx.price ?? 0) - (tx.costPrice ?? 0)) * (tx.quantity ?? 0);
+					agg[name].refundRevenue += sum;
+					agg[name].refundQuantity += quantity;
+					agg[name].refundCost += lineCost;
+					agg[name].dailyNet.set(day, (agg[name].dailyNet.get(day) ?? 0) - sum);
 				} else {
-					agg[name].revenue += tx.sum ?? 0;
-					agg[name].quantity += tx.quantity ?? 0;
-					agg[name].grossProfitSum +=
-						((tx.price ?? 0) - (tx.costPrice ?? 0)) * (tx.quantity ?? 0);
+					agg[name].revenue += sum;
+					agg[name].quantity += quantity;
+					agg[name].cost += lineCost;
+					agg[name].dailyNet.set(day, (agg[name].dailyNet.get(day) ?? 0) + sum);
 				}
 			}
+		}
+
+		// Trailing 7 days of the requested window, oldest → newest — same
+		// convention as the dashboard revenue sparkline, so a product's
+		// trend line and the dashboard's revenue trend line read the same way.
+		const untilDate = new Date(until.slice(0, 10) + "T00:00:00+03:00");
+		const last7Days: string[] = [];
+		for (let i = 6; i >= 0; i--) {
+			const d = new Date(untilDate.getTime() - i * 86_400_000);
+			last7Days.push(d.toISOString().slice(0, 10));
 		}
 
 		return Object.entries(agg)
 			.map(([productName, d]) => {
 				const netRevenue = d.revenue - d.refundRevenue;
 				const netQuantity = d.quantity - d.refundQuantity;
+				const netCost = d.cost - d.refundCost;
+				const grossProfit = netRevenue - netCost;
 				const grossRevenue = d.revenue + d.refundRevenue;
-				const grossProfit = d.grossProfitSum - d.grossProfitRefund;
 				return {
 					productName,
 					revenue: d.revenue,
@@ -518,11 +538,11 @@ export async function getTopProductsFromD1(
 					refundQuantity: d.refundQuantity,
 					netRevenue,
 					netQuantity,
-					grossProfit,
-					marginPct: netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0,
+					grossProfit: Math.round(grossProfit),
+					marginPct: netRevenue > 0 ? Math.round((grossProfit / netRevenue) * 1000) / 10 : 0,
 					averagePrice: netQuantity > 0 ? netRevenue / netQuantity : 0,
 					refundRate: grossRevenue > 0 ? (d.refundRevenue / grossRevenue) * 100 : 0,
-					dailyNetRevenue7: [0, 0, 0, 0, 0, 0, 0],
+					dailyNetRevenue7: last7Days.map(day => Math.round(d.dailyNet.get(day) ?? 0)),
 				};
 			})
 			.sort((a, b) => b.netRevenue - a.netRevenue)

@@ -230,13 +230,13 @@ function SellerTable({ sellers, filter, sortBy, onSort }: {
                 <td className="p-2 text-right font-semibold text-foreground">{fmtRub(s.avgDailyRev)}</td>
                 <td className="p-2 text-right text-foreground">{s.avgCheck} ₽</td>
                 <td className="p-2 text-right">
-                  <span className={`font-medium ${s.cv > 35 ? "text-red-500" : s.cv > 30 ? "text-amber-500" : "text-emerald-500"}`}>
+                  <span className={`font-medium ${s.riskLevel === "critical" ? "text-destructive" : s.riskLevel === "warn" ? "text-warning" : "text-success"}`}>
                     {s.cv}%
                   </span>
                 </td>
-                <td className="p-2 text-right text-muted-foreground">{s.vapeShare}%</td>
+                <td className="p-2 text-right text-muted-foreground">{s.vapeShare != null ? `${s.vapeShare}%` : "—"}</td>
                 <td className="p-2 text-right">
-                  <span className={`font-medium ${s.efficiencyVsStore >= 100 ? "text-emerald-500" : s.efficiencyVsStore >= 95 ? "text-amber-500" : "text-red-500"}`}>
+                  <span className={`font-medium ${s.efficiencyVsStore >= 100 ? "text-success" : s.efficiencyVsStore >= 95 ? "text-warning" : "text-destructive"}`}>
                     {s.efficiencyVsStore > 0 ? `${s.efficiencyVsStore}%` : "—"}
                   </span>
                 </td>
@@ -314,11 +314,13 @@ function SellerTable({ sellers, filter, sortBy, onSort }: {
             {/* Metrics row */}
             <div className="flex gap-3 text-xs text-muted-foreground flex-wrap">
               <span>Чек <b className="text-foreground">{s.avgCheck} ₽</b></span>
-              <span className={s.cv > 35 ? "text-red-500" : s.cv > 30 ? "text-amber-500" : "text-emerald-500"}>
+              <span className={s.riskLevel === "critical" ? "text-destructive" : s.riskLevel === "warn" ? "text-warning" : "text-success"}>
                 CV <b>{s.cv}%</b>
               </span>
-              <span>Vape <b className="text-purple-500">{s.vapeShare}%</b></span>
-              <span className={s.efficiencyVsStore >= 100 ? "text-emerald-500" : "text-gray-400"}>
+              {s.vapeShare != null && (
+                <span>Vape <b className="text-violet-500">{s.vapeShare}%</b></span>
+              )}
+              <span className={s.efficiencyVsStore >= 100 ? "text-success" : "text-muted-foreground"}>
                 Эфф <b>{s.efficiencyVsStore > 0 ? `${s.efficiencyVsStore}%` : "—"}</b>
               </span>
               {s.rubPerHour != null && (
@@ -471,18 +473,28 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
             {/* Vape Share target */}
             <div>
               <div className="flex justify-between text-xs mb-0.5">
-                <span className="text-gray-500">Vape-доля</span>
-                <span className="font-medium text-foreground">{seller.vapeShare} / {seller.targetVapeShare}%</span>
+                <span className="text-muted-foreground">Vape-доля</span>
+                <span className="font-medium text-foreground">
+                  {seller.vapeShare != null ? `${seller.vapeShare} / ${seller.targetVapeShare}%` : "нет данных"}
+                </span>
               </div>
-              <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${seller.vapeShare >= seller.targetVapeShare ? "bg-emerald-500" : "bg-purple-500"}`}
-                  style={{ width: `${Math.min(seller.vapeShare / seller.targetVapeShare * 100, 100)}%` }}
-                />
-              </div>
-              <div className="text-[9px] text-right mt-0.5 text-gray-400">
-                {Math.round(seller.vapeShare / seller.targetVapeShare * 100)}%
-              </div>
+              {seller.vapeShare != null ? (
+                <>
+                  <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${seller.vapeShare >= seller.targetVapeShare ? "bg-success" : "bg-violet-500"}`}
+                      style={{ width: `${Math.min(seller.vapeShare / seller.targetVapeShare * 100, 100)}%` }}
+                    />
+                  </div>
+                  <div className="text-[9px] text-right mt-0.5 text-muted-foreground">
+                    {Math.round(seller.vapeShare / seller.targetVapeShare * 100)}%
+                  </div>
+                </>
+              ) : (
+                <div className="text-[10px] text-muted-foreground">
+                  Не считается — в системе нет данных о категориях товаров по чекам
+                </div>
+              )}
             </div>
           </div>
 
@@ -1078,7 +1090,7 @@ export default function SellerPerformancePage() {
       String(s.avgDailyRev),
       String(s.avgCheck),
       String(s.cv),
-      String(s.vapeShare),
+      s.vapeShare != null ? String(s.vapeShare) : "",
       s.efficiencyVsStore > 0 ? String(s.efficiencyVsStore) : "—",
       `${s.trendSlope > 0 ? "+" : ""}${s.trendSlope}`,
       s.deltaRank != null ? (s.deltaRank > 0 ? `+${s.deltaRank}` : String(s.deltaRank)) : "—",
@@ -1154,30 +1166,38 @@ export default function SellerPerformancePage() {
               >
                 <Download className="w-3.5 h-3.5" />CSV
               </button>
-              {[30, 60, 90].map(d => (
-                <button
-                  key={d}
-                  onClick={() => setPeriod(d)}
-                  className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${
-                    period === d
-                      ? "bg-primary text-white shadow-sm"
-                      : "bg-muted text-muted-foreground hover:bg-gray-200 dark:hover:bg-gray-650"
-                  }`}
-                >
-                  {d}д
-                </button>
-              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-1.5 mt-1.5">
+            <button className="px-2.5 py-1 text-xs rounded-md font-medium bg-primary text-primary-foreground">Продавцы</button>
+            <button onClick={() => navigate("/evotor/product-performance")} className="px-2.5 py-1 text-xs rounded-md font-medium text-muted-foreground hover:bg-muted">Товары</button>
+            <button onClick={() => navigate("/evotor/store-performance")} className="px-2.5 py-1 text-xs rounded-md font-medium text-muted-foreground hover:bg-muted">Магазины</button>
+          </div>
+          <div className="flex gap-1.5 mt-1.5 flex-wrap">
+            {[30, 60, 90].map(d => (
               <button
-                onClick={() => setShowCharts(!showCharts)}
-                className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors flex items-center gap-1 ${
-                  showCharts
-                    ? "bg-purple-600 text-white shadow-sm"
-                    : "bg-muted text-muted-foreground"
+                key={d}
+                onClick={() => setPeriod(d)}
+                className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${
+                  period === d
+                    ? "bg-primary text-white shadow-sm"
+                    : "bg-muted text-muted-foreground hover:bg-gray-200 dark:hover:bg-gray-650"
                 }`}
               >
-                <BarChart3 className="w-3 h-3" />Графики
+                {d}д
               </button>
-            </div>
+            ))}
+            <button
+              onClick={() => setShowCharts(!showCharts)}
+              className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors flex items-center gap-1 ${
+                showCharts
+                  ? "bg-purple-600 text-white shadow-sm"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              <BarChart3 className="w-3 h-3" />Графики
+            </button>
           </div>
 
           {/* Store filter pills */}

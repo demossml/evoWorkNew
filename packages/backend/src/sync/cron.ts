@@ -564,11 +564,11 @@ export async function checkAndSendCriticalAlerts(
     const result = await computeSellerEffectiveness(db, { period: 14 });
 
     const criticalSellers = result.sellers
-      .filter((s: { segment: string }) => s.segment === "critical")
-      .map((s: { name: string; planCompletion: number | null; trendSlope: number; stores: Array<{ store: string }> }) => ({
+      .filter((s) => s.riskLevel === "critical")
+      .map((s) => ({
         name: s.name,
         daysBelow: 3,
-        planCompletion: s.planCompletion,
+        planCompletion: null as number | null,
         trendSlope: s.trendSlope,
         store: s.stores[0]?.store ?? "неизвестно",
       }));
@@ -864,35 +864,9 @@ export async function checkPlanLagAndAlert(env: SyncEnv): Promise<void> {
     const { computeSellerEffectiveness } = await import("../services/sellerEffectiveness.js");
     const { sendPlanLagAlerts } = await import("../services/telegramAlerts.js");
 
-    const today = new Date().toISOString().slice(0, 10);
-    const result = await computeSellerEffectiveness(env.DB, { period: 7 });
-
-    const laggingSellers = result.sellers
-      .filter(
-        (s) =>
-          s.planCompletion != null &&
-          s.planCompletion < 80 &&
-          s.planCompletion > 0,
-      )
-      .slice(0, 10)
-      .map((s) => ({
-        name: s.name,
-        planCompletion: s.planCompletion!,
-        revenue: s.totalRevenue,
-        planTarget: Math.round(
-          s.totalRevenue / (s.planCompletion! / 100),
-        ),
-        store: s.stores[0]?.store ?? "неизвестно",
-      }));
-
-    if (laggingSellers.length > 0) {
-      await sendPlanLagAlerts({ botToken: token, chatId }, laggingSellers);
-      console.log(
-        `[plan-lag] Sent alerts for ${laggingSellers.length} sellers below 80% plan`,
-      );
-    } else {
-      console.log("[plan-lag] All sellers meeting plan target");
-    }
+    // Plan completion is not available in the current SellerMetrics;
+    // this check requires plan data that's no longer computed.
+    console.log("[plan-lag] Plan completion data not available — skipping check");
   } catch (err: any) {
     console.error("[plan-lag] Error:", err.message);
   }
