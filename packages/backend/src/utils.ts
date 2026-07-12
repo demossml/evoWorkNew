@@ -653,7 +653,7 @@ export async function updatePlan(
 		const checkQuery = `
             SELECT COUNT(*) as count
             FROM plan
-            WHERE date = ?;
+            WHERE date = ?
         `;
 
 		const checkStatement = db.prepare(checkQuery);
@@ -681,7 +681,7 @@ export async function updatePlan(
 			// Если записи нет, вставляем новые данные
 			const insertQuery = `
                 INSERT INTO plan (date, shopUuid, sum)
-                VALUES (?, ?, ?);
+                VALUES (?, ?, ?)
             `;
 
 			const insertStatement = db.prepare(insertQuery);
