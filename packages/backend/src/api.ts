@@ -969,9 +969,7 @@ export const api = new Hono<IEnv>()
 					const dataReport = {
 						date: datePlan,
 						shopName: await c.var.evotor.getShopName(openShopUuid),
-						bonusAccessories: 0,
-						dataPlan: 0,
-						salesDataVape: 0,
+					salesAccessories: 0,
 						bonusPlan: 0,
 						totalBonus: 0,
 						okladDaily,
@@ -995,6 +993,7 @@ export const api = new Hono<IEnv>()
 						const missedBonusPlan = bonusPlan > 0 ? 0 : 450;
 
 						Object.assign(dataReport, {
+						salesAccessories: 0,
 							bonusAccessories,
 							dataPlan,
 							missedBonusPlan,
@@ -1039,10 +1038,9 @@ export const api = new Hono<IEnv>()
 						);
 
 						const bonusPlan =
-							salesDataVape >= currentPlan ? 450 : 0;
-						const missedBonusPlan = bonusPlan > 0 ? 0 : 450;
-
+						(currentPlan > 0 && salesDataVape >= currentPlan) ? 450 : 0;
 						Object.assign(dataReport, {
+						salesAccessories: salesDataAks,
 							bonusAccessories,
 							dataPlan: currentPlan,
 							salesDataVape,
@@ -1060,8 +1058,8 @@ export const api = new Hono<IEnv>()
 			for (const dataReport of dayResults) {
 				if (!dataReport) continue;
 				result.push(dataReport);
-				totalReport.totalSalesAccessories += dataReport.salesAccessories || 0;
-				totalReport.totalBonusAccessories += dataReport.bonusAccessories;
+				totalReport.totalSalesAccessories += (dataReport as any).salesAccessories || 0;
+				totalReport.totalBonusAccessories += (dataReport as any).bonusAccessories;
 				totalReport.totalBonusPlan += dataReport.bonusPlan;
 				totalReport.totalBonus += dataReport.totalBonus;
 				totalReport.workingDays += 1;
