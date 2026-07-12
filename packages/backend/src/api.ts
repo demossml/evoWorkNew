@@ -2398,6 +2398,91 @@ export const api = new Hono<IEnv>()
 		const result = await computeStoreEffectiveness(db, { period, since, until });
 		return c.json(result);
 	})
+	// ─── Seller DNA ──────────────────────────────────────────────
+	.get("/api/sellers/advanced-stats", async (c) => {
+		const db = c.env.DB as D1Database;
+		const since = c.req.query("since") || "";
+		const until = c.req.query("until") || "";
+		const shopId = c.req.query("shopId") || undefined;
+		const sellerIdsRaw = c.req.query("sellerIds") || undefined;
+		const sellerIds = sellerIdsRaw ? sellerIdsRaw.split(",").filter(Boolean) : undefined;
+		const benchmarkWeekdayQ = c.req.query("benchmarkWeekday");
+		const weekdayQ = c.req.query("weekday");
+		const benchmarkWeekday = benchmarkWeekdayQ !== undefined ? parseInt(benchmarkWeekdayQ) : undefined;
+		const weekday = weekdayQ !== undefined ? parseInt(weekdayQ) : undefined;
+
+		if (!since || !until) {
+			return c.json({ sellers: [] });
+		}
+
+		const cacheKey = `advanced-stats:${since}:${until}:${shopId ?? "all"}:${sellerIdsRaw ?? "all"}:${benchmarkWeekday ?? ""}:${weekday ?? ""}`;
+		const cached = statsCache.get(cacheKey);
+		if (cached && cached.expiresAt > Date.now()) {
+			return c.json(cached.data);
+		}
+
+		try {
+			const result = await computeSellerAdvancedStats(db, { since, until, shopId, sellerIds, benchmarkWeekday, weekday });
+			statsCache.set(cacheKey, { data: result, expiresAt: Date.now() + 300_000 });
+			return c.json(result);
+		} catch (err: any) {
+			console.error("[advanced-stats] error:", err?.message ?? err);
+			return c.json({ sellers: [] });
+		}
+	})
+	.get("/api/sellers/weekday-compare", async (c) => {
+		const db = c.env.DB as D1Database;
+		const targetDate = c.req.query("targetDate") || "";
+		const shopId = c.req.query("shopId") || undefined;
+		const weeksBackQ = c.req.query("weeksBack") || "4";
+		const weeksBack = parseInt(weeksBackQ) || 4;
+		const compareMode = (c.req.query("compareMode") as "same-day" | "same-weekday" | undefined) || undefined;
+		const sellerIdsRaw = c.req.query("sellerIds") || undefined;
+		const sellerIds = sellerIdsRaw ? sellerIdsRaw.split(",").filter(Boolean) : undefined;
+
+		if (!targetDate) {
+			return c.json({ weekday: 0, dates: [], sellers: [] });
+		}
+
+		try {
+			const result = await computeWeekdayComparison(db, { targetDate, shopId, weeksBack, compareMode, sellerIds });
+			return c.json(result);
+		} catch (err: any) {
+			console.error("[weekday-compare] error:", err?.message ?? err);
+			return c.json({ weekday: 0, dates: [], sellers: [] });
+		}
+	})
+	.get("/api/sellers/hourly-compare", async (c) => {
+		const db = c.env.DB as D1Database;
+		const targetDate = c.req.query("targetDate") || "";
+		const weeksBackQ = c.req.query("weeksBack") || "5";
+		const weeksBack = parseInt(weeksBackQ) || 5;
+		const sellerIdsRaw = c.req.query("sellerIds") || "";
+		const sellerIds = sellerIdsRaw ? sellerIdsRaw.split(",").filter(Boolean) : [];
+		const granularityQ = c.req.query("granularityMinutes") || "60";
+		const granularityMinutes = parseInt(granularityQ) || 60;
+		const shopId = c.req.query("shopId") || undefined;
+
+		if (!targetDate || sellerIds.length === 0) {
+			return c.json({ weekday: 0, weekdayLabel: "", dates: [], sellers: [], slots: [] });
+		}
+
+		const cacheKey = `hourly-compare:${targetDate}:${weeksBack}:${sellerIdsRaw}:${granularityMinutes}:${shopId ?? "all"}`;
+		const cached = hourlyCompareCache.get(cacheKey);
+		if (cached && cached.expiresAt > Date.now()) {
+			return c.json(cached.data);
+		}
+
+		try {
+			const result = await computeHourlyCompare(db, { targetDate, weeksBack, shopId, sellerIds, granularityMinutes });
+			hourlyCompareCache.set(cacheKey, { data: result, expiresAt: Date.now() + 300_000 });
+			return c.json(result);
+		} catch (err: any) {
+			console.error("[hourly-compare] error:", err?.message ?? err);
+			return c.json({ weekday: 0, weekdayLabel: "", dates: [], sellers: [], slots: [] });
+		}
+	})
+	// ─── End Seller DNA ──────────────────────────────────────────
 	.post("/api/evotor/salesResult", async (c) => {
 		try {
 			const db = c.get("db");

@@ -24,6 +24,7 @@ const SellersAnalytics = lazy(() => import("@/pages/SellersAnalytics"));
 const ProductPerformancePage = lazy(() => import("@/pages/reports/ProductPerformance"));
 const StorePerformancePage = lazy(() => import("@/pages/reports/StorePerformance"));
 const AnalyticsPage = lazy(() => import("@/pages/Analytics"));
+const SellerDnaPage = lazy(() => import("@/pages/SellerDna"));
 
 export function AppRouter() {
   return (
@@ -53,10 +54,11 @@ export function AppRouter() {
         <Route path="/evotor/open-store" element={<StoreOpeningPage />} />
         <Route path="/evotor/dead-stock" element={<DeadStocks />} />
         <Route path="/evotor/period-comparison" element={<PeriodComparison />} />
-        <Route path="/evotor/seller-performance" element={<Navigate to="/evotor/analytics?tab=sellers" replace />} />
+        <Route path="/evotor/seller-performance" element={<Navigate to="/evotor/seller-dna" replace />} />
         <Route path="/evotor/sellers-analytics" element={<SellersAnalytics />} />
-        <Route path="/evotor/product-performance" element={<Navigate to="/evotor/analytics?tab=products" replace />} />
-        <Route path="/evotor/store-performance" element={<Navigate to="/evotor/analytics?tab=stores" replace />} />
+        <Route path="/evotor/product-performance" element={<Navigate to="/evotor/seller-dna" replace />} />
+        <Route path="/evotor/store-performance" element={<Navigate to="/evotor/seller-dna" replace />} />
+        <Route path="/evotor/seller-dna" element={<SellerDnaPage />} />
         <Route path="/evotor/analytics" element={<AnalyticsPage />} />
       </Routes>
     </Suspense>

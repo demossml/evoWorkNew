@@ -131,8 +131,8 @@ const moreGroups: Array<{
     title: "Аналитика",
     items: [
       {
-        to: "/evotor/analytics",
-        label: "Аналитика",
+        to: "/evotor/seller-dna",
+        label: "Seller DNA",
         icon: TrendingUp,
         roles: ["SUPERADMIN"],
       },

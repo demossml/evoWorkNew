@@ -42,7 +42,7 @@ const COLORS = ["#10b981", "#f59e0b", "#ef4444", "#3b82f6", "#8b5cf6", "#ec4899"
 
 // ====== Main ======
 
-export default function StorePerformancePage() {
+export default function StorePerformancePage({ embedded }: { embedded?: boolean }) {
   const [period, setPeriod] = useState(90);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<keyof StoreMetrics>("totalRevenue");
@@ -88,6 +88,8 @@ export default function StorePerformancePage() {
 
   return (
     <div ref={reportRef} className="pb-20 px-3 pt-3 max-w-4xl mx-auto space-y-4">
+      {!embedded && (
+      <>
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold">Глубокий анализ торговых точек</h1>
@@ -106,6 +108,8 @@ export default function StorePerformancePage() {
           </button>
         ))}
       </div>
+      </>
+      )}
 
       {/* KPI Bar */}
       {data.snapshot && (

@@ -1072,7 +1072,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
 
 type SortKey = keyof SellerMetrics;
 
-export default function SellerPerformancePage() {
+export default function SellerPerformancePage({ embedded }: { embedded?: boolean }) {
   const navigate = useNavigate();
   const [period, setPeriod] = useState(90);
   const [storeFilter, setStoreFilter] = useState("all");
@@ -1139,7 +1139,7 @@ export default function SellerPerformancePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      {/* Sticky Header */}
+      {!embedded && (
       <div
         className="app-safe-top sticky top-0 z-20 bg-card/80 backdrop-blur-md border-b border-border"
       >
@@ -1221,6 +1221,7 @@ export default function SellerPerformancePage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Content */}
       <div ref={pageRef} className="flex-1 p-3 sm:p-4 space-y-3 sm:space-y-4 max-w-5xl mx-auto w-full pb-24">

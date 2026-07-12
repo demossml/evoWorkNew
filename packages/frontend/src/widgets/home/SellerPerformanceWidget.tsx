@@ -56,7 +56,7 @@ export function SellerPerformanceWidget() {
     return (
       <div className="w-full mb-3">
         <div
-          onClick={() => navigate("/evotor/seller-performance")}
+          onClick={() => navigate("/evotor/seller-dna")}
           className="bg-card rounded-xl shadow-sm border border-border p-3 cursor-pointer active:scale-[0.98] transition-transform"
         >
           <div className="text-center text-muted-foreground">
@@ -82,7 +82,7 @@ export function SellerPerformanceWidget() {
         animate={{ opacity: 1, y: 0 }}
       >
         <div
-          onClick={() => navigate("/evotor/seller-performance")}
+          onClick={() => navigate("/evotor/seller-dna")}
           className="bg-card rounded-xl shadow-sm border border-border overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
         >
           {/* Header — compact */}

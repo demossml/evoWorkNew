@@ -42,7 +42,7 @@ const COLORS = ["#10b981", "#f59e0b", "#ef4444", "#3b82f6", "#8b5cf6", "#ec4899"
 
 // ====== Main ======
 
-export default function ProductPerformancePage() {
+export default function ProductPerformancePage({ embedded }: { embedded?: boolean }) {
   const [period, setPeriod] = useState(90);
   const [store, setStore] = useState<string>("all");
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -89,6 +89,8 @@ export default function ProductPerformancePage() {
 
   return (
     <div ref={reportRef} className="pb-20 px-3 pt-3 max-w-4xl mx-auto space-y-4">
+      {!embedded && (
+      <>
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold">Глубокий анализ товаров</h1>
@@ -114,6 +116,8 @@ export default function ProductPerformancePage() {
           <option value="all">Все магазины</option>
         </select>
       </div>
+      </>
+      )}
 
       {/* KPI Bar */}
       {data.snapshot && (
