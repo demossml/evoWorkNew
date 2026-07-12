@@ -743,6 +743,74 @@ export async function getPlan(
 	}
 }
 
+/**
+ * Вычисляет план как среднее продаж за такие же дни недели + 5%.
+ * Используется как fallback, когда план на день = 0.
+ *
+ * Алгоритм:
+ * 1. Ищем 4 прошлых таких же дня недели
+ * 2. Если нашли < 2 — расширяем до 8 недель
+ * 3. Если всё ещё < 2 — расширяем до 12 недель
+ * 4. Если всё ещё < 2 — берём любые 4 последних дня (без учёта дня недели)
+ * 5. Если данных нет совсем — возвращаем 0
+ */
+export async function getAveragePlan(
+	db: D1Database,
+	shopUuid: string,
+	date: string,
+): Promise<number> {
+	try {
+		let rows: { sum: number }[] = [];
+
+		// Пробуем 4 → 8 → 12 недель для того же дня недели
+		for (const limit of [4, 8, 12]) {
+			const query = `
+				SELECT sum
+				FROM plan
+				WHERE shopUuid = ?1
+				  AND date < ?2
+				  AND CAST(strftime('%w', date) AS INTEGER) = CAST(strftime('%w', ?2) AS INTEGER)
+				  AND sum > 0
+				ORDER BY date DESC
+				LIMIT ${limit}
+			`;
+			const result = await db.prepare(query).bind(shopUuid, date).all<{ sum: number }>();
+			rows = result.results ?? [];
+			if (rows.length >= 2) break; // Достаточно данных
+			console.warn(`[getAveragePlan] тот же день недели за ${limit} нед: найдено ${rows.length} (нужно ≥2), расширяем...`);
+		}
+
+		// Если всё ещё мало — берём любые 4 дня без учёта дня недели
+		if (rows.length < 2) {
+			console.warn(`[getAveragePlan] недостаточно данных за тот же день недели, берём любые последние 4 дня`);
+			const fallbackQuery = `
+				SELECT sum
+				FROM plan
+				WHERE shopUuid = ?1
+				  AND date < ?2
+				  AND sum > 0
+				ORDER BY date DESC
+				LIMIT 4
+			`;
+			const fb = await db.prepare(fallbackQuery).bind(shopUuid, date).all<{ sum: number }>();
+			rows = fb.results ?? [];
+		}
+
+		if (rows.length === 0) {
+			console.warn(`[getAveragePlan] shop=${shopUuid} date=${date}: нет исторических данных — план = 0`);
+			return 0;
+		}
+
+		const avg = Math.round(rows.reduce((s, r) => s + r.sum, 0) / rows.length);
+		const plan = Math.round(avg * 1.05);
+		console.log(`[getAveragePlan] shop=${shopUuid} date=${date}: среднее за ${rows.length} дней = ${avg}, план (+5%) = ${plan}`);
+		return plan;
+	} catch (err) {
+		console.error("getAveragePlan error:", err);
+		return 0;
+	}
+}
+
 export const groupIdsVape: string[] = [
 	"78ddfd78-dc52-11e8-b970-ccb0da458b5a",
 	"bc9e7e4c-fdac-11ea-aaf2-2cf05d04be1d",

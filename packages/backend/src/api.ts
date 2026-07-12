@@ -52,6 +52,7 @@ import {
 	replaceUuidsWithNamesDB,
 	saveFileToR2,
 	saveNewIndexDocuments,
+	getAveragePlan,
 	saveOpenStorsTable,
 	saveOrUpdateUUIDs,
 	saveSalaryAndBonus,
@@ -929,9 +930,7 @@ export const api = new Hono<IEnv>()
 				startDate: formatDate(new Date(startDate)),
 				endDate: formatDate(new Date(endDate)),
 				totalSalesAccessories: 0,
-				totalMissedBonusPlan: 0,
 				workingDays: 0,
-				totalOklad: 0,
 				totalBonusAccessories: 0,
 				totalBonusPlan: 0,
 				totalBonus: 0,
@@ -969,48 +968,32 @@ export const api = new Hono<IEnv>()
 					const dataReport = {
 						date: datePlan,
 						shopName: await c.var.evotor.getShopName(openShopUuid),
-					salesAccessories: 0,
+						salesAccessories: 0,
 						bonusPlan: 0,
 						totalBonus: 0,
-						okladDaily,
-						missedBonusPlan: 0,
 					};
 
-					const salaryData = await getSalaryData(
-						employee,
-						datePlan,
-						until,
-						db,
-					);
-
-					if (salaryData) {
-						const {
-							bonusAccessories,
-							dataPlan,
-							salesDataVape,
-						} = salaryData;
-						const bonusPlan = salesDataVape >= dataPlan ? 450 : 0;
-						const missedBonusPlan = bonusPlan > 0 ? 0 : 450;
-
-						Object.assign(dataReport, {
-						salesAccessories: 0,
-							bonusAccessories,
-							dataPlan,
-							missedBonusPlan,
-							salesDataVape,
-							bonusPlan,
-							totalBonus: bonusPlan + bonusAccessories,
-						});
-					} else {
+					// Зарплатные данные всегда считаем заново (кеш отключён)
+					{
 						let plan = await getPlan(datePlan, db);
 						if (!plan || Object.keys(plan).length === 0) {
 							plan = await c.var.evotor.getPlan(date, productUuidsVape);
 							await updatePlan(plan, datePlan, db);
 						}
 
-						const currentPlan = Number.isFinite(plan[openShopUuid])
+						let currentPlan = Number.isFinite(plan[openShopUuid])
 							? plan[openShopUuid]
 							: 0;
+
+						// Если план = 0 — считаем по 4 таким же дням недели +5%
+						if (currentPlan <= 0) {
+							const avgPlan = await getAveragePlan(db, openShopUuid, datePlan);
+							if (avgPlan > 0) {
+								currentPlan = avgPlan;
+								plan[openShopUuid] = avgPlan;
+								await updatePlan(plan, datePlan, db);
+							}
+						}
 
 						const productsAks = await getProductsByGroup(
 							db,
@@ -1062,8 +1045,7 @@ export const api = new Hono<IEnv>()
 				totalReport.totalBonusPlan += dataReport.bonusPlan;
 				totalReport.totalBonus += dataReport.totalBonus;
 				totalReport.workingDays += 1;
-				totalReport.totalOklad += okladDaily;
-				totalReport.totalPayout = totalReport.totalOklad + totalReport.totalBonus;
+				totalReport.totalPayout = totalReport.totalBonus;
 			}
 
 			return c.json({ result, totalReport });
