@@ -270,7 +270,7 @@ export default function SalaryReport() {
                     <ProgressBar
                       value={item.salesDataVape}
                       max={item.dataPlan}
-                      label={`План по вейпам: ${item.salesDataVape} ₽ / ${item.dataPlan} ₽`}
+                      label={`План по вейпам: ${item.dataPlan} ₽ / ${item.salesDataVape} ₽`}
                     />
 
                     <div className="grid grid-cols-2 gap-1 text-sm pt-1">
