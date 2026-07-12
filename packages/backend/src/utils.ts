@@ -926,66 +926,8 @@ export async function getSalaryData(
 	shopUuid: string,
 	db: D1Database,
 ): Promise<Record<string, any> | null> {
-	try {
-		// SQL-запрос для проверки наличия записи с указанной датой и shopUuid
-		const queryCheck = `
-            SELECT 
-                date,
-                shopUuid
-            FROM salaryData
-            WHERE date = ? AND shopUuid = ?;
-        `;
-
-		// Выполнение запроса с привязкой параметров для проверки
-		const existingRecord = await db
-			.prepare(queryCheck)
-			.bind(date, shopUuid)
-			.first();
-
-		if (existingRecord) {
-			// console.log(
-			// 	`Запись с датой ${date} и shopUuid ${shopUuid} уже существует. Пропуск операции.`,
-			// );
-			return null; // Если запись уже существует, возвращаем null
-		}
-
-		// SQL-запрос для получения данных из таблицы salaryData
-		const query = `
-            SELECT 
-                date,
-                shopUuid,
-                employeeUuid,
-                bonusAccessories,
-                dataPlan,
-                salesDataVape,
-                bonusPlan,
-                totalBonus
-            FROM salaryData
-            WHERE employeeUuid = ? AND date = ?;
-        `;
-
-		// Выполнение запроса с привязкой параметров
-		const result = await db.prepare(query).bind(employeeUuid, date).first();
-
-		// Если данные найдены, возвращаем результат
-		if (result) {
-			// console.log(
-			// 	`Данные зарплаты найдены для сотрудника ${employeeUuid} на дату ${date}:`,
-			// 	result,
-			// );
-			return result;
-		}
-
-		// Если данные не найдены, возвращаем null
-		// console.log(
-		// 	`Данные зарплаты не найдены для сотрудника ${employeeUuid} на дату ${date}.`,
-		// );
-		return null;
-	} catch (err) {
-		// Логирование ошибки
-		console.error("Ошибка при извлечении данных из таблицы salaryData:", err);
-		throw err;
-	}
+	// Кеш отключён — всегда делаем свежий расчёт
+	return null;
 }
 
 // Утилита для создания задержки (таймаута)

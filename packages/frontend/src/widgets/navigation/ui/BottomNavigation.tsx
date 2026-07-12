@@ -131,21 +131,9 @@ const moreGroups: Array<{
     title: "Аналитика",
     items: [
       {
-        to: "/evotor/seller-performance",
-        label: "Анализ продавцов",
-        icon: Users,
-        roles: ["SUPERADMIN"],
-      },
-      {
-        to: "/evotor/product-performance",
-        label: "Анализ товаров",
-        icon: Boxes,
-        roles: ["SUPERADMIN"],
-      },
-      {
-        to: "/evotor/store-performance",
-        label: "Анализ магазинов",
-        icon: Store,
+        to: "/evotor/analytics",
+        label: "Аналитика",
+        icon: TrendingUp,
         roles: ["SUPERADMIN"],
       },
     ],

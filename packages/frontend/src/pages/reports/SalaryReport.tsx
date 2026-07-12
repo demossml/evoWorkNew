@@ -20,13 +20,12 @@ interface EmployeeOption {
 interface DayResult {
   date: string;
   shopName: string;
+  salesAccessories: number;
   bonusAccessories: number;
   dataPlan: number;
   salesDataVape: number;
   bonusPlan: number;
-  missedBonusPlan: number;
   totalBonus: number;
-  okladDaily?: number;
 }
 
 interface TotalReport {
@@ -34,10 +33,9 @@ interface TotalReport {
   startDate: string;
   endDate: string;
   workingDays?: number;
-  totalOklad?: number;
+  totalSalesAccessories?: number;
   totalBonusAccessories: number;
   totalBonusPlan: number;
-  totalMissedBonusPlan?: number;
   totalBonus: number;
   totalPayout?: number;
 }
@@ -236,10 +234,6 @@ export default function SalaryReport() {
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <span className="opacity-70">Оклад: </span>
-                        <span className="font-bold">{responseData.totalReport.totalOklad ?? 0} ₽</span>
-                      </div>
-                      <div>
                         <span className="opacity-70">Бонус аксессуары: </span>
                         <span className="font-bold">{responseData.totalReport.totalBonusAccessories} ₽</span>
                       </div>
@@ -248,20 +242,12 @@ export default function SalaryReport() {
                         <span className="font-bold">{responseData.totalReport.totalBonusPlan} ₽</span>
                       </div>
                       <div>
-                        <span className="opacity-70">Итого бонус: </span>
-                        <span className="font-bold">{responseData.totalReport.totalBonus} ₽</span>
+                        <span className="opacity-70">Продано аксессуаров: </span>
+                        <span className="font-bold">{responseData.totalReport.totalSalesAccessories ?? 0} ₽</span>
                       </div>
                     </div>
-                    {((responseData.totalReport.totalMissedBonusPlan ?? 0) > 0) && (
-                      <div className="pt-2 border-t border-white/20 flex items-center gap-2 text-sm">
-                        <span className="opacity-70">Мог заработать больше:</span>
-                        <span className="font-bold text-amber-300">
-                          {responseData.totalReport.totalMissedBonusPlan} ₽
-                        </span>
-                      </div>
-                    )}
                     <div className="pt-2 border-t border-white/20 text-2xl font-bold">
-                      К выплате: {responseData.totalReport.totalPayout ?? 0} ₽
+                      К выплате: {responseData.totalReport.totalPayout ?? responseData.totalReport.totalBonus} ₽
                     </div>
                   </CardContent>
                 </Card>
@@ -289,7 +275,11 @@ export default function SalaryReport() {
 
                     <div className="grid grid-cols-2 gap-1 text-sm pt-1">
                       <div>
-                        <span className="text-slate-500">Бонус аксессуары: </span>
+                        <span className="text-slate-500">Продано аксессуаров: </span>
+                        <span className="font-semibold">{item.salesAccessories ?? 0} ₽</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Бонус аксессуары (5%): </span>
                         <span className="font-semibold">{item.bonusAccessories} ₽</span>
                       </div>
                       <div>
@@ -298,21 +288,9 @@ export default function SalaryReport() {
                           {item.bonusPlan > 0 ? "✓" : "✗"} {item.bonusPlan} ₽
                         </span>
                       </div>
-                      {item.missedBonusPlan > 0 && (
-                        <div>
-                          <span className="text-slate-500">Мог заработать ещё: </span>
-                          <span className="font-semibold text-amber-600">{item.missedBonusPlan} ₽</span>
-                        </div>
-                      )}
-                      {item.okladDaily ? (
-                        <div>
-                          <span className="text-slate-500">Оклад/день: </span>
-                          <span className="font-semibold">{item.okladDaily} ₽</span>
-                        </div>
-                      ) : null}
                       <div>
                         <span className="text-slate-500">Итого: </span>
-                        <span className="font-bold text-blue-600">{item.totalBonus + (item.okladDaily || 0)} ₽</span>
+                        <span className="font-bold text-blue-600">{item.totalBonus} ₽</span>
                       </div>
                     </div>
                   </CardContent>

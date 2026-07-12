@@ -889,12 +889,25 @@ export const api = new Hono<IEnv>()
 			// Убедимся, что таблицы существуют (создаются лениво)
 			await createSalaryTable(db);
 			await createSalaryBonusTable(db);
+			// Таблица settings для групп аксессуаров
+			await db.prepare(
+				"CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY, value TEXT)"
+			).run();
 
 			const sincetDate = formatDateWithTime(new Date(startDate), false);
 			const untilDate = formatDateWithTime(new Date(endDate), true);
 			const dates = getIntervals(sincetDate, untilDate, "days", 1);
 
-			const groupIdsAks = await getAllUuid(db);
+			// Читаем группы аксессуаров из таблицы settings (id=1)
+			let groupIdsAks: string[] = [];
+			try {
+				const settingsRow = await db.prepare(
+					"SELECT value FROM settings WHERE id = 1"
+				).first<{ value: string }>();
+				if (settingsRow?.value) {
+					groupIdsAks = JSON.parse(settingsRow.value);
+				}
+			} catch { /* оставляем пустым */ }
 			const employeeName = await c.var.evotor.getEmployeeByUuid(employee);
 
 			// Константа для Vape групп
@@ -915,6 +928,7 @@ export const api = new Hono<IEnv>()
 				employeeName,
 				startDate: formatDate(new Date(startDate)),
 				endDate: formatDate(new Date(endDate)),
+				totalSalesAccessories: 0,
 				totalMissedBonusPlan: 0,
 				workingDays: 0,
 				totalOklad: 0,
@@ -1046,7 +1060,7 @@ export const api = new Hono<IEnv>()
 			for (const dataReport of dayResults) {
 				if (!dataReport) continue;
 				result.push(dataReport);
-				totalReport.totalMissedBonusPlan += dataReport.missedBonusPlan;
+				totalReport.totalSalesAccessories += dataReport.salesAccessories || 0;
 				totalReport.totalBonusAccessories += dataReport.bonusAccessories;
 				totalReport.totalBonusPlan += dataReport.bonusPlan;
 				totalReport.totalBonus += dataReport.totalBonus;

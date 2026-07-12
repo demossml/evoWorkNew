@@ -17,11 +17,9 @@ interface GroupOption {
 const Settings = () => {
   const queryClient = useQueryClient();
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
-  const [salary, setSalary] = useState("");
   const [bonus, setBonus] = useState("");
   const [accessoryGroups, setAccessoryGroups] = useState<GroupOption[]>([]);
   const [savedGroups, setSavedGroups] = useState<string[]>([]);
-  const [savedSalary, setSavedSalary] = useState("");
   const [savedBonus, setSavedBonus] = useState("");
 
   const [isLoading, setIsLoading] = useState(false);
@@ -56,13 +54,10 @@ const Settings = () => {
         const loadedGroups = Array.isArray(data.selectedGroupUuids)
           ? data.selectedGroupUuids
           : [];
-        const loadedSalary = String(Number(data.salary ?? 0));
         const loadedBonus = String(Number(data.bonus ?? 0));
         setSelectedGroups(loadedGroups);
         setSavedGroups(loadedGroups);
-        setSalary(loadedSalary);
         setBonus(loadedBonus);
-        setSavedSalary(loadedSalary);
         setSavedBonus(loadedBonus);
       } catch (err) {
         console.error(err);
@@ -98,7 +93,7 @@ const Settings = () => {
     return selectedGroups.some((uuid) => !set.has(uuid));
   }, [selectedGroups, savedGroups]);
 
-  const salaryBonusDirty = salary !== savedSalary || bonus !== savedBonus;
+  const salaryBonusDirty = bonus !== savedBonus;
 
   const handleGroupChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { value, checked } = event.target;
@@ -134,15 +129,10 @@ const Settings = () => {
   };
 
   const saveSalaryBonus = async () => {
-    const salaryNumber = Number(salary);
     const bonusNumber = Number(bonus);
 
-    if (!Number.isFinite(salaryNumber) || salaryNumber < 0) {
-      setError("Оклад должен быть неотрицательным числом");
-      return;
-    }
     if (!Number.isFinite(bonusNumber) || bonusNumber < 0) {
-      setError("Премия должна быть неотрицательным числом");
+      setError("Бонус за план должен быть неотрицательным числом");
       return;
     }
 
@@ -152,19 +142,18 @@ const Settings = () => {
     try {
       const response = await client.api.evotor.settings["salary-bonus"].$post({
         json: {
-          salary: salaryNumber,
+          salary: 0,
           bonus: bonusNumber,
         },
       });
       if (!response.ok) throw new Error(`Ошибка: ${response.status}`);
 
-      setSavedSalary(String(salaryNumber));
       setSavedBonus(String(bonusNumber));
-      setSalaryBonusMessage("Оклад и премия сохранены");
+      setSalaryBonusMessage("Бонус за план сохранён");
       await invalidateDashboardQueries(queryClient);
     } catch (err) {
       console.error(err);
-      setError("Не удалось сохранить оклад и премию");
+      setError("Не удалось сохранить бонус");
     } finally {
       setIsSavingSalaryBonus(false);
     }
@@ -229,35 +218,21 @@ const Settings = () => {
       </div>
 
       <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-border dark:bg-gray-800">
-        <h3 className="text-lg font-semibold mb-3">Оклад и премия</h3>
+        <h3 className="text-lg font-semibold mb-3">Бонус за план</h3>
         <div className="mb-2 text-xs text-muted-foreground">
           {salaryBonusDirty ? "Есть несохранённые изменения" : "Сохранено"}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="salary">
-              Оклад
-            </label>
-            <input
-              type="number"
-              id="salary"
-              value={salary}
-              onChange={(e) => setSalary(e.target.value)}
-              className="border border-gray-300 p-2 rounded w-full dark:border-gray-600 dark:bg-background dark:text-foreground"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="bonus">
-              Премия за план
-            </label>
-            <input
-              type="number"
-              id="bonus"
-              value={bonus}
-              onChange={(e) => setBonus(e.target.value)}
-              className="border border-gray-300 p-2 rounded w-full dark:border-gray-600 dark:bg-background dark:text-foreground"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium mb-1" htmlFor="bonus">
+            Бонус за выполнение плана (₽/день)
+          </label>
+          <input
+            type="number"
+            id="bonus"
+            value={bonus}
+            onChange={(e) => setBonus(e.target.value)}
+            className="border border-gray-300 p-2 rounded w-full dark:border-gray-600 dark:bg-background dark:text-foreground"
+          />
         </div>
         <div className="mt-3 flex gap-2">
           <button

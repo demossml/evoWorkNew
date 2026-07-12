@@ -14,7 +14,6 @@ interface ShopPlan {
 
 interface DashboardSalary {
   monthBonus: number;
-  monthOklad: number;
   todayPlans: ShopPlan[];
 }
 
@@ -53,7 +52,6 @@ export function SalaryWidget() {
           const todayStr = `${String(today.getDate()).padStart(2,'0')}-${String(today.getMonth()+1).padStart(2,'0')}-${today.getFullYear()}`;
           setData({
             monthBonus: json.totalReport?.totalBonus || 0,
-            monthOklad: 30000,
             todayPlans: (json.result || []).filter((r: any) => r.date === todayStr).map((r: any) => ({
               shop: r.shopName || "—",
               vape: r.salesDataVape || 0,
@@ -124,14 +122,10 @@ export function SalaryWidget() {
         </div>
 
         {/* Month total */}
-        <div className="grid grid-cols-2 gap-3 mb-3">
+        <div className="mb-3">
           <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3">
             <div className="text-xs text-amber-600 dark:text-amber-400">Бонус за месяц</div>
             <div className="text-xl font-bold text-amber-700 dark:text-amber-300">{data.monthBonus.toLocaleString()} ₽</div>
-          </div>
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3">
-            <div className="text-xs text-blue-600 dark:text-blue-400">Оклад</div>
-            <div className="text-xl font-bold text-blue-700 dark:text-blue-300">{data.monthOklad.toLocaleString()} ₽</div>
           </div>
         </div>
 
