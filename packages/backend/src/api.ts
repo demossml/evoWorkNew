@@ -1041,13 +1041,12 @@ export const api = new Hono<IEnv>()
 						(currentPlan > 0 && salesDataVape >= currentPlan) ? 450 : 0;
 						Object.assign(dataReport, {
 						salesAccessories: salesDataAks,
-							bonusAccessories,
-							dataPlan: currentPlan,
-							salesDataVape,
-							missedBonusPlan,
-							bonusPlan,
-							totalBonus: bonusAccessories + bonusPlan,
-						});
+						bonusAccessories,
+						dataPlan: currentPlan,
+						salesDataVape,
+						bonusPlan,
+						totalBonus: bonusAccessories + bonusPlan,
+					});
 					}
 
 					return dataReport;
