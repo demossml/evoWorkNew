@@ -86,6 +86,10 @@ import {
 	getEmployeesByShopIdDB,
 	getEmployeesLastNameAndUuidFromDB,
 	getEmployeeRoleFromDB,
+	createShopSchedulesTable,
+	upsertShopSchedules,
+	getShopSchedules,
+	type ShopScheduleRow,
 } from "./sync/db";
 import { saveDeadStocks } from "./db/repositories/saveDeadStocks";
 import { sendDeadStocksToTelegram } from "../utils/sendDeadStocksToTelegram";
@@ -2931,26 +2935,38 @@ ${storesList}
 	})
 
 	// --- /api/evotor/settings/shop-schedules ---
+	// GET  ?shopId=... (опционально)
+	.get("/api/evotor/settings/shop-schedules", async (c) => {
+		try {
+			const db = c.get("db");
+			await createShopSchedulesTable(db);
+			const shopId = c.req.query("shopId");
+			const rows = await getShopSchedules(db, shopId || undefined);
+			return c.json({ ok: true, rows });
+		} catch (err) {
+			console.error("get shop-schedules error:", err);
+			return c.json({ ok: false, error: String(err) }, 500);
+		}
+	})
+	// POST  принимает { rows: ShopScheduleRow[] }
 	.post("/api/evotor/settings/shop-schedules", async (c) => {
 		try {
-			const body = await c.req.json<{ schedules: Record<string, any> }>();
 			const db = c.get("db");
+			await createShopSchedulesTable(db);
+			const body = await c.req.json<{ rows: ShopScheduleRow[] }>();
+			const rows = body.rows ?? [];
 
-			await db.prepare(
-				"CREATE TABLE IF NOT EXISTS shop_schedules (shop_uuid TEXT PRIMARY KEY, schedule TEXT NOT NULL)"
-			).run();
+			// Валидация: open_time < close_time для рабочих дней
+			const result = await upsertShopSchedules(db, rows);
 
-			const schedules = body.schedules ?? {};
-			for (const [shopUuid, schedule] of Object.entries(schedules)) {
-				await db.prepare(
-					"INSERT OR REPLACE INTO shop_schedules (shop_uuid, schedule) VALUES (?, ?)"
-				).bind(shopUuid, JSON.stringify(schedule)).run();
-			}
-
-			return c.json({ ok: true, count: Object.keys(schedules).length });
+			return c.json({
+				ok: result.ok,
+				count: rows.length,
+				errors: result.errors,
+			});
 		} catch (err) {
 			console.error("save shop-schedules error:", err);
-			return c.json({ ok: false }, 500);
+			return c.json({ ok: false, error: String(err) }, 500);
 		}
 	})
 

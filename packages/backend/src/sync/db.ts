@@ -646,3 +646,80 @@ export async function getSellerDailyMetrics(
     return [];
   }
 }
+
+// ============================================================================
+// Table: shop_schedules
+// ============================================================================
+
+export interface ShopScheduleRow {
+  shop_id: string;
+  weekday: number;       // 0=Вс, 1=Пн, 2=Вт, 3=Ср, 4=Чт, 5=Пт, 6=Сб
+  open_time: string;     // "HH:MM"
+  close_time: string;    // "HH:MM"
+  is_working_day: boolean;
+}
+
+export async function createShopSchedulesTable(db: D1Database): Promise<void> {
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS shop_schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        shop_id TEXT NOT NULL,
+        weekday INTEGER NOT NULL CHECK (weekday >= 0 AND weekday <= 6),
+        open_time TEXT NOT NULL DEFAULT '09:00',
+        close_time TEXT NOT NULL DEFAULT '21:00',
+        is_working_day INTEGER NOT NULL DEFAULT 1,
+        UNIQUE(shop_id, weekday)
+      )`,
+    )
+    .run();
+  console.log("Таблица 'shop_schedules' создана или уже существует.");
+}
+
+/** Сохранить расписание (массив записей) с валидацией open < close */
+export async function upsertShopSchedules(
+  db: D1Database,
+  rows: ShopScheduleRow[],
+): Promise<{ ok: boolean; errors: string[] }> {
+  const errors: string[] = [];
+  const valid: ShopScheduleRow[] = [];
+
+  for (const r of rows) {
+    if (r.is_working_day && r.open_time >= r.close_time) {
+      errors.push(
+        `shop=${r.shop_id} day=${r.weekday}: open (${r.open_time}) должно быть < close (${r.close_time})`,
+      );
+      continue;
+    }
+    valid.push(r);
+  }
+
+  if (valid.length > 0) {
+    const stmt = db.prepare(
+      `INSERT OR REPLACE INTO shop_schedules (shop_id, weekday, open_time, close_time, is_working_day)
+       VALUES (?, ?, ?, ?, ?)`,
+    );
+    const batch = valid.map((r) =>
+      stmt.bind(r.shop_id, r.weekday, r.open_time, r.close_time, r.is_working_day ? 1 : 0),
+    );
+    await db.batch(batch);
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+/** Получить расписание для магазина (или всех) */
+export async function getShopSchedules(
+  db: D1Database,
+  shopId?: string,
+): Promise<ShopScheduleRow[]> {
+  let sql = `SELECT shop_id, weekday, open_time, close_time, is_working_day FROM shop_schedules`;
+  const binds: any[] = [];
+  if (shopId) {
+    sql += ` WHERE shop_id = ?`;
+    binds.push(shopId);
+  }
+  sql += ` ORDER BY shop_id, weekday`;
+  const res = await db.prepare(sql).bind(...binds).all<ShopScheduleRow>();
+  return res.results ?? [];
+}

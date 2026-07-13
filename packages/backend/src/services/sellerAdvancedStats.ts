@@ -16,7 +16,7 @@
  */
 
 import type { D1Database } from "@cloudflare/workers-types";
-import { getSellerDailyMetrics } from "../sync/db";
+import { getSellerDailyMetrics, getShopSchedules, type ShopScheduleRow } from "../sync/db";
 import {
   avg,
   stddev,
@@ -120,6 +120,11 @@ interface SellerDNAProfile {
   revenuPerSquareMeter: number | null;
   serviceQuality: ServiceQuality;
   stability: StabilityMetrics;
+  /** Новые метрики дисциплины */
+  avgLateMinutes: number;       // среднее опоздание в минутах (по shop_schedules)
+  lateRate: number;             // % дней с опозданием > 0
+  onTimeRate: number;           // % дней без опозданий
+  firstCheckDelay: number | null; // среднее время от открытия по графику до первого чека (мин)
   strengths: string[];
   weaknesses: string[];
   dnaLabel: DNALabel;
@@ -524,16 +529,18 @@ function computeDNA(
     ? Math.round((m.daysWorked / maxDaysWorked) * 100)
     : 0;
   const attendanceScore = Math.min(100, relativeAttendance);
+  const disciplineScore = Math.max(0, 100 - m.lateRate * 3); // штраф 3 балла за каждый % опозданий
 
   m.overallScore = Math.round(
     revenueScore   * 0.15 +
     checkScore     * 0.15 +
-    accScore       * 0.15 +
-    deadTimeScore  * 0.10 +
+    accScore       * 0.12 +
+    deadTimeScore  * 0.08 +
     peakScore      * 0.10 +
-    trendScore     * 0.15 +
+    trendScore     * 0.12 +
     stabilityScore * 0.10 +
-    attendanceScore * 0.10,
+    attendanceScore * 0.08 +
+    disciplineScore * 0.10,
   );
 
   m.serviceQuality = {
@@ -562,6 +569,9 @@ function computeDNA(
   else if (m.stability.attendanceRate < 80)
     weaknesses.push("Низкая посещаемость");
   if (m.stability.lateOpenRate > 10) weaknesses.push("Частые опоздания");
+  if (m.avgLateMinutes > 15) weaknesses.push(`Среднее опоздание ${m.avgLateMinutes} мин`);
+  if (m.onTimeRate >= 95) strengths.push("Отличная пунктуальность");
+  if (m.firstCheckDelay != null && m.firstCheckDelay < 15) strengths.push("Быстрый старт смены");
   if (strengths.length === 0) strengths.push("Стабильные показатели");
   m.strengths = strengths;
   m.weaknesses = weaknesses;
@@ -1437,6 +1447,7 @@ async function finishBuilding(
 
   // Build day-session info
   const sellerDaySessions = new Map<string, Map<string, DaySession>>();
+  const sellerDayShop = new Map<string, Map<string, string>>(); // uuid → date → shop_id
   for (const [key, sessionList] of sessions) {
     const [uuid, date] = key.split("|");
     // Filter by weekday if specified
@@ -1453,6 +1464,12 @@ async function finishBuilding(
       ? minutesBetween(openTime, closeTime)
       : 480;
     dayMap.set(date, { openTime, closeTime, shiftMinutes });
+
+    // Запоминаем shop_id для этого seller-day (берём из первой сессии)
+    if (sessionList.length > 0 && sessionList[0].shop_id) {
+      if (!sellerDayShop.has(uuid)) sellerDayShop.set(uuid, new Map());
+      sellerDayShop.get(uuid)!.set(date, sessionList[0].shop_id);
+    }
   }
 
   // Build storeAvgHourly: prefer 4-week benchmark over calendar-day average
@@ -1475,6 +1492,24 @@ async function finishBuilding(
     storeHourAvg.set(p.hour, { revenue: p.revenue });
   }
 
+  // ===================== Shop schedules (for late_minutes) =====================
+  const scheduleRows = await getShopSchedules(db);
+  // shopId → weekday → expected open minute-of-day
+  const shopOpenByWeekday = new Map<string, Map<number, number>>();
+  for (const r of scheduleRows) {
+    if (!r.is_working_day) continue;
+    if (!shopOpenByWeekday.has(r.shop_id)) shopOpenByWeekday.set(r.shop_id, new Map());
+    const [oh, om] = r.open_time.split(":").map(Number);
+    shopOpenByWeekday.get(r.shop_id)!.set(r.weekday, oh * 60 + om);
+  }
+
+  /** Convert ISO timestamp to minute-of-day */
+  const timeToMinutes = (iso: string): number => {
+    const h = parseHour(iso);
+    const m = parseInt(iso.slice(14, 16), 10) || 0;
+    return h * 60 + m;
+  };
+
   const STORE_OPENING_HOUR = 10;
   const profiles: SellerDNAProfile[] = [];
 
@@ -1490,10 +1525,14 @@ async function finishBuilding(
     let totalAccRevenue = 0;
     let totalHours = 0;
     const daySessionMap = sellerDaySessions.get(uuid) ?? new Map();
+    const dayShopMap = sellerDayShop.get(uuid) ?? new Map();
     const dayFirstMap = new Map<string, string>(); // populated below if needed
 
     const daySessionsList: DaySession[] = [];
     let lateOpenCount = 0;
+    let totalLateMinutes = 0;
+    let totalFirstCheckDelay = 0;
+    let firstCheckDelayDays = 0;
 
     for (const day of sortedDays) {
       totalRevenue += day.revenue;
@@ -1508,11 +1547,35 @@ async function finishBuilding(
         totalHours += h;
         daySessionsList.push(ds);
 
-        if (ds.openTime) {
-          const openHour = parseHour(ds.openTime);
-          const openMin = parseInt(ds.openTime.slice(14, 16), 10);
-          const openTotalMin = openHour * 60 + openMin;
-          if (openTotalMin > STORE_OPENING_HOUR * 60 + 15) {
+        // --- Расчёт опоздания по shop_schedules ---
+        const shopId = dayShopMap.get(day.date) || day.store; // fallback: из daily-метрик
+        const dateWeekday = dayOfWeek(day.date); // 0=Sun..6=Sat → в БД: 0=Вс..6=Сб
+        const expectedOpen = shopId
+          ? shopOpenByWeekday.get(shopId)?.get(dateWeekday)
+          : undefined;
+
+        if (ds.openTime && expectedOpen != null) {
+          const actualMin = timeToMinutes(ds.openTime);
+          const lateMin = actualMin - expectedOpen;
+          if (lateMin > 0) {
+            lateOpenCount++;
+            totalLateMinutes += lateMin;
+          }
+
+          // First check delay: от ожидаемого открытия до первого чека
+          const firstCheckTs = dayFirstMap.get(day.date);
+          if (firstCheckTs) {
+            const firstCheckMin = timeToMinutes(firstCheckTs);
+            const delay = firstCheckMin - expectedOpen;
+            if (delay > 0) {
+              totalFirstCheckDelay += delay;
+              firstCheckDelayDays++;
+            }
+          }
+        } else if (ds.openTime) {
+          // Fallback: сравниваем с жёстким порогом STORE_OPENING_HOUR
+          const actualMin = timeToMinutes(ds.openTime);
+          if (actualMin > STORE_OPENING_HOUR * 60 + 15) {
             lateOpenCount++;
           }
         }
@@ -1579,6 +1642,13 @@ async function finishBuilding(
     const lateOpenRate = daysWorked > 0
       ? Math.round((lateOpenCount / daysWorked) * 100)
       : 0;
+    const avgLateMinutes = lateOpenCount > 0
+      ? Math.round(totalLateMinutes / lateOpenCount)
+      : 0;
+    const onTimeRate = 100 - lateOpenRate;
+    const firstCheckDelay: number | null = firstCheckDelayDays > 0
+      ? Math.round(totalFirstCheckDelay / firstCheckDelayDays)
+      : null;
 
     const profile: SellerDNAProfile = {
       uuid,
@@ -1601,6 +1671,10 @@ async function finishBuilding(
       revenuPerSquareMeter: null,
       serviceQuality: { avgCheckScore: 0, conversionScore: 0, liquidShareScore: 0, total: 0 },
       stability: { revenueCV, checkCV, attendanceRate, lateOpenRate },
+      avgLateMinutes,
+      lateRate: lateOpenRate,
+      onTimeRate,
+      firstCheckDelay,
       strengths: [],
       weaknesses: [],
       dnaLabel: "Стабильный",

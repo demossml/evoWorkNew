@@ -75,6 +75,11 @@ export interface SellerDNAProfile {
   revenuPerSquareMeter: number | null; // ₽/м² (если известна площадь)
   serviceQuality: ServiceQuality;
   stability: StabilityMetrics;
+  /** Дисциплина */
+  avgLateMinutes: number;       // среднее опоздание в минутах
+  lateRate: number;             // % дней с опозданием
+  onTimeRate: number;           // % дней без опозданий
+  firstCheckDelay: number | null; // среднее время до первого чека (мин)
   strengths: string[];      // ключевые сильные стороны (текст)
   weaknesses: string[];     // зоны роста (текст)
   dnaLabel: DNALabel;

@@ -48,6 +48,10 @@ interface InsightInput {
     attendanceRate: number;
     lateOpenRate: number;
   };
+  avgLateMinutes: number;
+  lateRate: number;
+  onTimeRate: number;
+  firstCheckDelay: number | null;
   strengths: string[];
   weaknesses: string[];
   dnaLabel: string;
@@ -202,9 +206,30 @@ function ruleBasedInsights(p: InsightInput): string[] {
 
   if (p.stability.lateOpenRate > 10) {
     insights.push(
-      `Дисциплина: опоздания при открытии смены — ${p.stability.lateOpenRate}% рабочих дней. ` +
+      `Дисциплина: опоздания при открытии смены — ${p.stability.lateOpenRate}% рабочих дней ` +
+      `(в среднем на ${p.avgLateMinutes} мин). ` +
       `Рекомендуется система штрафов или KPI с привязкой к пунктуальности.`,
     );
+  }
+
+  if (p.onTimeRate >= 95 && p.daysWorked >= 10) {
+    insights.push(
+      `Отличная пунктуальность: ${p.onTimeRate}% смен начаты вовремя. ` +
+      `Продавец задаёт стандарт дисциплины для команды.`,
+    );
+  }
+
+  if (p.firstCheckDelay != null) {
+    if (p.firstCheckDelay > 30) {
+      insights.push(
+        `Медленный старт: в среднем ${p.firstCheckDelay} мин до первого чека после открытия. ` +
+        `Рекомендуется подготовка рабочего места до открытия смены.`,
+      );
+    } else if (p.firstCheckDelay < 10) {
+      insights.push(
+        `Быстрый старт: первый чек в среднем через ${p.firstCheckDelay} мин после открытия — отличный показатель.`,
+      );
+    }
   }
 
   // Cap at 5
@@ -229,6 +254,9 @@ function buildSystemPrompt(comparison?: ComparisonContext): string {
 - rubPerHour — выручка в час. >2500 = высокая производительность.
 - revenueCV — коэффициент вариации дневной выручки (%). <30% = стабильно.
 - lateOpenRate — % дней с опозданием на открытие. >10% = проблема.
+- avgLateMinutes — среднее опоздание в минутах (только для дней с опозданием).
+- onTimeRate — % дней без опозданий. >95% = отлично.
+- firstCheckDelay — среднее время от открытия до первого чека (мин). <10 = отлично, >30 = проблема.
 - attendanceRate — % отработанных дней от календарных. >90% = отлично.`;
 
   if (hasComparison) {
@@ -292,6 +320,9 @@ function buildUserPrompt(p: InsightInput): string {
       checkCV: p.stability.checkCV,
       attendanceRate: p.stability.attendanceRate,
       lateOpenRate: p.stability.lateOpenRate,
+      avgLateMinutes: p.avgLateMinutes,
+      onTimeRate: p.onTimeRate,
+      firstCheckDelay: p.firstCheckDelay,
       strengths: p.strengths,
       weaknesses: p.weaknesses,
     },
