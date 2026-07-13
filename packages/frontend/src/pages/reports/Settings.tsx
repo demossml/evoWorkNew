@@ -3,11 +3,41 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { client } from "../../helpers/api";
 import { invalidateDashboardQueries } from "@shared/api";
+import { useGetShops } from "../../hooks/useApi";
 import {
   DEFAULT_ACCESSORY_SHARE_TARGET_PCT,
   getAccessoryShareTargetPct,
   setAccessoryShareTargetPct,
 } from "../../config/tempoSettings";
+
+const DAYS_OF_WEEK = [
+  { key: "mon", label: "Пн" },
+  { key: "tue", label: "Вт" },
+  { key: "wed", label: "Ср" },
+  { key: "thu", label: "Чт" },
+  { key: "fri", label: "Пт" },
+  { key: "sat", label: "Сб" },
+  { key: "sun", label: "Вс" },
+] as const;
+
+type DayKey = (typeof DAYS_OF_WEEK)[number]["key"];
+
+interface DaySchedule {
+  open: string;  // "HH:MM"
+  close: string; // "HH:MM"
+  working: boolean;
+}
+
+type ShopSchedule = Record<DayKey, DaySchedule>;
+
+interface ShopSchedulesData {
+  [shopUuid: string]: ShopSchedule;
+}
+
+const DEFAULT_DAY: DaySchedule = { open: "09:00", close: "21:00", working: true };
+const DEFAULT_SCHEDULE: ShopSchedule = Object.fromEntries(
+  DAYS_OF_WEEK.map((d) => [d.key, { ...DEFAULT_DAY }])
+) as ShopSchedule;
 
 interface GroupOption {
   uuid: string;
@@ -28,6 +58,28 @@ const Settings = () => {
 
   const [showGroups, setShowGroups] = useState(false);
   const [groupSearch, setGroupSearch] = useState("");
+
+  // --- Расписание магазинов ---
+  const { data: shopsData } = useGetShops();
+  const shops = shopsData?.shopsNameAndUuid ?? [];
+  const [schedules, setSchedules] = useState<ShopSchedulesData>({});
+  const [isSavingSchedules, setIsSavingSchedules] = useState(false);
+  const [schedulesMessage, setSchedulesMessage] = useState<string | null>(null);
+  const [schedulesLoaded, setSchedulesLoaded] = useState(false);
+
+  // Инициализация расписания при загрузке списка магазинов
+  useEffect(() => {
+    if (shops.length > 0 && !schedulesLoaded) {
+      setSchedules((prev) => {
+        const next: ShopSchedulesData = {};
+        for (const shop of shops) {
+          next[shop.uuid] = prev[shop.uuid] ?? { ...DEFAULT_SCHEDULE };
+        }
+        return next;
+      });
+      setSchedulesLoaded(true);
+    }
+  }, [shops, schedulesLoaded]);
   const [error, setError] = useState<string | null>(null);
   const [groupsMessage, setGroupsMessage] = useState<string | null>(null);
   const [salaryBonusMessage, setSalaryBonusMessage] = useState<string | null>(null);
@@ -168,6 +220,70 @@ const Settings = () => {
     const next = setAccessoryShareTargetPct(parsed);
     setAccessoryShareTargetInput(String(next));
     setTempoSettingsMessage(`Порог сохранен: ${next}%`);
+  };
+
+  // --- Расписание: обработчики ---
+
+  const updateSchedule = (
+    shopUuid: string,
+    day: DayKey,
+    patch: Partial<DaySchedule>
+  ) => {
+    setSchedules((prev) => ({
+      ...prev,
+      [shopUuid]: {
+        ...(prev[shopUuid] ?? DEFAULT_SCHEDULE),
+        [day]: {
+          ...(prev[shopUuid]?.[day] ?? DEFAULT_DAY),
+          ...patch,
+        },
+      },
+    }));
+  };
+
+  const copyDayToAll = (sourceShopUuid: string, sourceDay: DayKey) => {
+    const source = schedules[sourceShopUuid]?.[sourceDay] ?? DEFAULT_DAY;
+    setSchedules((prev) => {
+      const next: ShopSchedulesData = {};
+      for (const shop of shops) {
+        next[shop.uuid] = {
+          ...(prev[shop.uuid] ?? DEFAULT_SCHEDULE),
+          [sourceDay]: { ...source },
+        };
+      }
+      return next;
+    });
+  };
+
+  const applyFirstShopToAll = () => {
+    if (shops.length === 0) return;
+    const firstUuid = shops[0].uuid;
+    const template = schedules[firstUuid] ?? DEFAULT_SCHEDULE;
+    setSchedules((prev) => {
+      const next: ShopSchedulesData = {};
+      for (const shop of shops) {
+        next[shop.uuid] = { ...template };
+      }
+      return next;
+    });
+  };
+
+  const saveSchedules = async () => {
+    setSchedulesMessage(null);
+    setError(null);
+    setIsSavingSchedules(true);
+    try {
+      const response = await client.api.evotor.settings["shop-schedules"].$post({
+        json: { schedules },
+      } as any);
+      if (!response.ok) throw new Error(`Ошибка: ${response.status}`);
+      setSchedulesMessage("Расписание сохранено");
+    } catch (err) {
+      console.error(err);
+      setError("Не удалось сохранить расписание");
+    } finally {
+      setIsSavingSchedules(false);
+    }
   };
 
   return (
@@ -388,6 +504,166 @@ const Settings = () => {
           <div className="mt-2 text-sm text-green-700 dark:text-green-300">
             {groupsMessage}
           </div>
+        )}
+      </div>
+
+      {/* === Расписание магазинов === */}
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-border dark:bg-gray-800">
+        <h3 className="text-lg font-semibold mb-2">Расписание магазинов</h3>
+        <p className="text-sm text-muted-foreground mb-3">
+          Настройка времени открытия и закрытия по дням недели для каждого магазина.
+        </p>
+
+        {shops.length === 0 ? (
+          <div className="text-sm text-muted-foreground">Загрузка магазинов...</div>
+        ) : (
+          <>
+            {/* Кнопки управления */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <button
+                type="button"
+                onClick={applyFirstShopToAll}
+                className="py-1.5 px-3 rounded bg-gray-100 text-gray-700 text-sm hover:bg-muted dark:text-foreground dark:hover:bg-gray-600"
+              >
+                Применить ко всем магазинам (шаблон — первый)
+              </button>
+              <button
+                type="button"
+                onClick={saveSchedules}
+                disabled={isSavingSchedules}
+                className={`text-white py-1.5 px-4 rounded text-sm transition ${
+                  isSavingSchedules
+                    ? "bg-blue-300 cursor-not-allowed"
+                    : "bg-blue-500 hover:bg-primary/90"
+                }`}
+              >
+                {isSavingSchedules ? "Сохранение..." : "Сохранить"}
+              </button>
+            </div>
+
+            {/* Таблица */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-gray-700">
+                    <th className="border border-gray-300 dark:border-gray-600 p-2 text-left sticky left-0 bg-gray-50 dark:bg-gray-700 z-10">
+                      Магазин
+                    </th>
+                    {DAYS_OF_WEEK.map((day) => (
+                      <th
+                        key={day.key}
+                        className="border border-gray-300 dark:border-gray-600 p-2 text-center min-w-[120px]"
+                      >
+                        {day.label}
+                        {shops.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => copyDayToAll(shops[0].uuid, day.key)}
+                            className="ml-1 text-xs text-blue-500 hover:underline block"
+                            title={`Скопировать ${day.label} на все магазины`}
+                          >
+                            📋 всем
+                          </button>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {shops.map((shop) => {
+                    const shopSched = schedules[shop.uuid] ?? DEFAULT_SCHEDULE;
+                    return (
+                      <tr key={shop.uuid} className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                        <td className="border border-gray-300 dark:border-gray-600 p-2 font-medium sticky left-0 bg-white dark:bg-gray-800 z-10">
+                          {shop.name}
+                        </td>
+                        {DAYS_OF_WEEK.map((day) => {
+                          const d = shopSched[day.key] ?? DEFAULT_DAY;
+                          return (
+                            <td
+                              key={day.key}
+                              className="border border-gray-300 dark:border-gray-600 p-2 align-top"
+                            >
+                              <div className="flex flex-col gap-1">
+                                <label className="flex items-center gap-1 text-xs">
+                                  <input
+                                    type="checkbox"
+                                    checked={d.working}
+                                    onChange={(e) =>
+                                      updateSchedule(shop.uuid, day.key, {
+                                        working: e.target.checked,
+                                      })
+                                    }
+                                    className="mr-0.5"
+                                  />
+                                  Рабочий
+                                </label>
+                                {d.working && (
+                                  <>
+                                    <input
+                                      type="time"
+                                      value={d.open}
+                                      onChange={(e) =>
+                                        updateSchedule(shop.uuid, day.key, {
+                                          open: e.target.value,
+                                        })
+                                      }
+                                      className="border border-gray-300 dark:border-gray-600 dark:bg-background dark:text-foreground rounded px-1 py-0.5 text-xs w-full"
+                                      title="Открытие"
+                                    />
+                                    <input
+                                      type="time"
+                                      value={d.close}
+                                      onChange={(e) =>
+                                        updateSchedule(shop.uuid, day.key, {
+                                          close: e.target.value,
+                                        })
+                                      }
+                                      className="border border-gray-300 dark:border-gray-600 dark:bg-background dark:text-foreground rounded px-1 py-0.5 text-xs w-full"
+                                      title="Закрытие"
+                                    />
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {schedulesMessage && (
+              <div className="mt-2 text-sm text-green-700 dark:text-green-300">
+                {schedulesMessage}
+              </div>
+            )}
+
+            {/* Нижние кнопки */}
+            <div className="flex flex-wrap gap-2 mt-4">
+              <button
+                type="button"
+                onClick={applyFirstShopToAll}
+                className="py-1.5 px-3 rounded bg-gray-100 text-gray-700 text-sm hover:bg-muted dark:text-foreground dark:hover:bg-gray-600"
+              >
+                Применить ко всем магазинам
+              </button>
+              <button
+                type="button"
+                onClick={saveSchedules}
+                disabled={isSavingSchedules}
+                className={`text-white py-1.5 px-4 rounded text-sm transition ${
+                  isSavingSchedules
+                    ? "bg-blue-300 cursor-not-allowed"
+                    : "bg-blue-500 hover:bg-primary/90"
+                }`}
+              >
+                {isSavingSchedules ? "Сохранение..." : "Сохранить"}
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>

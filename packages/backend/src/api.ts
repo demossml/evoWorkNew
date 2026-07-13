@@ -2930,6 +2930,30 @@ ${storesList}
 		}
 	})
 
+	// --- /api/evotor/settings/shop-schedules ---
+	.post("/api/evotor/settings/shop-schedules", async (c) => {
+		try {
+			const body = await c.req.json<{ schedules: Record<string, any> }>();
+			const db = c.get("db");
+
+			await db.prepare(
+				"CREATE TABLE IF NOT EXISTS shop_schedules (shop_uuid TEXT PRIMARY KEY, schedule TEXT NOT NULL)"
+			).run();
+
+			const schedules = body.schedules ?? {};
+			for (const [shopUuid, schedule] of Object.entries(schedules)) {
+				await db.prepare(
+					"INSERT OR REPLACE INTO shop_schedules (shop_uuid, schedule) VALUES (?, ?)"
+				).bind(shopUuid, JSON.stringify(schedule)).run();
+			}
+
+			return c.json({ ok: true, count: Object.keys(schedules).length });
+		} catch (err) {
+			console.error("save shop-schedules error:", err);
+			return c.json({ ok: false }, 500);
+		}
+	})
+
 	// --- /api/evotor/accessoriesSales/:role/:userId ---
 	.post("/api/evotor/accessoriesSales/:role/:userId", async (c) => {
 		try {
