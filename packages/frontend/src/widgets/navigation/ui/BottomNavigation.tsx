@@ -74,12 +74,6 @@ const moreGroups: Array<{
     title: "Продажи",
     items: [
       {
-        to: "/evotor/sellers-analytics",
-        label: "Аналитика продавцов",
-        icon: Users,
-        roles: ["SUPERADMIN", "ADMIN"],
-      },
-      {
         to: "/evotor/period-comparison",
         label: "Сравнение периодов",
         icon: TrendingUp,
