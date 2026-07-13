@@ -54,6 +54,7 @@ import {
 	saveNewIndexDocuments,
 	getAveragePlan,
 	getOpenShopFromD1,
+	getSalesQuantityFromD1,
 	getSalesSumFromD1,
 	getShopNameFromD1,
 	saveOpenStorsTable,
@@ -742,18 +743,17 @@ export const api = new Hono<IEnv>()
 				} | null;
 			}
 
-			const db = c.get("db"); // Получаем подключение к базе данных
-			const queryDate = c.req.query("date"); // ?date=YYYY-MM-DD
+			const db = c.get("db");
+			const queryDate = c.req.query("date");
 			const newDate: Date = queryDate
 				? new Date(queryDate + "T12:00:00+03:00")
 				: new Date();
 			const datePlan: string = formatDate(newDate);
-			let salesData: SalesData = {};
+			const salesData: SalesData = {};
 
-			const since = formatDateWithTime(newDate, false); // Начало дня
-			const until = formatDateWithTime(newDate, true); // Конец дня
+			const since = formatDateWithTime(newDate, false);
+			const until = formatDateWithTime(newDate, true);
 
-			// Создаем таблицу, если она не существует
 			await createPlanTable(db);
 
 			const groupIdsVape: string[] = [
@@ -768,66 +768,76 @@ export const api = new Hono<IEnv>()
 				"568905be-9460-11ee-9ef4-be8fe126e7b9",
 			];
 
-			// Получение всех UUID продуктов
-			const productUuids = await getUuidsByParentUuidList(db, groupIdsVape);
+			// Получаем список магазинов из D1
+			const shopsResult = await db.prepare(
+				"SELECT uuid, name FROM shops"
+			).all<{ uuid: string; name: string }>();
+			const shops = shopsResult.results ?? [];
 
-			// Получение плана продаж
-			const plan = await getPlan(datePlan, db);
-			let datPlan: Record<string, number> = {};
+			// === План: получаем из таблицы plan, если нет/заглушка — считаем из D1 продаж ===
+			let planMap = await getPlan(datePlan, db);
+			const allSame = planMap && Object.keys(planMap).length > 1 &&
+				new Set(Object.values(planMap)).size === 1;
 
-			if (!plan) {
-				console.log("План не найден, генерируем новый...");
-				datPlan = await c.var.evotor.getPlan(newDate, productUuids);
-				await updatePlan(datPlan, datePlan, db);
-			} else {
-				datPlan = plan;
-			}
-
-			// Получение списка магазинов
-			const shopUuids: string[] = await c.var.evotor.getShopUuids();
-			salesData = {};
-
-			// Сбор данных продаж для каждого магазина
-			for (const shopId of shopUuids) {
-				try {
-					// Получение UUID продуктов для магазина
-					const shopProductUuids: string[] = await getProductsByGroup(
-						c.get("db"),
-						shopId,
-						groupIdsVape,
-					);
-
-					// Получение названия магазина
-					const shopName = await c.var.evotor.getShopName(shopId);
-
-					// Получение данных продаж и количества проданных товаров
-					const [sumSalesData, podQuantity] = await Promise.all([
-						c.var.evotor.getSalesSum(shopId, since, until, shopProductUuids),
-						c.var.evotor.getSalesSumQuantity(
-							shopId,
-							since,
-							until,
-							shopProductUuids,
-						),
-					]);
-
-					// Формирование данных для магазина
-					salesData[shopName] = {
-						datePlan: datPlan[shopId] || 0, // План на день
-						dataSales: sumSalesData || 0, // Сумма продаж
-						dataQuantity: podQuantity || {}, // Количество проданных товаров
-					};
-				} catch (err) {
-					console.error(`Ошибка при обработке магазина ${shopId}:`, err);
+			if (!planMap || Object.keys(planMap).length === 0 || allSame) {
+				if (allSame) {
+					console.warn(`[plan-for-today] Все магазины имеют одинаковый план ${Object.values(planMap!)[0]} — пересчитываем`);
+				} else {
+					console.log(`[plan-for-today] План не найден, считаем из D1 продаж`);
+				}
+				// Пересчитываем план для ВСЕХ магазинов
+				const newPlan: Record<string, number> = {};
+				for (const shop of shops) {
+					const avgPlan = await getAveragePlan(db, shop.uuid, datePlan);
+					if (avgPlan > 0) {
+						newPlan[shop.uuid] = avgPlan;
+					}
+				}
+				if (Object.keys(newPlan).length > 0) {
+					await updatePlan(newPlan, datePlan, db);
+					planMap = newPlan;
 				}
 			}
 
-			// Проверка на наличие данных
+			// Для каждого магазина: продажи из index_documents
+			for (const shop of shops) {
+				try {
+					const shopProductUuids: string[] = await getProductsByGroup(
+						db,
+						shop.uuid,
+						groupIdsVape,
+					);
+
+					let currentPlan = planMap?.[shop.uuid] ?? 0;
+
+					// Если для конкретного магазина план = 0 — досчитываем
+					if (currentPlan <= 0) {
+						const avgPlan = await getAveragePlan(db, shop.uuid, datePlan);
+						if (avgPlan > 0) {
+							currentPlan = avgPlan;
+							await updatePlan({ [shop.uuid]: avgPlan }, datePlan, db);
+						}
+					}
+
+					const [sumSalesData, podQuantity] = await Promise.all([
+						getSalesSumFromD1(db, shop.uuid, since, until, shopProductUuids),
+						getSalesQuantityFromD1(db, shop.uuid, since, until, shopProductUuids),
+					]);
+
+					salesData[shop.name] = {
+						datePlan: currentPlan,
+						dataSales: sumSalesData || 0,
+						dataQuantity: podQuantity && Object.keys(podQuantity).length > 0 ? podQuantity : null,
+					};
+				} catch (err) {
+					console.error(`Ошибка при обработке магазина ${shop.uuid}:`, err);
+				}
+			}
+
 			if (Object.keys(salesData).length === 0) {
 				throw new Error("Не удалось получить данные продаж.");
 			}
 
-			// console.log("Данные продаж успешно сформированы:", salesData);
 			return c.json({ salesData });
 		} catch (err) {
 			console.error("Ошибка при обработке запроса:", err);

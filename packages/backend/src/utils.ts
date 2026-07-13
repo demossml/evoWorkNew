@@ -765,6 +765,10 @@ export async function getOpenShopFromD1(
 	employeeUuid: string,
 	date: string,
 ): Promise<string | null> {
+	// Конвертируем date из DD-MM-YYYY в YYYY-MM-DD для SQLite
+	const dateISO = date.length === 10 && date[2] === '-'
+		? `${date.slice(6, 10)}-${date.slice(3, 5)}-${date.slice(0, 2)}`
+		: date;
 	const row = await db.prepare(`
 		SELECT shop_id
 		FROM index_documents
@@ -773,8 +777,8 @@ export async function getOpenShopFromD1(
 		ORDER BY close_date ASC
 		LIMIT 1
 	`).bind(
-		`${date}T00:00:00`,
-		`${date}T23:59:59`,
+		`${dateISO}T00:00:00`,
+		`${dateISO}T23:59:59`,
 		`%${employeeUuid}%`,
 	).first<{ shop_id: string }>();
 	return row?.shop_id || null;
@@ -819,6 +823,49 @@ export async function getSalesSumFromD1(
 }
 
 /**
+ * Получить количество проданных товаров (по именам) из D1 для магазина за период.
+ * Фильтрует по списку productUuids.
+ */
+export async function getSalesQuantityFromD1(
+	db: D1Database,
+	shopUuid: string,
+	since: string,
+	until: string,
+	productUuids: string[],
+): Promise<Record<string, number>> {
+	const qty: Record<string, number> = {};
+	if (productUuids.length === 0) return qty;
+	const uuidSet = new Set(productUuids);
+
+	const docs = await db.prepare(`
+		SELECT type, transactions
+		FROM index_documents
+		WHERE shop_id = ?1
+		  AND close_date >= ?2 AND close_date <= ?3
+		  AND type IN ('SELL', 'PAYBACK')
+	`).bind(shopUuid, since, until).all<{ type: string; transactions: string }>();
+
+	for (const doc of docs.results ?? []) {
+		let txs: any[];
+		try { txs = JSON.parse(doc.transactions); } catch { continue; }
+		if (!Array.isArray(txs)) continue;
+		for (const tx of txs) {
+			if (tx.type !== "REGISTER_POSITION") continue;
+			const uuid = tx.commodityUuid || tx.commodityName;
+			if (!uuid || !uuidSet.has(uuid)) continue;
+			const name = tx.commodityName || tx.name || uuid;
+			const count = (tx.quantity ?? tx.count ?? 1);
+			qty[name] = (qty[name] || 0) + (doc.type === "SELL" ? count : -count);
+		}
+	}
+	// Убираем отрицательные и нулевые
+	for (const k of Object.keys(qty)) {
+		if (qty[k] <= 0) delete qty[k];
+	}
+	return qty;
+}
+
+/**
  * Вычисляет план на основе РЕАЛЬНЫХ продаж из index_documents.
  * Не использует Evotor API — только данные из D1.
  *
@@ -835,6 +882,11 @@ export async function getAveragePlan(
 	date: string,
 ): Promise<number> {
 	try {
+		// Конвертируем date из DD-MM-YYYY в YYYY-MM-DD для SQLite
+		const dateISO = date.length === 10 && date[2] === '-'
+			? `${date.slice(6, 10)}-${date.slice(3, 5)}-${date.slice(0, 2)}`
+			: date;
+
 		// Ищем документы за такие же дни недели (4→8→12 недель)
 		for (const weeksBack of [4, 8, 12]) {
 			const query = `
@@ -846,7 +898,7 @@ export async function getAveragePlan(
 				  AND type IN ('SELL', 'PAYBACK')
 				ORDER BY close_date DESC
 			`;
-			const result = await db.prepare(query).bind(shopUuid, date).all<{
+			const result = await db.prepare(query).bind(shopUuid, dateISO).all<{
 				close_date: string;
 				type: string;
 				transactions: string;
@@ -860,7 +912,9 @@ export async function getAveragePlan(
 				let txs: any[];
 				try { txs = JSON.parse(doc.transactions); } catch { continue; }
 				if (!Array.isArray(txs)) continue;
-				const daySum = txs.reduce((s: number, tx: any) => s + (tx.sum ?? 0), 0);
+				const daySum = txs
+					.filter((tx: any) => tx.type === 'REGISTER_POSITION')
+					.reduce((s: number, tx: any) => s + (tx.sum ?? 0), 0);
 				const current = dailyNet.get(day) ?? 0;
 				dailyNet.set(day, doc.type === 'SELL' ? current + daySum : current - daySum);
 			}
@@ -887,7 +941,7 @@ export async function getAveragePlan(
 			  AND type IN ('SELL', 'PAYBACK')
 			ORDER BY close_date DESC
 		`;
-		const fbResult = await db.prepare(fbQuery).bind(shopUuid, date).all<{
+		const fbResult = await db.prepare(fbQuery).bind(shopUuid, dateISO).all<{
 			close_date: string;
 			type: string;
 			transactions: string;
@@ -901,7 +955,9 @@ export async function getAveragePlan(
 			let txs: any[];
 			try { txs = JSON.parse(doc.transactions); } catch { continue; }
 			if (!Array.isArray(txs)) continue;
-			const daySum = txs.reduce((s: number, tx: any) => s + (tx.sum ?? 0), 0);
+			const daySum = txs
+				.filter((tx: any) => tx.type === 'REGISTER_POSITION')
+				.reduce((s: number, tx: any) => s + (tx.sum ?? 0), 0);
 			const current = dailyNet.get(day) ?? 0;
 			dailyNet.set(day, doc.type === 'SELL' ? current + daySum : current - daySum);
 		}
