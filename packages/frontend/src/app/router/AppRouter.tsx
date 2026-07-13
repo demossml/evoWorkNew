@@ -57,10 +57,10 @@ export function AppRouter() {
         <Route path="/evotor/dead-stock" element={<DeadStocks />} />
         <Route path="/evotor/period-comparison" element={<PeriodComparison />} />
         <Route path="/evotor/seller-performance" element={<Navigate to="/evotor/seller-dna" replace />} />
-        <Route path="/evotor/sellers-analytics" element={<SellersAnalytics />} />
+        <Route path="/evotor/sellers-analytics" element={<SellerDnaPage />} />
         <Route path="/evotor/product-performance" element={<Navigate to="/evotor/product-analysis" replace />} />
         <Route path="/evotor/store-performance" element={<Navigate to="/evotor/store-analysis" replace />} />
-        <Route path="/evotor/seller-dna" element={<SellerDnaPage />} />
+        <Route path="/evotor/seller-dna" element={<SellersAnalytics />} />
         <Route path="/evotor/product-analysis" element={<ProductAnalysisPage />} />
         <Route path="/evotor/store-analysis" element={<StoreAnalysisPage />} />
         <Route path="/evotor/analytics" element={<AnalyticsPage />} />
