@@ -126,8 +126,20 @@ const moreGroups: Array<{
     items: [
       {
         to: "/evotor/seller-dna",
-        label: "Seller DNA",
-        icon: TrendingUp,
+        label: "Продавцы",
+        icon: Users,
+        roles: ["SUPERADMIN"],
+      },
+      {
+        to: "/evotor/product-analysis",
+        label: "Товары",
+        icon: Boxes,
+        roles: ["SUPERADMIN"],
+      },
+      {
+        to: "/evotor/store-analysis",
+        label: "Магазины",
+        icon: Store,
         roles: ["SUPERADMIN"],
       },
     ],

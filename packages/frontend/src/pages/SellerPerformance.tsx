@@ -1170,11 +1170,6 @@ export default function SellerPerformancePage({ embedded, period: externalPeriod
             </div>
           </div>
 
-          <div className="flex gap-1.5 mt-1.5">
-            <button className="px-2.5 py-1 text-xs rounded-md font-medium bg-primary text-primary-foreground">Продавцы</button>
-            <button onClick={() => navigate("/evotor/product-performance")} className="px-2.5 py-1 text-xs rounded-md font-medium text-muted-foreground hover:bg-muted">Товары</button>
-            <button onClick={() => navigate("/evotor/store-performance")} className="px-2.5 py-1 text-xs rounded-md font-medium text-muted-foreground hover:bg-muted">Магазины</button>
-          </div>
           <div className="flex gap-1.5 mt-1.5 flex-wrap">
             {[30, 60, 90].map(d => (
               <button
