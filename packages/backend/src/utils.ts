@@ -744,15 +744,15 @@ export async function getPlan(
 }
 
 /**
- * Вычисляет план как среднее продаж за такие же дни недели + 5%.
- * Используется как fallback, когда план на день = 0.
+ * Вычисляет план на основе РЕАЛЬНЫХ продаж из index_documents.
+ * Не использует Evotor API — только данные из D1.
  *
  * Алгоритм:
  * 1. Ищем 4 прошлых таких же дня недели
- * 2. Если нашли < 2 — расширяем до 8 недель
- * 3. Если всё ещё < 2 — расширяем до 12 недель
- * 4. Если всё ещё < 2 — берём любые 4 последних дня (без учёта дня недели)
- * 5. Если данных нет совсем — возвращаем 0
+ * 2. Суммируем SELL - PAYBACK по дням для указанного магазина
+ * 3. Если нашли < 2 дней с продажами — расширяем до 8 → 12 недель
+ * 4. Если всё ещё < 2 — берём любые 4 последних дня
+ * 5. Среднее арифметическое + 5% = план
  */
 export async function getAveragePlan(
 	db: D1Database,
@@ -760,50 +760,86 @@ export async function getAveragePlan(
 	date: string,
 ): Promise<number> {
 	try {
-		let rows: { sum: number }[] = [];
-
-		// Пробуем 4 → 8 → 12 недель для того же дня недели
-		for (const limit of [4, 8, 12]) {
+		// Ищем документы за такие же дни недели (4→8→12 недель)
+		for (const weeksBack of [4, 8, 12]) {
 			const query = `
-				SELECT sum
-				FROM plan
-				WHERE shopUuid = ?1
-				  AND date < ?2
-				  AND CAST(strftime('%w', date) AS INTEGER) = CAST(strftime('%w', ?2) AS INTEGER)
-				  AND sum > 0
-				ORDER BY date DESC
-				LIMIT ${limit}
+				SELECT close_date, type, transactions
+				FROM index_documents
+				WHERE shop_id = ?1
+				  AND close_date < ?2
+				  AND CAST(strftime('%w', close_date) AS INTEGER) = CAST(strftime('%w', ?2) AS INTEGER)
+				  AND type IN ('SELL', 'PAYBACK')
+				ORDER BY close_date DESC
 			`;
-			const result = await db.prepare(query).bind(shopUuid, date).all<{ sum: number }>();
-			rows = result.results ?? [];
-			if (rows.length >= 2) break; // Достаточно данных
-			console.warn(`[getAveragePlan] тот же день недели за ${limit} нед: найдено ${rows.length} (нужно ≥2), расширяем...`);
+			const result = await db.prepare(query).bind(shopUuid, date).all<{
+				close_date: string;
+				type: string;
+				transactions: string;
+			}>();
+			const docs = result.results ?? [];
+
+			// Группируем по дням: день → net (SELL - PAYBACK)
+			const dailyNet = new Map<string, number>();
+			for (const doc of docs) {
+				const day = doc.close_date.slice(0, 10);
+				let txs: any[];
+				try { txs = JSON.parse(doc.transactions); } catch { continue; }
+				if (!Array.isArray(txs)) continue;
+				const daySum = txs.reduce((s: number, tx: any) => s + (tx.sum ?? 0), 0);
+				const current = dailyNet.get(day) ?? 0;
+				dailyNet.set(day, doc.type === 'SELL' ? current + daySum : current - daySum);
+			}
+
+			// Оставляем только дни с положительными продажами
+			const values = [...dailyNet.values()].filter(v => v > 0);
+
+			if (values.length >= 2) {
+				const avg = Math.round(values.reduce((s, v) => s + v, 0) / values.length);
+				const plan = Math.round(avg * 1.05);
+				console.log(`[getAveragePlan] shop=${shopUuid} date=${date}: ${values.length} таких же дней недели за ${weeksBack} нед, средние продажи = ${avg}, план (+5%) = ${plan}`);
+				return plan;
+			}
+			console.warn(`[getAveragePlan] тот же день недели за ${weeksBack} нед: найдено ${values.length} дней с продажами (нужно ≥2), расширяем...`);
 		}
 
-		// Если всё ещё мало — берём любые 4 дня без учёта дня недели
-		if (rows.length < 2) {
-			console.warn(`[getAveragePlan] недостаточно данных за тот же день недели, берём любые последние 4 дня`);
-			const fallbackQuery = `
-				SELECT sum
-				FROM plan
-				WHERE shopUuid = ?1
-				  AND date < ?2
-				  AND sum > 0
-				ORDER BY date DESC
-				LIMIT 4
-			`;
-			const fb = await db.prepare(fallbackQuery).bind(shopUuid, date).all<{ sum: number }>();
-			rows = fb.results ?? [];
+		// Fallback: любые 4 последних дня с продажами
+		console.warn(`[getAveragePlan] недостаточно данных за тот же день недели, берём любые последние дни`);
+		const fbQuery = `
+			SELECT close_date, type, transactions
+			FROM index_documents
+			WHERE shop_id = ?1
+			  AND close_date < ?2
+			  AND type IN ('SELL', 'PAYBACK')
+			ORDER BY close_date DESC
+		`;
+		const fbResult = await db.prepare(fbQuery).bind(shopUuid, date).all<{
+			close_date: string;
+			type: string;
+			transactions: string;
+		}>();
+		const fbDocs = fbResult.results ?? [];
+
+		const dailyNet = new Map<string, number>();
+		for (const doc of fbDocs) {
+			const day = doc.close_date.slice(0, 10);
+			if (dailyNet.size >= 4 && !dailyNet.has(day)) continue; // хватит 4 дней
+			let txs: any[];
+			try { txs = JSON.parse(doc.transactions); } catch { continue; }
+			if (!Array.isArray(txs)) continue;
+			const daySum = txs.reduce((s: number, tx: any) => s + (tx.sum ?? 0), 0);
+			const current = dailyNet.get(day) ?? 0;
+			dailyNet.set(day, doc.type === 'SELL' ? current + daySum : current - daySum);
 		}
 
-		if (rows.length === 0) {
-			console.warn(`[getAveragePlan] shop=${shopUuid} date=${date}: нет исторических данных — план = 0`);
+		const values = [...dailyNet.values()].filter(v => v > 0);
+		if (values.length === 0) {
+			console.warn(`[getAveragePlan] shop=${shopUuid} date=${date}: нет исторических продаж — план = 0`);
 			return 0;
 		}
 
-		const avg = Math.round(rows.reduce((s, r) => s + r.sum, 0) / rows.length);
+		const avg = Math.round(values.reduce((s, v) => s + v, 0) / values.length);
 		const plan = Math.round(avg * 1.05);
-		console.log(`[getAveragePlan] shop=${shopUuid} date=${date}: среднее за ${rows.length} дней = ${avg}, план (+5%) = ${plan}`);
+		console.log(`[getAveragePlan] shop=${shopUuid} date=${date}: среднее за ${values.length} любых дней = ${avg}, план (+5%) = ${plan}`);
 		return plan;
 	} catch (err) {
 		console.error("getAveragePlan error:", err);

@@ -975,23 +975,35 @@ export const api = new Hono<IEnv>()
 
 					// Зарплатные данные всегда считаем заново (кеш отключён)
 					{
+						// План — только из базы, Evotor не используем
 						let plan = await getPlan(datePlan, db);
-						if (!plan || Object.keys(plan).length === 0) {
-							plan = await c.var.evotor.getPlan(date, productUuidsVape);
-							await updatePlan(plan, datePlan, db);
+
+						// Проверяем, не заглушка ли это (все магазины имеют одинаковый план = подозрительно)
+						const allSame = plan && Object.keys(plan).length > 1 &&
+							new Set(Object.values(plan)).size === 1;
+
+						if (!plan || Object.keys(plan).length === 0 || allSame) {
+							if (allSame) {
+								console.warn(`[plan] Все магазины имеют одинаковый план ${Object.values(plan)[0]} — считаем по продажам`);
+							}
+							// Считаем план из реальных продаж в index_documents
+							const avgPlan = await getAveragePlan(db, openShopUuid, datePlan);
+							if (avgPlan > 0) {
+								plan = { [openShopUuid]: avgPlan };
+								await updatePlan(plan, datePlan, db);
+							}
 						}
 
-						let currentPlan = Number.isFinite(plan[openShopUuid])
+						let currentPlan = Number.isFinite(plan?.[openShopUuid])
 							? plan[openShopUuid]
 							: 0;
 
-						// Если план = 0 — считаем по 4 таким же дням недели +5%
+						// Если план = 0 — считаем по продажам
 						if (currentPlan <= 0) {
 							const avgPlan = await getAveragePlan(db, openShopUuid, datePlan);
 							if (avgPlan > 0) {
 								currentPlan = avgPlan;
-								plan[openShopUuid] = avgPlan;
-								await updatePlan(plan, datePlan, db);
+								await updatePlan({ [openShopUuid]: avgPlan }, datePlan, db);
 							}
 						}
 
