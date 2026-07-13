@@ -788,7 +788,12 @@ export const api = new Hono<IEnv>()
 				// Пересчитываем план для ВСЕХ магазинов
 				const newPlan: Record<string, number> = {};
 				for (const shop of shops) {
-					const avgPlan = await getAveragePlan(db, shop.uuid, datePlan);
+					const shopProductUuids: string[] = await getProductsByGroup(
+						db,
+						shop.uuid,
+						groupIdsVape,
+					);
+					const avgPlan = await getAveragePlan(db, shop.uuid, datePlan, shopProductUuids);
 					if (avgPlan > 0) {
 						newPlan[shop.uuid] = avgPlan;
 					}
@@ -812,7 +817,7 @@ export const api = new Hono<IEnv>()
 
 					// Если для конкретного магазина план = 0 — досчитываем
 					if (currentPlan <= 0) {
-						const avgPlan = await getAveragePlan(db, shop.uuid, datePlan);
+						const avgPlan = await getAveragePlan(db, shop.uuid, datePlan, shopProductUuids);
 						if (avgPlan > 0) {
 							currentPlan = avgPlan;
 							await updatePlan({ [shop.uuid]: avgPlan }, datePlan, db);
@@ -988,6 +993,13 @@ export const api = new Hono<IEnv>()
 
 					// Зарплатные данные всегда считаем заново (кеш отключён)
 					{
+						// Получаем UUID вейпов заранее — нужны для расчёта плана
+						const productsVape = await getProductsByGroup(
+							db,
+							openShopUuid,
+							groupIdsVape,
+						);
+
 						// План — только из базы, Evotor не используем
 						let plan = await getPlan(datePlan, db);
 
@@ -1000,7 +1012,7 @@ export const api = new Hono<IEnv>()
 								console.warn(`[plan] Все магазины имеют одинаковый план ${Object.values(plan)[0]} — считаем по продажам`);
 							}
 							// Считаем план из реальных продаж в index_documents
-							const avgPlan = await getAveragePlan(db, openShopUuid, datePlan);
+							const avgPlan = await getAveragePlan(db, openShopUuid, datePlan, productsVape);
 							if (avgPlan > 0) {
 								plan = { [openShopUuid]: avgPlan };
 								await updatePlan(plan, datePlan, db);
@@ -1013,7 +1025,7 @@ export const api = new Hono<IEnv>()
 
 						// Если план = 0 — считаем по продажам
 						if (currentPlan <= 0) {
-							const avgPlan = await getAveragePlan(db, openShopUuid, datePlan);
+							const avgPlan = await getAveragePlan(db, openShopUuid, datePlan, productsVape);
 							if (avgPlan > 0) {
 								currentPlan = avgPlan;
 								await updatePlan({ [openShopUuid]: avgPlan }, datePlan, db);
@@ -1034,11 +1046,6 @@ export const api = new Hono<IEnv>()
 						);
 						const bonusAccessories = Math.floor(salesDataAks * 0.05);
 
-						const productsVape = await getProductsByGroup(
-							db,
-							openShopUuid,
-							groupIdsVape,
-						);
 						const salesDataVape = await getSalesSumFromD1(
 							db,
 							openShopUuid,
