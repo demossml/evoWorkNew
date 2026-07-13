@@ -516,13 +516,86 @@ export function SellerDetailView({ seller, onBack, onCompare, insights = [], use
           <MetricTile
             icon={<Clock className="w-3 h-3" />}
             label="Опоздания"
-            value={`${seller.stability.lateOpenRate}%`}
+            value={`${seller.lateRate}%`}
             sub={
-              seller.stability.lateOpenRate > 10 ? (
-                <span className="text-destructive text-xs">⚠️ Частые</span>
-              ) : undefined
+              seller.lateRate > 10 ? (
+                <span className="text-destructive text-xs">⚠️ {seller.avgLateMinutes} мин ср.</span>
+              ) : seller.lateRate > 0 ? (
+                <span className="text-muted-foreground text-xs">{seller.avgLateMinutes} мин ср.</span>
+              ) : (
+                <span className="text-success text-xs">Без опозданий</span>
+              )
             }
           />
+        </div>
+      </div>
+
+      {/* Дисциплина смен */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-3 py-2 border-b border-border">
+          <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+            Дисциплина смен
+          </h4>
+        </div>
+        <div className="p-3 space-y-3">
+          {/* Метрики дисциплины */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="bg-muted/50 rounded-lg p-2.5 text-center">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Опоздания</div>
+              <div className={`text-lg font-bold tabular-nums ${seller.lateRate > 10 ? 'text-destructive' : 'text-foreground'}`}>
+                {seller.lateRate}%
+              </div>
+              <div className="text-[10px] text-muted-foreground">{seller.avgLateMinutes} мин в среднем</div>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-2.5 text-center">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Пунктуальность</div>
+              <div className={`text-lg font-bold tabular-nums ${seller.onTimeRate >= 95 ? 'text-success' : seller.onTimeRate >= 80 ? 'text-warning' : 'text-destructive'}`}>
+                {seller.onTimeRate}%
+              </div>
+              <div className="text-[10px] text-muted-foreground">смен без опозданий</div>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-2.5 text-center">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Старт смены</div>
+              <div className={`text-lg font-bold tabular-nums ${(seller.firstCheckDelay ?? 999) > 30 ? 'text-destructive' : 'text-success'}`}>
+                {seller.firstCheckDelay != null ? `${seller.firstCheckDelay}м` : '—'}
+              </div>
+              <div className="text-[10px] text-muted-foreground">до первого чека</div>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-2.5 text-center">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Посещаемость</div>
+              <div className={`text-lg font-bold tabular-nums ${seller.stability.attendanceRate >= 90 ? 'text-success' : 'text-foreground'}`}>
+                {seller.stability.attendanceRate}%
+              </div>
+              <div className="text-[10px] text-muted-foreground">от календарных дней</div>
+            </div>
+          </div>
+
+          {/* График: полоса пунктуальности */}
+          <div className="bg-muted/50 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                Пунктуальность открытия смен
+              </span>
+              <span className="text-[10px] font-medium text-foreground">
+                {seller.onTimeRate}% вовремя
+              </span>
+            </div>
+            <div className="h-3 bg-muted rounded-full overflow-hidden flex">
+              <div
+                className="h-full bg-success rounded-l-full transition-all duration-700"
+                style={{ width: `${seller.onTimeRate}%` }}
+              />
+              <div
+                className="h-full bg-destructive/70 rounded-r-full transition-all duration-700"
+                style={{ width: `${seller.lateRate}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-1 text-[9px] text-muted-foreground">
+              <span>{seller.onTimeRate}% без опозданий</span>
+              <span>{seller.lateRate}% с опозданием</span>
+            </div>
+          </div>
         </div>
       </div>
 

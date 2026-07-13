@@ -507,6 +507,12 @@ function AIComparisonSummary({ sellers }: { sellers: SellerDNAProfile[] }) {
   const worst = sellers.reduce((a, b) =>
     a.overallScore < b.overallScore ? a : b
   );
+  const worstLate = sellers.reduce((a, b) =>
+    a.lateRate > b.lateRate ? a : b
+  );
+  const bestOnTime = sellers.reduce((a, b) =>
+    a.onTimeRate > b.onTimeRate ? a : b
+  );
 
   return (
     <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
@@ -531,6 +537,17 @@ function AIComparisonSummary({ sellers }: { sellers: SellerDNAProfile[] }) {
           {worst.overallScore}/100. Ключевые зоны роста:{" "}
           {worst.weaknesses.slice(0, 2).join(", ").toLowerCase()}.
         </li>
+        {worstLate.lateRate > 10 && (
+          <li className="text-xs text-foreground flex items-start gap-1.5">
+            <span className="text-destructive mt-0.5 shrink-0">•</span>
+            <strong>{worstLate.name.split(" ")[0]}</strong>: частые опоздания —{" "}
+            <span className="text-destructive font-medium">{worstLate.lateRate}% смен</span>{" "}
+            (в среднем на {worstLate.avgLateMinutes} мин).{" "}
+            {bestOnTime.uuid !== worstLate.uuid
+              ? `Для сравнения: ${bestOnTime.name.split(" ")[0]} — ${bestOnTime.onTimeRate}% вовремя.`
+              : ""}
+          </li>
+        )}
         <li className="text-xs text-foreground flex items-start gap-1.5">
           <span className="text-primary mt-0.5 shrink-0">•</span>
           Разброс по среднему чеку: от{" "}

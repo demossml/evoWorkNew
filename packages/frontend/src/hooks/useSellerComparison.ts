@@ -47,6 +47,8 @@ const METRIC_DEFS: {
   { path: "stability.checkCV", label: "CV \u0447\u0435\u043A\u0430", format: (v) => `${v}%`, lowerBetter: true },
   { path: "stability.attendanceRate", label: "\u041F\u043E\u0441\u0435\u0449\u0430\u0435\u043C\u043E\u0441\u0442\u044C", format: (v) => `${v}%` },
   { path: "stability.lateOpenRate", label: "\u041E\u043F\u043E\u0437\u0434\u0430\u043D\u0438\u044F", format: (v) => `${v}%`, lowerBetter: true },
+  { path: "avgLateMinutes", label: "\u0421\u0440\u0435\u0434\u043D\u0435\u0435 \u043E\u043F\u043E\u0437\u0434\u0430\u043D\u0438\u0435", format: (v) => `${v} \u043C\u0438\u043D`, lowerBetter: true },
+  { path: "onTimeRate", label: "\u041F\u0443\u043D\u043A\u0442\u0443\u0430\u043B\u044C\u043D\u043E\u0441\u0442\u044C", format: (v) => `${v}%` },
   { path: "totalRevenue", label: "\u0412\u044B\u0440\u0443\u0447\u043A\u0430 \u0437\u0430 \u043F\u0435\u0440\u0438\u043E\u0434", format: (v) => `${formatMoney(v)}\u20BD` },
   { path: "daysWorked", label: "\u041E\u0442\u0440\u0430\u0431\u043E\u0442\u0430\u043D\u043E \u0441\u043C\u0435\u043D", format: (v) => `${v}` },
 ];
