@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown, ChevronUp, ArrowLeft, TrendingUp, TrendingDown,
@@ -1072,9 +1072,10 @@ function HelpModal({ onClose }: { onClose: () => void }) {
 
 type SortKey = keyof SellerMetrics;
 
-export default function SellerPerformancePage({ embedded }: { embedded?: boolean }) {
+export default function SellerPerformancePage({ embedded, period: externalPeriod }: { embedded?: boolean; period?: number }) {
   const navigate = useNavigate();
-  const [period, setPeriod] = useState(90);
+  const [period, setPeriod] = useState(externalPeriod ?? 90);
+  useEffect(() => { if (externalPeriod !== undefined) setPeriod(externalPeriod); }, [externalPeriod]);
   const [storeFilter, setStoreFilter] = useState("all");
   const [sortBy, setSortBy] = useState<SortKey>("avgDailyRev");
   const [selectedSeller, setSelectedSeller] = useState<string | null>(null);

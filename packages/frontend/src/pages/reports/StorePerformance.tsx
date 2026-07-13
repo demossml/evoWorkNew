@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown, ChevronUp, TrendingUp, TrendingDown,
@@ -42,8 +42,9 @@ const COLORS = ["#10b981", "#f59e0b", "#ef4444", "#3b82f6", "#8b5cf6", "#ec4899"
 
 // ====== Main ======
 
-export default function StorePerformancePage({ embedded }: { embedded?: boolean }) {
-  const [period, setPeriod] = useState(90);
+export default function StorePerformancePage({ embedded, period: externalPeriod }: { embedded?: boolean; period?: number }) {
+  const [period, setPeriod] = useState(externalPeriod ?? 90);
+  useEffect(() => { if (externalPeriod !== undefined) setPeriod(externalPeriod); }, [externalPeriod]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<keyof StoreMetrics>("totalRevenue");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
