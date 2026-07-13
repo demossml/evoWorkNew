@@ -909,7 +909,7 @@ export async function getAveragePlan(
 			FROM index_documents
 			WHERE shop_id = ?1
 			  AND close_date < ?2
-			  AND CAST(strftime('%w', close_date) AS INTEGER) = CAST(strftime('%w', ?2) AS INTEGER)
+			  AND CAST(strftime('%w', substr(close_date, 1, 10)) AS INTEGER) = CAST(strftime('%w', ?2) AS INTEGER)
 			  AND type IN ('SELL', 'PAYBACK')
 			ORDER BY close_date DESC
 		`;
