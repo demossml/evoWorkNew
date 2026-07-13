@@ -53,6 +53,9 @@ import {
 	saveFileToR2,
 	saveNewIndexDocuments,
 	getAveragePlan,
+	getOpenShopFromD1,
+	getSalesSumFromD1,
+	getShopNameFromD1,
 	saveOpenStorsTable,
 	saveOrUpdateUUIDs,
 	saveSalaryAndBonus,
@@ -958,16 +961,16 @@ export const api = new Hono<IEnv>()
 					const until = formatDateWithTime(date, true);
 					const datePlan = formatDate(date);
 
-					const openShopUuid = await c.var.evotor.getFirstOpenSession(
-						since,
-						until,
+					const openShopUuid = await getOpenShopFromD1(
+						db,
 						employee,
+						datePlan,
 					);
 					if (!openShopUuid) return null;
 
 					const dataReport = {
 						date: datePlan,
-						shopName: await c.var.evotor.getShopName(openShopUuid),
+						shopName: await getShopNameFromD1(db, openShopUuid),
 						salesAccessories: 0,
 						bonusPlan: 0,
 						totalBonus: 0,
@@ -1012,7 +1015,8 @@ export const api = new Hono<IEnv>()
 							openShopUuid,
 							groupIdsAks,
 						);
-						const salesDataAks = await c.var.evotor.getSalesSum(
+						const salesDataAks = await getSalesSumFromD1(
+							db,
 							openShopUuid,
 							since,
 							until,
@@ -1025,7 +1029,8 @@ export const api = new Hono<IEnv>()
 							openShopUuid,
 							groupIdsVape,
 						);
-						const salesDataVape = await c.var.evotor.getSalesSum(
+						const salesDataVape = await getSalesSumFromD1(
+							db,
 							openShopUuid,
 							since,
 							until,

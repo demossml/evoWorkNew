@@ -744,6 +744,81 @@ export async function getPlan(
 }
 
 /**
+ * Получить название магазина из D1 (без Evotor API).
+ */
+export async function getShopNameFromD1(
+	db: D1Database,
+	shopUuid: string,
+): Promise<string> {
+	const row = await db.prepare(
+		"SELECT name FROM shops WHERE uuid = ?"
+	).bind(shopUuid).first<{ name: string }>();
+	return row?.name || shopUuid;
+}
+
+/**
+ * Определить, в каком магазине работал сотрудник в указанный день.
+ * Ищет DOCUMENT_OPEN в index_documents с userUuid сотрудника.
+ */
+export async function getOpenShopFromD1(
+	db: D1Database,
+	employeeUuid: string,
+	date: string,
+): Promise<string | null> {
+	const row = await db.prepare(`
+		SELECT shop_id
+		FROM index_documents
+		WHERE close_date >= ?1 AND close_date <= ?2
+		  AND transactions LIKE ?3
+		ORDER BY close_date ASC
+		LIMIT 1
+	`).bind(
+		`${date}T00:00:00`,
+		`${date}T23:59:59`,
+		`%${employeeUuid}%`,
+	).first<{ shop_id: string }>();
+	return row?.shop_id || null;
+}
+
+/**
+ * Получить сумму продаж (SELL - PAYBACK) из D1 для магазина за период.
+ * Фильтрует по списку productUuids.
+ */
+export async function getSalesSumFromD1(
+	db: D1Database,
+	shopUuid: string,
+	since: string,
+	until: string,
+	productUuids: string[],
+): Promise<number> {
+	if (productUuids.length === 0) return 0;
+	const uuidSet = new Set(productUuids);
+
+	const docs = await db.prepare(`
+		SELECT type, transactions
+		FROM index_documents
+		WHERE shop_id = ?1
+		  AND close_date >= ?2 AND close_date <= ?3
+		  AND type IN ('SELL', 'PAYBACK')
+	`).bind(shopUuid, since, until).all<{ type: string; transactions: string }>();
+
+	let total = 0;
+	for (const doc of docs.results ?? []) {
+		let txs: any[];
+		try { txs = JSON.parse(doc.transactions); } catch { continue; }
+		if (!Array.isArray(txs)) continue;
+		for (const tx of txs) {
+			if (tx.type !== "REGISTER_POSITION") continue;
+			const uuid = tx.commodityUuid || tx.commodityName;
+			if (!uuid || !uuidSet.has(uuid)) continue;
+			const sum = tx.sum ?? 0;
+			total += doc.type === "SELL" ? sum : -sum;
+		}
+	}
+	return Math.max(0, Math.round(total));
+}
+
+/**
  * Вычисляет план на основе РЕАЛЬНЫХ продаж из index_documents.
  * Не использует Evotor API — только данные из D1.
  *
