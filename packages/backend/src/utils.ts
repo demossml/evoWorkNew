@@ -873,7 +873,7 @@ export async function getSalesQuantityFromD1(
  * 2. Для каждого дня суммируем SELL - PAYBACK только по вейп-UUID
  * 3. Среднее = сумма 4 дней / 4
  * 4. План = среднее + 5%
- * 5. Минимум плана = 500 ₽
+ * 5. Минимум плана = 5200 ₽
  */
 export async function getAveragePlan(
 	db: D1Database,
@@ -940,7 +940,7 @@ export async function getAveragePlan(
 			// Делим на количество найденных дней (до 4)
 			const avg = Math.round(values.reduce((s, v) => s + v, 0) / values.length);
 			let plan = Math.round(avg * 1.05);
-			if (plan < 500) plan = 500;
+			if (plan < 5200) plan = 5200;
 			console.log(`[getAveragePlan] shop=${shopUuid} date=${date}: ${values.length} таких же дней недели, средние продажи = ${avg}, план (+5%) = ${plan}`);
 			return plan;
 		}
@@ -976,18 +976,18 @@ export async function getAveragePlan(
 
 		const fbValues = [...fbDailyNet.values()].filter(v => v > 0);
 		if (fbValues.length === 0) {
-			console.warn(`[getAveragePlan] shop=${shopUuid} date=${date}: нет исторических продаж вейпов — план = 500`);
-			return 500;
+			console.warn(`[getAveragePlan] shop=${shopUuid} date=${date}: нет исторических продаж вейпов — план = 5200`);
+			return 5200;
 		}
 
 		const avg = Math.round(fbValues.reduce((s, v) => s + v, 0) / fbValues.length);
 		let plan = Math.round(avg * 1.05);
-		if (plan < 500) plan = 500;
+		if (plan < 5200) plan = 5200;
 		console.log(`[getAveragePlan] shop=${shopUuid} date=${date}: fallback — ${fbValues.length} любых дней, средние продажи = ${avg}, план (+5%) = ${plan}`);
 		return plan;
 	} catch (err) {
 		console.error("getAveragePlan error:", err);
-		return 500;
+		return 5200;
 	}
 }
 
