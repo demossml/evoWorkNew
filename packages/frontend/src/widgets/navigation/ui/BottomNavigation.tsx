@@ -126,7 +126,7 @@ const moreGroups: Array<{
     items: [
       {
         to: "/evotor/seller-dna",
-        label: "Продавцы",
+        label: "🧬 Seller DNA",
         icon: Users,
         roles: ["SUPERADMIN"],
       },
