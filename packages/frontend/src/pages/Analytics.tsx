@@ -65,9 +65,9 @@ export default function Analytics() {
         transition={{ duration: 0.2 }}
         className="flex-1"
       >
-        {activeTab === "sellers" && <SellerPerformancePage />}
-        {activeTab === "products" && <ProductPerformancePage />}
-        {activeTab === "stores" && <StorePerformancePage />}
+        {activeTab === "sellers" && <SellerPerformancePage embedded />}
+        {activeTab === "products" && <ProductPerformancePage embedded />}
+        {activeTab === "stores" && <StorePerformancePage embedded />}
       </motion.div>
     </div>
   );
