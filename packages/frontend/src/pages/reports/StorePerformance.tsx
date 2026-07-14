@@ -293,7 +293,7 @@ function StoreCard({ store, index, expanded, onToggle, onAskAI }: {
                   <div className="text-xs font-medium text-muted-foreground mb-1">
                     Динамика выручки
                     <span className="ml-2 text-[10px] opacity-60">
-                      тренд: {store.trendDirection} ({store.trendCI.significant ? "значим" : "не значим"})
+                      тренд: {store.trendDirection} ({store.trendCI?.significant ? "значим" : "не значим"})
                     </span>
                   </div>
                   <ResponsiveContainer width="100%" height={130}>
