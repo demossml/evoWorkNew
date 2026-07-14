@@ -16,7 +16,7 @@
  */
 
 import type { D1Database } from "@cloudflare/workers-types";
-import { getSellerDailyMetrics, getShopSchedules, type ShopScheduleRow } from "../sync/db";
+import { getSellerDailyMetrics, getShopSchedules, createShopSchedulesTable, type ShopScheduleRow } from "../sync/db";
 import {
   avg,
   stddev,
@@ -1335,6 +1335,7 @@ async function buildFromCache(
 
   // Finish building profiles
   return finishBuilding(
+    db,
     since,
     until,
     sellerDays,
@@ -1433,6 +1434,7 @@ async function buildFromLive(
   }
 
   return finishBuilding(
+    db,
     since,
     until,
     sellerDays,
@@ -1447,6 +1449,7 @@ async function buildFromLive(
 // ===================== Shared profile builder =====================
 
 async function finishBuilding(
+  db: D1Database,
   since: string,
   until: string,
   sellerDays: Map<string, DayAgg[]>,
@@ -1507,6 +1510,7 @@ async function finishBuilding(
   }
 
   // ===================== Shop schedules (for late_minutes) =====================
+  await createShopSchedulesTable(db);
   const scheduleRows = await getShopSchedules(db);
   // shopId → weekday → expected open minute-of-day
   const shopOpenByWeekday = new Map<string, Map<number, number>>();
