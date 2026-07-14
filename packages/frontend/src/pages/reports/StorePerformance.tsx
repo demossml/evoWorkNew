@@ -138,7 +138,7 @@ export default function StorePerformancePage({ embedded, period: externalPeriod 
       />
 
       {/* Hypotheses Alerts */}
-      {data.hypotheses.filter(h => h.confirmed).length > 0 && (
+      {data?.hypotheses?.filter(h => h.confirmed).length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -289,7 +289,7 @@ function StoreCard({ store, index, expanded, onToggle, onAskAI }: {
           >
             <div className="p-3 space-y-4">
               {/* Trend chart with anomalies */}
-              {store.dailyRevenue.length >= 3 && (
+              {store.dailyRevenue?.length >= 3 && (
                 <div>
                   <div className="text-xs font-medium text-muted-foreground mb-1">
                     Динамика выручки
@@ -306,7 +306,7 @@ function StoreCard({ store, index, expanded, onToggle, onAskAI }: {
                       <Line type="monotone" dataKey="value" stroke={store.trendDirection === "↓" ? "#ef4444" : "#10b981"} strokeWidth={2} dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
-                  {store.anomalyDays.length > 0 && (
+                  {store.anomalyDays?.length > 0 && (
                     <div className="flex gap-1.5 mt-1 flex-wrap">
                       {store.anomalyDays.slice(0, 3).map(a => (
                         <span key={a.date} className={`text-[10px] px-1.5 py-0.5 rounded ${a.direction === "up" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
@@ -348,7 +348,7 @@ function StoreCard({ store, index, expanded, onToggle, onAskAI }: {
               )}
 
               {/* Peak hour coverage */}
-              {store.peakHourCoverage.length > 0 && (
+              {store.peakHourCoverage?.length > 0 && (
                 <div>
                   <div className="text-xs font-medium text-muted-foreground mb-1">Загрузка по часам vs сеть</div>
                   <ResponsiveContainer width="100%" height={160}>
@@ -402,10 +402,10 @@ function StoreCard({ store, index, expanded, onToggle, onAskAI }: {
               )}
 
               {/* Category mix delta — empty state for now */}
-              {store.categoryMixDelta.length > 0 && (
+              {store.categoryMixDelta?.length > 0 && (
                 <div>
                   <div className="text-xs font-medium text-muted-foreground mb-1">Ассортимент vs сеть</div>
-                  <ResponsiveContainer width="100%" height={Math.max(80, store.categoryMixDelta.length * 24)}>
+                  <ResponsiveContainer width="100%" height={Math.max(80, (store.categoryMixDelta?.length ?? 0) * 24)}>
                     <BarChart data={store.categoryMixDelta} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis type="number" tick={{ fontSize: 9 }} />
@@ -422,7 +422,7 @@ function StoreCard({ store, index, expanded, onToggle, onAskAI }: {
               )}
 
               {/* Hypotheses */}
-              {store.hypotheses.length > 0 && (
+              {store.hypotheses?.length > 0 && (
                 <div className="space-y-1">
                   <div className="text-xs font-medium text-muted-foreground">Гипотезы по точке</div>
                   {store.hypotheses.map(h => (
