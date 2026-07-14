@@ -337,6 +337,10 @@ interface DayAgg {
   discountAmount: number;
   /** Total accessory (non-vape) revenue */
   accRevenue: number;
+  /** Минуты от открытия смены до первого чека (из кеша) */
+  firstCheckDelay: number;
+  /** 0..1 — вероятность длительного отсутствия (из кеша) */
+  absentProbability: number;
 }
 
 interface HourAgg {
@@ -960,6 +964,8 @@ export async function computeWeekdayComparison(
         discountChecks: 0,
         discountAmount: 0,
         accRevenue: 0,
+        firstCheckDelay: 0,
+        absentProbability: 0,
       };
       daysList.push(dayEntry);
     }
@@ -1219,6 +1225,8 @@ async function buildFromCache(
         discountChecks: 0,
         discountAmount: 0,
         accRevenue: 0,
+        firstCheckDelay: 0,
+        absentProbability: 0,
       };
       daysList.push(dayEntry);
     }
@@ -1228,6 +1236,8 @@ async function buildFromCache(
     dayEntry.discountChecks += row.discount_checks;
     dayEntry.discountAmount += row.discount_amount;
     dayEntry.accRevenue += row.acc_revenue;
+    dayEntry.firstCheckDelay = Math.max(dayEntry.firstCheckDelay, row.first_check_delay ?? 0);
+    dayEntry.absentProbability = Math.max(dayEntry.absentProbability, row.absent_probability ?? 0);
 
     if (!sellerDayFirstCheck.has(uuid)) {
       sellerDayFirstCheck.set(uuid, new Map());
@@ -1379,6 +1389,8 @@ async function buildFromLive(
         discountChecks: 0,
         discountAmount: 0,
         accRevenue: 0,
+        firstCheckDelay: 0,
+        absentProbability: 0,
       };
       daysList.push(dayEntry);
     }
@@ -1562,14 +1574,19 @@ async function finishBuilding(
             totalLateMinutes += lateMin;
           }
 
-          // First check delay: от ожидаемого открытия до первого чека
-          const firstCheckTs = dayFirstMap.get(day.date);
-          if (firstCheckTs) {
-            const firstCheckMin = timeToMinutes(firstCheckTs);
-            const delay = firstCheckMin - expectedOpen;
-            if (delay > 0) {
-              totalFirstCheckDelay += delay;
-              firstCheckDelayDays++;
+          // firstCheckDelay: приоритет — из кеша, fallback — расчёт из сессий
+          if (day.firstCheckDelay > 0) {
+            totalFirstCheckDelay += day.firstCheckDelay;
+            firstCheckDelayDays++;
+          } else {
+            const firstCheckTs = dayFirstMap.get(day.date);
+            if (firstCheckTs) {
+              const firstCheckMin = timeToMinutes(firstCheckTs);
+              const delay = firstCheckMin - expectedOpen;
+              if (delay > 0) {
+                totalFirstCheckDelay += delay;
+                firstCheckDelayDays++;
+              }
             }
           }
         } else if (ds.openTime) {

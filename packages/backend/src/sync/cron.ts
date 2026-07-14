@@ -707,6 +707,7 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
         discountChecks: number;
         discountAmount: number;
         firstCheckTs: string | null;
+        checkTimestamps: string[];  // для absent-slots
       }
     >();
 
@@ -724,9 +725,11 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
           discountChecks: 0,
           discountAmount: 0,
           firstCheckTs: null,
+          checkTimestamps: [],
         });
       }
       const entry = agg.get(key)!;
+      entry.checkTimestamps.push(doc.close_date);
 
       let txs: any[];
       try {
@@ -774,11 +777,15 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
       }
     }
 
-    // 8. Compute shift hours per uuid
+    // 8. Compute shift hours per uuid AND first_check_delay
     const shiftHoursMap = new Map<string, number>();
+    const shiftOpenMap = new Map<string, string>(); // uuid → earliest OPEN_SESSION time
     for (const [sessKey, sessList] of sessionMap) {
       const [uuid] = sessKey.split("|");
       const timestamps = sessList.map((s) => s.openTime).sort();
+      if (!shiftOpenMap.has(uuid) || timestamps[0] < shiftOpenMap.get(uuid)!) {
+        shiftOpenMap.set(uuid, timestamps[0]);
+      }
       let hours = 0;
       if (timestamps.length >= 2) {
         const a = new Date(
@@ -796,6 +803,91 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
       shiftHoursMap.set(uuid, hours);
     }
 
+    // --- Helper: parse ISO timestamp → minute-of-day ---
+    const isoTimeToMin = (iso: string): number => {
+      // "2026-07-07T04:40:55.000+0000" → hour*60+min
+      const t = iso.slice(11, 16); // "04:40"
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    };
+
+    // --- Helper: compute absent slots for a seller-shop ---
+    const LUNCH_START = 12 * 60;      // 12:00
+    const LUNCH_END = 13 * 60;        // 13:00
+    const SLOT_MINUTES = 15;
+
+    const computeAbsentSlots = (
+      checkTimestamps: string[],
+      shiftOpenMin: number,
+      shiftCloseMin: number,
+    ): { slots: { from: string; to: string; minutes: number; probability: number }[]; overallProb: number } => {
+      if (checkTimestamps.length === 0 || shiftCloseMin <= shiftOpenMin) {
+        return { slots: [], overallProb: 0 };
+      }
+
+      // Build set of occupied 15-min slots
+      const occupiedSlots = new Set<number>();
+      for (const ts of checkTimestamps) {
+        const m = isoTimeToMin(ts);
+        const slot = Math.floor(m / SLOT_MINUTES) * SLOT_MINUTES;
+        occupiedSlots.add(slot);
+      }
+
+      // Scan shift window for absent slots
+      const absentSlots: { fromMin: number; toMin: number }[] = [];
+      let gapStart: number | null = null;
+
+      for (let m = shiftOpenMin; m < shiftCloseMin; m += SLOT_MINUTES) {
+        // Skip lunch break
+        if (m >= LUNCH_START && m < LUNCH_END) {
+          if (gapStart != null) {
+            absentSlots.push({ fromMin: gapStart, toMin: m });
+            gapStart = null;
+          }
+          continue;
+        }
+
+        const slotKey = Math.floor(m / SLOT_MINUTES) * SLOT_MINUTES;
+        if (!occupiedSlots.has(slotKey)) {
+          if (gapStart === null) gapStart = m;
+        } else {
+          if (gapStart !== null) {
+            absentSlots.push({ fromMin: gapStart, toMin: m });
+            gapStart = null;
+          }
+        }
+      }
+      if (gapStart !== null) {
+        absentSlots.push({ fromMin: gapStart, toMin: shiftCloseMin });
+      }
+
+      // Merge adjacent slots, compute probability for long slots
+      const minToHHMM = (m: number) => {
+        const hh = Math.floor(m / 60).toString().padStart(2, "0");
+        const mm = (m % 60).toString().padStart(2, "0");
+        return `${hh}:${mm}`;
+      };
+
+      const result: { from: string; to: string; minutes: number; probability: number }[] = [];
+      let maxProb = 0;
+
+      for (const slot of absentSlots) {
+        const dur = slot.toMin - slot.fromMin;
+        if (dur < SLOT_MINUTES) continue;
+        // Probability: linear from 0 at 0 min to 1 at 120 min
+        const prob = Math.min(1, Math.round((dur / 120) * 100) / 100);
+        if (prob > maxProb) maxProb = prob;
+        result.push({
+          from: minToHHMM(slot.fromMin),
+          to: minToHHMM(slot.toMin),
+          minutes: dur,
+          probability: prob,
+        });
+      }
+
+      return { slots: result, overallProb: maxProb };
+    };
+
     // 9. Build rows
     const rows: {
       date: string;
@@ -810,10 +902,34 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
       discount_amount: number;
       shift_hours: number;
       first_check_ts: string | null;
+      first_check_delay: number;
+      absent_slots: string;
+      absent_probability: number;
     }[] = [];
 
     for (const [key, entry] of agg) {
       const [uuid, shopId] = key.split("|");
+
+      // first_check_delay: shift open → first check
+      const shiftOpen = shiftOpenMap.get(uuid);
+      let firstCheckDelay = 0;
+      if (shiftOpen && entry.firstCheckTs) {
+        const openMin = isoTimeToMin(shiftOpen);
+        const firstMin = isoTimeToMin(entry.firstCheckTs);
+        firstCheckDelay = Math.max(0, firstMin - openMin);
+      }
+
+      // absent_slots: gaps between checks
+      const shiftCloseMin = shiftOpen
+        ? isoTimeToMin(shiftOpen) + (shiftHoursMap.get(uuid) ?? 8) * 60
+        : 22 * 60; // default 22:00
+      const shiftOpenMin = shiftOpen ? isoTimeToMin(shiftOpen) : 9 * 60;
+      const { slots: absentSlots, overallProb } = computeAbsentSlots(
+        entry.checkTimestamps.sort(),
+        shiftOpenMin,
+        Math.min(shiftCloseMin, 23 * 60 + 59),
+      );
+
       rows.push({
         date: dateStr,
         seller_uuid: uuid,
@@ -827,6 +943,9 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
         discount_amount: Math.round(entry.discountAmount),
         shift_hours: parseFloat((shiftHoursMap.get(uuid) ?? 8).toFixed(1)),
         first_check_ts: entry.firstCheckTs,
+        first_check_delay: firstCheckDelay,
+        absent_slots: JSON.stringify(absentSlots),
+        absent_probability: overallProb,
       });
     }
 

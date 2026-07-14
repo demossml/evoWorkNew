@@ -555,6 +555,9 @@ export async function createSellerDailyMetricsTable(db: D1Database): Promise<voi
         discount_amount REAL NOT NULL DEFAULT 0,
         shift_hours REAL NOT NULL DEFAULT 0,
         first_check_ts TEXT,
+        first_check_delay INTEGER NOT NULL DEFAULT 0,
+        absent_slots TEXT NOT NULL DEFAULT '[]',
+        absent_probability REAL NOT NULL DEFAULT 0,
         UNIQUE(seller_uuid, date, shop_id)
       )`,
     )
@@ -581,6 +584,12 @@ export interface SellerDailyMetric {
   discount_amount: number;
   shift_hours: number;
   first_check_ts: string | null;
+  /** Минуты от открытия смены до первого чека */
+  first_check_delay: number;
+  /** JSON-массив absent-слотов [{from, to, minutes, probability}] */
+  absent_slots: string;
+  /** 0..1 — общая вероятность длительного отсутствия (по самому длинному слоту) */
+  absent_probability: number;
 }
 
 export async function upsertSellerDailyMetrics(
@@ -592,8 +601,8 @@ export async function upsertSellerDailyMetrics(
     `INSERT INTO seller_daily_metrics
        (date, seller_uuid, seller_name, shop_id, revenue, checks,
         acc_revenue, vape_revenue, discount_checks, discount_amount,
-        shift_hours, first_check_ts)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        shift_hours, first_check_ts, first_check_delay, absent_slots, absent_probability)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(seller_uuid, date, shop_id) DO UPDATE SET
        seller_name = excluded.seller_name,
        revenue = excluded.revenue,
@@ -603,7 +612,10 @@ export async function upsertSellerDailyMetrics(
        discount_checks = excluded.discount_checks,
        discount_amount = excluded.discount_amount,
        shift_hours = excluded.shift_hours,
-       first_check_ts = excluded.first_check_ts`,
+       first_check_ts = excluded.first_check_ts,
+       first_check_delay = excluded.first_check_delay,
+       absent_slots = excluded.absent_slots,
+       absent_probability = excluded.absent_probability`,
   );
   const batch = rows.map((r) =>
     stmt.bind(
@@ -619,6 +631,9 @@ export async function upsertSellerDailyMetrics(
       r.discount_amount,
       r.shift_hours,
       r.first_check_ts,
+      r.first_check_delay,
+      r.absent_slots,
+      r.absent_probability,
     ),
   );
   await db.batch(batch);
