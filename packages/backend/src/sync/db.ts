@@ -738,3 +738,84 @@ export async function getShopSchedules(
   const res = await db.prepare(sql).bind(...binds).all<ShopScheduleRow>();
   return res.results ?? [];
 }
+
+// ============================================================================
+// Table: seller_absence_events
+// ============================================================================
+
+export interface SellerAbsenceEvent {
+  seller_uuid: string;
+  date: string;
+  start_time: string;       // "HH:MM"
+  end_time: string;         // "HH:MM"
+  duration_minutes: number;
+  probability_absent: number; // 0..1
+  explanation: string;
+  recommendation: string;
+}
+
+export async function createSellerAbsenceEventsTable(db: D1Database): Promise<void> {
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS seller_absence_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        seller_uuid TEXT NOT NULL,
+        date TEXT NOT NULL,
+        start_time TEXT NOT NULL,
+        end_time TEXT NOT NULL,
+        duration_minutes INTEGER NOT NULL DEFAULT 0,
+        probability_absent REAL NOT NULL DEFAULT 0,
+        explanation TEXT NOT NULL DEFAULT '',
+        recommendation TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`,
+    )
+    .run();
+  await db
+    .prepare(`CREATE INDEX IF NOT EXISTS idx_abs_seller_date ON seller_absence_events (seller_uuid, date)`)
+    .run();
+  console.log("Таблица 'seller_absence_events' создана или уже существует.");
+}
+
+export async function upsertAbsenceEvents(
+  db: D1Database,
+  events: SellerAbsenceEvent[],
+): Promise<void> {
+  if (events.length === 0) return;
+  const stmt = db.prepare(
+    `INSERT OR REPLACE INTO seller_absence_events
+       (seller_uuid, date, start_time, end_time, duration_minutes, probability_absent, explanation, recommendation)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const batch = events.map((e) =>
+    stmt.bind(
+      e.seller_uuid,
+      e.date,
+      e.start_time,
+      e.end_time,
+      e.duration_minutes,
+      e.probability_absent,
+      e.explanation,
+      e.recommendation,
+    ),
+  );
+  await db.batch(batch);
+}
+
+export async function getAbsenceEvents(
+  db: D1Database,
+  sellerUuid: string,
+  since: string,
+  until: string,
+): Promise<SellerAbsenceEvent[]> {
+  const res = await db
+    .prepare(
+      `SELECT seller_uuid, date, start_time, end_time, duration_minutes, probability_absent, explanation, recommendation
+       FROM seller_absence_events
+       WHERE seller_uuid = ? AND date >= ? AND date <= ?
+       ORDER BY date, start_time`,
+    )
+    .bind(sellerUuid, since, until)
+    .all<SellerAbsenceEvent>();
+  return res.results ?? [];
+}

@@ -90,6 +90,10 @@ import {
 	upsertShopSchedules,
 	getShopSchedules,
 	type ShopScheduleRow,
+	createSellerAbsenceEventsTable,
+	upsertAbsenceEvents,
+	getAbsenceEvents,
+	type SellerAbsenceEvent,
 } from "./sync/db";
 import { saveDeadStocks } from "./db/repositories/saveDeadStocks";
 import { sendDeadStocksToTelegram } from "../utils/sendDeadStocksToTelegram";
@@ -2518,6 +2522,237 @@ export const api = new Hono<IEnv>()
 		} catch (err: any) {
 			console.error("[hourly-compare] error:", err?.message ?? err);
 			return c.json({ weekday: 0, weekdayLabel: "", dates: [], sellers: [], slots: [] });
+		}
+	})
+	// ─── Absence Analysis ────────────────────────────────────────
+	.get("/api/sellers/absence-analysis", async (c) => {
+		const db = c.env.DB as D1Database;
+		const sellerId = c.req.query("sellerId") || "";
+		const since = c.req.query("since") || "";
+		const until = c.req.query("until") || "";
+		const minSlotMinutesQ = c.req.query("minSlotMinutes") || "25";
+		const minSlotMinutes = parseInt(minSlotMinutesQ) || 25;
+		const apiKey = c.env.DEEPSEEK_API_KEY as string;
+
+		if (!sellerId || !since || !until) {
+			return c.json({ error: "sellerId, since, until required" }, 400);
+		}
+
+		try {
+			await createSellerAbsenceEventsTable(db);
+
+			// 1. Получить имя продавца
+			const emp = await db.prepare(
+				"SELECT name FROM employees WHERE uuid = ?"
+			).bind(sellerId).first<{ name: string }>();
+			const sellerName = emp?.name || sellerId.slice(0, 8);
+
+			// 2. Получить все OPEN_SESSION за период
+			const sessions = await db.prepare(
+				`SELECT close_date, open_user_uuid, shop_id
+				 FROM index_documents
+				 WHERE type = 'OPEN_SESSION'
+				   AND close_date >= ? AND close_date <= ?
+				 ORDER BY close_date`
+			).bind(since, until + "T23:59:59").all<{
+				close_date: string;
+				open_user_uuid: string;
+				shop_id: string;
+			}>();
+
+			const allSessions = (sessions.results ?? [])
+				.filter((s) => s.open_user_uuid === sellerId);
+
+			// Группируем по дате
+			const dateSessions = new Map<string, { openTime: string; closeTime: string; shopId: string }>();
+			for (const s of allSessions) {
+				const date = s.close_date.slice(0, 10);
+				if (!dateSessions.has(date)) {
+					dateSessions.set(date, { openTime: s.close_date, closeTime: s.close_date, shopId: s.shop_id });
+				} else {
+					const cur = dateSessions.get(date)!;
+					if (s.close_date < cur.openTime) cur.openTime = s.close_date;
+					if (s.close_date > cur.closeTime) cur.closeTime = s.close_date;
+				}
+			}
+
+			// 3. Для каждой даты: найти SELL-чеки и вычислить dead-слоты
+			const isoTimeToMin = (iso: string): number => {
+				const t = iso.slice(11, 16);
+				const [h, m] = t.split(":").map(Number);
+				return h * 60 + m;
+			};
+			const minToHHMM = (m: number): string => {
+				const hh = Math.floor(m / 60).toString().padStart(2, "0");
+				const mm = (m % 60).toString().padStart(2, "0");
+				return `${hh}:${mm}`;
+			};
+
+			// 4. Исторические перерывы: собираем все dead-слоты за последние 30 дней до начала периода
+			const histSince = new Date(since);
+			histSince.setDate(histSince.getDate() - 30);
+			const histSinceStr = histSince.toISOString().slice(0, 10);
+
+			const histEvents = await getAbsenceEvents(db, sellerId, histSinceStr, since);
+			const typicalBreaks = histEvents.length > 0
+				? histEvents.map((e) => `${e.start_time}–${e.end_time} (${e.duration_minutes}м, p=${e.probability_absent})`)
+				: [];
+
+			const results: any[] = [];
+			const newEvents: SellerAbsenceEvent[] = [];
+
+			for (const [date, sess] of dateSessions) {
+				// Получить все чеки за эту дату
+				const checks = await db.prepare(
+					`SELECT close_date FROM index_documents
+					 WHERE type = 'SELL'
+					   AND shop_id = ?
+					   AND close_date >= ? AND close_date <= ?
+					 ORDER BY close_date`
+				).bind(sess.shopId, date + "T00:00:00", date + "T23:59:59").all<{ close_date: string }>();
+
+				const checkTimes = (checks.results ?? []).map((r) => r.close_date).sort();
+				const shiftOpenMin = isoTimeToMin(sess.openTime);
+				const shiftCloseMin = isoTimeToMin(sess.closeTime);
+
+				if (checkTimes.length === 0 || shiftCloseMin <= shiftOpenMin) continue;
+
+				// Найти dead-слоты (15-мин окна без чеков)
+				const occupied = new Set<number>();
+				for (const ct of checkTimes) {
+					occupied.add(Math.floor(isoTimeToMin(ct) / 15) * 15);
+				}
+
+				const deadSlots: { fromMin: number; toMin: number }[] = [];
+				let gapStart: number | null = null;
+
+				for (let m = shiftOpenMin; m < shiftCloseMin; m += 15) {
+					const slot = Math.floor(m / 15) * 15;
+					if (!occupied.has(slot)) {
+						if (gapStart === null) gapStart = m;
+					} else {
+						if (gapStart !== null) {
+							deadSlots.push({ fromMin: gapStart, toMin: m });
+							gapStart = null;
+						}
+					}
+				}
+				if (gapStart !== null) {
+					deadSlots.push({ fromMin: gapStart, toMin: shiftCloseMin });
+				}
+
+				// Фильтруем: только слоты > minSlotMinutes
+				const longSlots = deadSlots
+					.map((s) => ({ ...s, dur: s.toMin - s.fromMin }))
+					.filter((s) => s.dur >= minSlotMinutes);
+
+				// Для каждого длинного слота — DeepSeek
+				for (const slot of longSlots) {
+					const startStr = minToHHMM(slot.fromMin);
+					const endStr = minToHHMM(slot.toMin);
+					const openStr = minToHHMM(shiftOpenMin);
+					const closeStr = minToHHMM(shiftCloseMin);
+
+					const typicalStr = typicalBreaks.length > 0
+						? typicalBreaks.slice(0, 5).join(", ")
+						: "нет данных";
+
+					const userPrompt = [
+						`Продавец: ${sellerName}.`,
+						`Исторически его типичные перерывы: ${typicalStr}.`,
+						`Сегодня в смене с ${openStr} по ${closeStr} был период без чеков с ${startStr} по ${endStr} (длительность ${slot.dur} минут).`,
+						``,
+						`Это скорее:`,
+						`A) Отсутствие на рабочем месте (перекур, личные дела)`,
+						`B) Затишье клиентов / работа без чеков (выкладка, уборка)`,
+					].join("\n");
+
+					let probAbsent = slot.dur > 60 ? 0.7 : slot.dur > 40 ? 0.5 : 0.3;
+					let explanation = "";
+					let recommendation = "";
+
+					if (apiKey) {
+						try {
+							const aiText = await deepseekChat({
+								apiKey,
+								system: "Ты — супервайзер магазина. Анализируешь периоды без чеков у продавцов. Отвечай только JSON.",
+								user: userPrompt + `\n\nВерни JSON:\n{\n  "probability_absent": 0.0–1.0,\n  "explanation": "короткое объяснение",\n  "recommendation": "что делать"\n}`,
+								model: "deepseek-chat",
+								maxTokens: 512,
+								temperature: 0.3,
+							});
+
+							// Парсим JSON из ответа
+							const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+							if (jsonMatch) {
+								const parsed = JSON.parse(jsonMatch[0]);
+								probAbsent = Math.min(1, Math.max(0, Number(parsed.probability_absent) ?? probAbsent));
+								explanation = String(parsed.explanation || "").slice(0, 300);
+								recommendation = String(parsed.recommendation || "").slice(0, 300);
+							}
+						} catch (aiErr: any) {
+							console.warn("[absence-analysis] DeepSeek error:", aiErr.message);
+							explanation = slot.dur > 45
+								? `Длительный перерыв ${slot.dur} мин — вероятно, отсутствие`
+								: `Перерыв ${slot.dur} мин — возможно, затишье`;
+							recommendation = "Провести беседу с продавцом";
+						}
+					} else {
+						// Без AI — простые правила
+						if (slot.dur > 60) {
+							probAbsent = 0.8;
+							explanation = `Перерыв ${slot.dur} мин — высокая вероятность отсутствия на рабочем месте`;
+							recommendation = "Проверить камеры, провести беседу";
+						} else if (slot.dur > 40) {
+							probAbsent = 0.5;
+							explanation = `Перерыв ${slot.dur} мин — средняя вероятность отсутствия`;
+							recommendation = "Уточнить у продавца причину перерыва";
+						} else {
+							probAbsent = 0.3;
+							explanation = `Перерыв ${slot.dur} мин — возможно, затишье или работа без чеков`;
+							recommendation = "Наблюдать за паттерном";
+						}
+					}
+
+					const event: SellerAbsenceEvent = {
+						seller_uuid: sellerId,
+						date,
+						start_time: startStr,
+						end_time: endStr,
+						duration_minutes: slot.dur,
+						probability_absent: Math.round(probAbsent * 100) / 100,
+						explanation,
+						recommendation,
+					};
+
+					newEvents.push(event);
+					results.push({
+						date,
+						shift: `${openStr}–${closeStr}`,
+						slot: `${startStr}–${endStr}`,
+						durationMinutes: slot.dur,
+						probability_absent: event.probability_absent,
+						explanation,
+						recommendation,
+					});
+				}
+			}
+
+			// 5. Сохранить
+			if (newEvents.length > 0) {
+				await upsertAbsenceEvents(db, newEvents);
+			}
+
+			return c.json({
+				sellerId,
+				sellerName,
+				period: { since, until },
+				analyzedSlots: results.length,
+				slots: results,
+			});
+		} catch (err: any) {
+			console.error("[absence-analysis] error:", err?.message ?? err);
+			return c.json({ error: "Internal error" }, 500);
 		}
 	})
 	// ─── End Seller DNA ──────────────────────────────────────────
