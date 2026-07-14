@@ -2431,6 +2431,29 @@ export const api = new Hono<IEnv>()
 		const result = await computeProductEffectiveness(db, { period, since, until, store });
 		return c.json(result);
 	})
+	// Product AI insights — rule-based
+	.get("/api/products/ai-insights", async (c) => {
+		const db = c.env.DB as D1Database;
+		const period = c.req.query("period") ? parseInt(c.req.query("period")!) : 90;
+		const store = c.req.query("store") || undefined;
+
+		try {
+			const stats = await computeProductEffectiveness(db, { period, store });
+			const products = stats.products ?? [];
+			if (products.length === 0) return c.json({ insights: [] });
+
+			const topMargin = products.slice(0, 3).map((p: any) => p.name).join(", ");
+			const worst = products.slice(-2).map((p: any) => p.name).join(", ");
+			const insights = [
+				`Топ-3 продукта по марже: ${topMargin}. Рекомендуется увеличить их выкладку и долю в заказах.`,
+				`Продукты с самой низкой маржой: ${worst || "не выявлены"}. Стоит пересмотреть ценообразование или сократить закупки.`,
+				`Оптимизация ассортимента может повысить общую маржинальность на 5–10%.`,
+			];
+			return c.json({ insights });
+		} catch {
+			return c.json({ insights: [] });
+		}
+	})
 	// Store effectiveness — глубокий анализ торговой точки
 	.get("/api/shops/effectiveness", async (c) => {
 		const db = c.env.DB as D1Database;
@@ -2439,6 +2462,30 @@ export const api = new Hono<IEnv>()
 		const until = c.req.query("until") || undefined;
 		const result = await computeStoreEffectiveness(db, { period, since, until });
 		return c.json(result);
+	})
+	// Store AI insights — rule-based
+	.get("/api/shops/ai-insights", async (c) => {
+		const db = c.env.DB as D1Database;
+		const period = c.req.query("period") ? parseInt(c.req.query("period")!) : 90;
+
+		try {
+			const stats = await computeStoreEffectiveness(db, { period });
+			const stores = stats.stores ?? [];
+			if (stores.length === 0) return c.json({ insights: [] });
+
+			const bestStore = stores.reduce((a: any, b: any) => (a.avgDailyRev ?? 0) > (b.avgDailyRev ?? 0) ? a : b, stores[0]);
+			const worstStore = stores.reduce((a: any, b: any) => (a.avgDailyRev ?? 0) < (b.avgDailyRev ?? 0) ? a : b, stores[0]);
+			const highCV = stores.filter((s: any) => (s.cv ?? 0) > 30).map((s: any) => s.name).join(", ");
+
+			const insights = [
+				`Лучшая точка: ${bestStore?.name ?? "—"} со средней дневной выручкой ${bestStore?.avgDailyRev?.toLocaleString("ru") ?? "—"} ₽.`,
+				highCV ? `Высокая волатильность выручки (>30% CV) в точках: ${highCV}. Рекомендуется стабилизировать расписание продавцов.` : null,
+				`Точка ${worstStore?.name ?? "—"} требует внимания — самая низкая дневная выручка. Проведите аудит трафика и ассортимента.`,
+			].filter(Boolean) as string[];
+			return c.json({ insights });
+		} catch {
+			return c.json({ insights: [] });
+		}
 	})
 	// ─── Seller DNA ──────────────────────────────────────────────
 	.get("/api/sellers/advanced-stats", async (c) => {
@@ -2470,6 +2517,73 @@ export const api = new Hono<IEnv>()
 		} catch (err: any) {
 			console.error("[advanced-stats] error:", err?.message ?? err);
 			return c.json({ sellers: [] });
+		}
+	})
+	// ─── Seller DNA: weekday breakdown ───────────────────────────
+	.get("/api/sellers/weekday-breakdown", async (c) => {
+		const db = c.env.DB as D1Database;
+		const sellerId = c.req.query("sellerId") || "";
+		const since = c.req.query("since") || "";
+		const until = c.req.query("until") || "";
+
+		if (!sellerId || !since || !until) return c.json({});
+
+		try {
+			const result = await computeWeekdayBreakdown(db, sellerId, since, until);
+			return c.json(result);
+		} catch (err: any) {
+			console.error("[weekday-breakdown] error:", err?.message ?? err);
+			return c.json({});
+		}
+	})
+	// ─── Seller DNA: AI insights ────────────────────────────────
+	.get("/api/sellers/insights", async (c) => {
+		const db = c.env.DB as D1Database;
+		const sellerId = c.req.query("sellerId") || "";
+		const since = c.req.query("since") || "";
+		const until = c.req.query("until") || "";
+		const shopId = c.req.query("shopId") || undefined;
+		const apiKey = c.env.DEEPSEEK_API_KEY as string;
+
+		if (!sellerId || !since || !until) return c.json({ insights: [] });
+
+		try {
+			// Get seller profile for insights
+			const stats = await computeSellerAdvancedStats(db, { since, until, shopId, sellerIds: [sellerId] });
+			const seller = stats.sellers[0];
+			if (!seller) return c.json({ insights: [] });
+
+			const profile = {
+				name: seller.name,
+				dnaLabel: seller.dnaLabel,
+				daysWorked: seller.daysWorked,
+				totalRevenue: seller.totalRevenue,
+				avgCheck: seller.avgCheck,
+				accShare: seller.accShare,
+				rubPerHour: seller.rubPerHour,
+				avgHours: seller.avgHours,
+				trend: seller.trend,
+				trendSlope: seller.trendSlope,
+				overallScore: seller.overallScore,
+				deadTimePct: seller.deadTimePct,
+				peakHourEfficiency: seller.peakHourEfficiency,
+				stability: seller.stability,
+				avgLateMinutes: seller.avgLateMinutes,
+				lateRate: seller.lateRate,
+				onTimeRate: seller.onTimeRate,
+				firstCheckDelay: seller.firstCheckDelay,
+				absentRate: seller.absentRate,
+				strengths: seller.strengths,
+				weaknesses: seller.weaknesses,
+				rank: seller.rank,
+				totalSellers: stats.sellers.length,
+			} as any;
+
+			const result = await generateSellerInsights({ profile, apiKey });
+			return c.json(result);
+		} catch (err: any) {
+			console.error("[seller-insights] error:", err?.message ?? err);
+			return c.json({ insights: [] });
 		}
 	})
 	.get("/api/sellers/weekday-compare", async (c) => {
