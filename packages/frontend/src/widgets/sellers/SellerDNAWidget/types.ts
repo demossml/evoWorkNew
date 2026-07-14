@@ -80,6 +80,9 @@ export interface SellerDNAProfile {
   lateRate: number;             // % дней с опозданием
   onTimeRate: number;           // % дней без опозданий
   firstCheckDelay: number | null; // среднее время до первого чека (мин)
+  /** Отсутствие */
+  totalAbsentMinutes: number;   // суммарное время absent-слотов (мин)
+  absentRate: number;           // % рабочего времени в absent-слотах
   strengths: string[];      // ключевые сильные стороны (текст)
   weaknesses: string[];     // зоны роста (текст)
   dnaLabel: DNALabel;
@@ -87,6 +90,25 @@ export interface SellerDNAProfile {
   hourlyRevenue: HourlyPoint[];       // почасовая выручка продавца
   storeAvgHourlyRevenue: HourlyPoint[]; // средняя почасовая выручка магазина
   aiInsights: string[];                // 2–3 предложения от AI
+}
+
+/** Событие отсутствия — из GET /api/sellers/absence-analysis */
+export interface AbsenceSlot {
+  date: string;
+  shift: string;
+  slot: string;
+  durationMinutes: number;
+  probability_absent: number;
+  explanation: string;
+  recommendation: string;
+}
+
+export interface AbsenceAnalysis {
+  sellerId: string;
+  sellerName: string;
+  period: { since: string; until: string };
+  analyzedSlots: number;
+  slots: AbsenceSlot[];
 }
 
 /** Фильтры для DNA-виджета */

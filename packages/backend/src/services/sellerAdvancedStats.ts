@@ -125,6 +125,8 @@ interface SellerDNAProfile {
   lateRate: number;             // % дней с опозданием > 0
   onTimeRate: number;           // % дней без опозданий
   firstCheckDelay: number | null; // среднее время от открытия по графику до первого чека (мин)
+  totalAbsentMinutes: number;   // суммарное время absent-слотов (мин)
+  absentRate: number;           // % рабочего времени в absent-слотах
   strengths: string[];
   weaknesses: string[];
   dnaLabel: DNALabel;
@@ -1692,6 +1694,8 @@ async function finishBuilding(
       lateRate: lateOpenRate,
       onTimeRate,
       firstCheckDelay,
+      totalAbsentMinutes: 0,
+      absentRate: 0,
       strengths: [],
       weaknesses: [],
       dnaLabel: "Стабильный",

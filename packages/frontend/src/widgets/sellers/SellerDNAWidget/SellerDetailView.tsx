@@ -10,8 +10,10 @@ import {
   User,
   Target,
   Zap,
+  AlertTriangle,
+  Calendar,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   LineChart,
   Line,
@@ -23,10 +25,12 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  ReferenceLine,
 } from "recharts";
 import type { DateFilterValue } from "@/widgets/home/DateFilter";
-import type { SellerDNAProfile, DNALabel, HourlyPoint } from "./types";
+import type { SellerDNAProfile, DNALabel, HourlyPoint, AbsenceAnalysis, AbsenceSlot } from "./types";
 import { useWeekdayBreakdown } from "@/hooks/useWeekdayBreakdown";
+import { client } from "@/helpers/api";
 
 // ===================== Props =====================
 
@@ -367,6 +371,41 @@ export function SellerDetailView({ seller, onBack, onCompare, insights = [], use
     dateFilter?.until ?? "",
   );
 
+  // Absence analysis
+  const [absenceData, setAbsenceData] = useState<AbsenceAnalysis | null>(null);
+  const [absenceLoading, setAbsenceLoading] = useState(false);
+
+  const fetchAbsence = useCallback(async () => {
+    if (!seller.uuid || !dateFilter?.since || !dateFilter?.until) return;
+    setAbsenceLoading(true);
+    try {
+      const since = dateFilter.since;
+      const until = dateFilter.until;
+      const res = await fetch(
+        `/api/sellers/absence-analysis?sellerId=${seller.uuid}&since=${since}&until=${until}&minSlotMinutes=25`
+      );
+      if (res.ok) {
+        const data: AbsenceAnalysis = await res.json();
+        setAbsenceData(data);
+      }
+    } catch {
+      // тихо
+    } finally {
+      setAbsenceLoading(false);
+    }
+  }, [seller.uuid, dateFilter?.since, dateFilter?.until]);
+
+  useEffect(() => {
+    fetchAbsence();
+  }, [fetchAbsence]);
+
+  // Вычисляем агрегированные метрики отсутствия
+  const totalAbsentMin = absenceData?.slots.reduce((s, sl) => s + sl.durationMinutes, 0) ?? 0;
+  const absentRate = seller.avgHours && seller.daysWorked > 0
+    ? Math.round((totalAbsentMin / (seller.avgHours * 60 * seller.daysWorked)) * 100)
+    : 0;
+  const highProbSlots = (absenceData?.slots ?? []).filter((s) => s.probability_absent >= 0.5);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -530,16 +569,16 @@ export function SellerDetailView({ seller, onBack, onCompare, insights = [], use
         </div>
       </div>
 
-      {/* Дисциплина смен */}
+      {/* Дисциплина и отсутствие */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-3 py-2 border-b border-border">
           <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-            Дисциплина смен
+            <AlertTriangle className="w-3.5 h-3.5 text-muted-foreground" />
+            Дисциплина и отсутствие
           </h4>
         </div>
         <div className="p-3 space-y-3">
-          {/* Метрики дисциплины */}
+          {/* Метрики дисциплины + отсутствия */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="bg-muted/50 rounded-lg p-2.5 text-center">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Опоздания</div>
@@ -556,22 +595,22 @@ export function SellerDetailView({ seller, onBack, onCompare, insights = [], use
               <div className="text-[10px] text-muted-foreground">смен без опозданий</div>
             </div>
             <div className="bg-muted/50 rounded-lg p-2.5 text-center">
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Старт смены</div>
-              <div className={`text-lg font-bold tabular-nums ${(seller.firstCheckDelay ?? 999) > 30 ? 'text-destructive' : 'text-success'}`}>
-                {seller.firstCheckDelay != null ? `${seller.firstCheckDelay}м` : '—'}
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Время absent</div>
+              <div className={`text-lg font-bold tabular-nums ${absentRate > 15 ? 'text-destructive' : 'text-foreground'}`}>
+                {totalAbsentMin}м
               </div>
-              <div className="text-[10px] text-muted-foreground">до первого чека</div>
+              <div className="text-[10px] text-muted-foreground">{absentRate}% времени смен</div>
             </div>
             <div className="bg-muted/50 rounded-lg p-2.5 text-center">
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Посещаемость</div>
-              <div className={`text-lg font-bold tabular-nums ${seller.stability.attendanceRate >= 90 ? 'text-success' : 'text-foreground'}`}>
-                {seller.stability.attendanceRate}%
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Подозр. слотов</div>
+              <div className={`text-lg font-bold tabular-nums ${highProbSlots.length > 2 ? 'text-destructive' : 'text-foreground'}`}>
+                {highProbSlots.length}
               </div>
-              <div className="text-[10px] text-muted-foreground">от календарных дней</div>
+              <div className="text-[10px] text-muted-foreground">P(absence) ≥ 50%</div>
             </div>
           </div>
 
-          {/* График: полоса пунктуальности */}
+          {/* График: пунктуальность открытия */}
           <div className="bg-muted/50 rounded-lg p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
@@ -587,20 +626,87 @@ export function SellerDetailView({ seller, onBack, onCompare, insights = [], use
                 style={{ width: `${seller.onTimeRate}%` }}
               />
               <div
-                className="h-full bg-destructive/70 rounded-r-full transition-all duration-700"
+                className="h-full bg-destructive/70 transition-all duration-700"
                 style={{ width: `${seller.lateRate}%` }}
               />
+              {absentRate > 0 && (
+                <div
+                  className="h-full bg-amber-500/60 rounded-r-full transition-all duration-700"
+                  style={{ width: `${Math.min(absentRate, 100 - seller.onTimeRate - seller.lateRate)}%` }}
+                />
+              )}
             </div>
             <div className="flex justify-between mt-1 text-[9px] text-muted-foreground">
-              <span>{seller.onTimeRate}% без опозданий</span>
-              <span>{seller.lateRate}% с опозданием</span>
+              <span className="text-success">{seller.onTimeRate}% вовремя</span>
+              <span className="text-destructive">{seller.lateRate}% опоздания</span>
+              {absentRate > 0 && <span className="text-amber-500">{absentRate}% absent</span>}
             </div>
           </div>
+
+          {/* Список подозрительных absent-периодов */}
+          {highProbSlots.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <AlertTriangle className="w-3 h-3 text-destructive" />
+                <span className="text-[10px] font-semibold text-destructive uppercase tracking-wide">
+                  Подозрительные периоды без чеков
+                </span>
+              </div>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {highProbSlots.slice(0, 8).map((slot, i) => (
+                  <div
+                    key={i}
+                    className="bg-destructive/5 border border-destructive/15 rounded-lg px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-medium text-foreground">
+                        {slot.date} · {slot.slot}
+                      </span>
+                      <span className={`text-xs font-bold tabular-nums ${
+                        slot.probability_absent >= 0.7 ? 'text-destructive' : 'text-amber-500'
+                      }`}>
+                        {Math.round(slot.probability_absent * 100)}%
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      {slot.explanation}
+                    </p>
+                    {slot.recommendation && (
+                      <p className="text-[10px] text-primary/80 mt-0.5">
+                        💡 {slot.recommendation}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Нет данных об отсутствии */}
+          {!absenceLoading && absenceData && highProbSlots.length === 0 && (
+            <div className="text-[10px] text-muted-foreground text-center py-2">
+              Подозрительных периодов без чеков не обнаружено
+            </div>
+          )}
+          {absenceLoading && (
+            <div className="text-[10px] text-muted-foreground text-center py-2">
+              Загрузка анализа отсутствия...
+            </div>
+          )}
         </div>
       </div>
 
       {/* AI Insights */}
-      <AIInsights insights={insights.length > 0 ? insights : seller.aiInsights} />
+      <AIInsights
+        insights={[
+          ...(insights.length > 0 ? insights : seller.aiInsights),
+          ...(highProbSlots.length > 0
+            ? highProbSlots.slice(0, 2).map((s) =>
+                `⚠️ ${s.date} в ${s.slot}: ${Math.round(s.probability_absent * 100)}% вероятность отсутствия — ${s.explanation.toLowerCase()}`
+              )
+            : []),
+        ]}
+      />
     </motion.div>
   );
 }
