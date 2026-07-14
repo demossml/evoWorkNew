@@ -17,7 +17,8 @@ import { Brain } from "lucide-react";
 
 // ====== Helpers ======
 
-function fmtRub(n: number): string {
+function fmtRub(n: number | null | undefined): string {
+  if (n == null || isNaN(n)) return "— ₽";
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M ₽`;
   if (n >= 1_000) return `${Math.round(n / 1000)}k ₽`;
   return `${Math.round(n)} ₽`;
@@ -366,9 +367,9 @@ function StoreCard({ store, index, expanded, onToggle, onAskAI }: {
               {/* Metrics grid */}
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <MetricBadge label="Выручка" value={fmtRub(store.totalRevenue)} />
-                <MetricBadge label="Маржа" value={`${store.marginPct}%`} />
+                <MetricBadge label="Маржа" value={store.marginPct != null ? `${store.marginPct}%` : "—"} />
                 <MetricBadge label="Сред.день" value={fmtRub(store.avgDailyRev)} />
-                <MetricBadge label="CV" value={`${store.cv}%`} />
+                <MetricBadge label="CV" value={store.cv != null ? `${store.cv}%` : "—"} />
                 <MetricBadge label="CV vs сеть" value={store.cvVsNetwork !== null ? `${store.cvVsNetwork}x` : "—"} />
                 <MetricBadge label="₽/час" value={store.rubPerHour ? fmtRub(store.rubPerHour) : "—"} />
                 <MetricBadge label="Часов/день" value={store.avgHoursPerDay ? `${store.avgHoursPerDay}ч` : "—"} />

@@ -25,6 +25,10 @@ export interface StoreMetrics {
   riskReasons: string[];
   dailyRevenue: { date: string; value: number }[];
   rankEligible: boolean;
+  trendCI?: { significant: boolean } | null;
+  cvVsNetwork?: number | null;
+  avgHoursPerDay?: number | null;
+  rubPerHour?: number | null;
 }
 
 export interface OpeningCorrelation {
