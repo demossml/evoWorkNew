@@ -52,6 +52,8 @@ interface InsightInput {
   lateRate: number;
   onTimeRate: number;
   firstCheckDelay: number | null;
+  absentRate: number;
+  historicalNotes?: string;
   strengths: string[];
   weaknesses: string[];
   dnaLabel: string;
@@ -212,6 +214,18 @@ function ruleBasedInsights(p: InsightInput): string[] {
     );
   }
 
+  if (p.absentRate > 15) {
+    insights.push(
+      `Критическая дисциплина: ${p.absentRate}% рабочего времени приходится на подозрительные периоды без чеков. ` +
+      `Рекомендуется проверить камеры видеонаблюдения и провести беседу с продавцом.`,
+    );
+  } else if (p.absentRate > 5) {
+    insights.push(
+      `Внимание: ${p.absentRate}% времени смены занимают периоды без чеков с высокой вероятностью отсутствия. ` +
+      `Следует уточнить причины и усилить контроль.`,
+    );
+  }
+
   if (p.onTimeRate >= 95 && p.daysWorked >= 10) {
     insights.push(
       `Отличная пунктуальность: ${p.onTimeRate}% смен начаты вовремя. ` +
@@ -241,23 +255,32 @@ function ruleBasedInsights(p: InsightInput): string[] {
 function buildSystemPrompt(comparison?: ComparisonContext): string {
   const hasComparison = comparison?.peers && comparison.peers.length >= 2 && comparison?.shopName;
 
-  const base = `Ты — бизнес-аналитик сети вейп-шопов. Твоя задача — проанализировать метрики одного продавца и дать 3–5 конкретных, полезных инсайтов.
+  const base = `Ты — опытный супервайзер сети вейп-шопов.
+Твоя задача — дать честный, конкретный и полезный анализ продавца на основе его метрик и исторического поведения.
 
-Контекст метрик:
-- overallScore (0–100) — интегральный DNA-балл. >80 = отлично, 60–80 = хорошо, 40–60 = средне, <40 = проблемно.
-- dnaLabel — типовая роль: Охотник (звезда), Стабильный, Одиночка, Восходящий, Проблемный.
-- deadTimePct — % времени смены без продаж. Норма < 15%, > 20% = проблема.
-- peakHourEfficiency (0–1) — эффективность в пиковые часы относительно среднего по магазину. >0.7 = отлично.
-- trendSlope — % изменения выручки в неделю. >5% = рост, < -5% = падение.
-- accShare — % аксессуаров в выручке. >25% = отлично, <15% = низко.
-- avgCheck — средний чек в ₽. >1800 = высокий, <1200 = низкий.
-- rubPerHour — выручка в час. >2500 = высокая производительность.
-- revenueCV — коэффициент вариации дневной выручки (%). <30% = стабильно.
-- lateOpenRate — % дней с опозданием на открытие. >10% = проблема.
-- avgLateMinutes — среднее опоздание в минутах (только для дней с опозданием).
-- onTimeRate — % дней без опозданий. >95% = отлично.
-- firstCheckDelay — среднее время от открытия до первого чека (мин). <10 = отлично, >30 = проблема.
-- attendanceRate — % отработанных дней от календарных. >90% = отлично.`;
+Учитывай:
+- lateRate (процент опозданий) и absentRate (процент подозрительных отсутствий).
+- firstCheckDelay (как быстро входит в работу).
+- peakHourEfficiency (работает ли в самое важное время).
+- accShare (умение продавать доп. товары).
+- Общее поведение за последние 30–90 дней.
+
+Правила:
+- Если lateRate > 20% или absentRate > 15% — обязательно дай рекомендацию по дисциплине.
+- Всегда учитывай историческое поведение (например, "Иван стабильно опаздывает по средам").
+- Рекомендации должны быть конкретными и actionable.
+- Не используй общие фразы типа "нужно работать лучше". Пиши, что именно делать владельцу/менеджеру.
+
+Формат ответа — JSON:
+{
+  "insights": [
+    "Короткое предложение 1",
+    "Короткое предложение 2",
+    ...
+  ]
+}
+
+Каждый инсайт — 1-2 предложения на русском языке.`;
 
   if (hasComparison) {
     return base + `
@@ -268,84 +291,49 @@ function buildSystemPrompt(comparison?: ComparisonContext): string {
 1. Сравнивать продавца с его коллегами в этом магазине, называя конкретные имена.
 2. Указывать, кто лучший и на сколько процентов/баллов.
 3. Давать конкретную рекомендацию: что именно стоит перенять у лидера.
-4. Анализировать именно различия между продавцами, а не общие советы.
-
-Формат ответа:
-Верни ТОЛЬКО валидный JSON-объект. Без markdown-обёрток, без пояснений.
-
-{
-  "insights": [
-    "Конкретный инсайт 1 с цифрами, именами и рекомендацией",
-    "Конкретный инсайт 2 с цифрами, именами и рекомендацией"
-  ]
-}
-
-Каждый инсайт — 1-2 предложения на русском языке.`;
+4. Анализировать именно различия между продавцами, а не общие советы.`;
   }
 
-  return base + `
-
-Формат ответа:
-Верни ТОЛЬКО валидный JSON-объект. Без markdown-обёрток, без пояснений.
-
-{
-  "insights": [
-    "Конкретный инсайт 1 с цифрами и рекомендацией",
-    "Конкретный инсайт 2 с цифрами и рекомендацией"
-  ]
-}
-
-Каждый инсайт — 1-2 предложения на русском языке.`;
+  return base;
 }
 
 function buildUserPrompt(p: InsightInput): string {
-  const result: any = {
-    seller: {
-      name: p.name,
-      store: p.comparison?.shopName || "(все магазины)",
-      rank: `${p.rank}/${p.totalSellers}`,
-      dnaLabel: p.dnaLabel,
-      overallScore: p.overallScore,
-      daysWorked: p.daysWorked,
-      totalRevenue: p.totalRevenue.toLocaleString("ru") + "₽",
-      avgCheck: p.avgCheck,
-      accShare: p.accShare,
-      rubPerHour: p.rubPerHour != null ? p.rubPerHour.toLocaleString("ru") + "₽/ч" : null,
-      avgHours: p.avgHours,
-      trend: p.trend,
-      trendSlopePctPerWeek: p.trendSlope,
-      deadTimePct: p.deadTimePct,
-      peakHourEfficiency: p.peakHourEfficiency,
-      revenueCV: p.stability.revenueCV,
-      checkCV: p.stability.checkCV,
-      attendanceRate: p.stability.attendanceRate,
-      lateOpenRate: p.stability.lateOpenRate,
-      avgLateMinutes: p.avgLateMinutes,
-      onTimeRate: p.onTimeRate,
-      firstCheckDelay: p.firstCheckDelay,
-      strengths: p.strengths,
-      weaknesses: p.weaknesses,
-    },
-  };
+  const shopName = p.comparison?.shopName || "не указан";
+  const historicalNotes = p.historicalNotes || "нет данных";
+
+  const prompt = [
+    `Продавец: ${p.name} (${p.dnaLabel})`,
+    `Магазин: ${shopName}`,
+    `Период: ${p.daysWorked} смен`,
+    ``,
+    `Ключевые метрики:`,
+    `- DNA Score: ${p.overallScore}/100`,
+    `- Выручка/час: ${p.rubPerHour != null ? p.rubPerHour.toLocaleString("ru") + " ₽" : "—"}`,
+    `- Средний чек: ${p.avgCheck} ₽`,
+    `- % аксессуаров: ${p.accShare}%`,
+    `- % опозданий: ${p.lateRate}%`,
+    `- % подозрительных отсутствий: ${p.absentRate}%`,
+    `- Эффективность в пиковые часы: ${Math.round(p.peakHourEfficiency * 100)}%`,
+    `- Среднее время до первого чека: ${p.firstCheckDelay != null ? p.firstCheckDelay + " мин" : "—"}`,
+    `- Тренд: ${p.trend} (${p.trendSlope}%/нед)`,
+    `- CV выручки: ${p.stability.revenueCV}%`,
+    `- Посещаемость: ${p.stability.attendanceRate}%`,
+    ``,
+    `Историческое поведение: ${historicalNotes}`,
+    ``,
+    `Проанализируй и дай 3–5 конкретных инсайтов.`,
+  ].join("\n");
 
   if (p.comparison?.peers && p.comparison.peers.length >= 2 && p.comparison.shopName) {
-    result.comparison = {
-      store: p.comparison.shopName,
-      otherSellers: p.comparison.peers
-        .filter(pr => pr.name !== p.name)
-        .map(pr => ({
-          name: pr.name,
-          overallScore: pr.overallScore,
-          avgCheck: pr.avgCheck,
-          rubPerHour: pr.rubPerHour != null ? pr.rubPerHour.toLocaleString("ru") + "₽/ч" : null,
-          accShare: pr.accShare,
-          deadTimePct: pr.deadTimePct,
-          rank: pr.rank,
-        })),
-    };
+    const peerLines = p.comparison.peers
+      .filter((pr) => pr.name !== p.name)
+      .map((peer) =>
+        `  - ${peer.name}: DNA ${peer.overallScore}/100, чек ${peer.avgCheck}₽, руб/ч ${peer.rubPerHour ?? "—"}₽, аксы ${peer.accShare}%, мёртвое время ${peer.deadTimePct}%`
+      );
+    return prompt + `\n\nКоллеги в магазине "${p.comparison.shopName}":\n${peerLines.join("\n")}`;
   }
 
-  return JSON.stringify(result);
+  return prompt;
 }
 
 function parseAIResponse(text: string): string[] {
