@@ -864,12 +864,11 @@ export const api = new Hono<IEnv>()
 	})
 
 	.get("/api/evotor/groups", async (c) => {
-		// Получаем UUID магазинов
-		const shopIds: string[] = await c.var.evotor.getShopUuids();
-
-		// Получаем группы по UUID первого магазина
-		const groups = await c.var.evotor.getGroupsByNameUuid(shopIds[0]);
-
+		const db = c.get("db");
+		const result = await db.prepare(
+			"SELECT DISTINCT parentUuid as uuid FROM shopProduct WHERE product_group = 0 AND parentUuid IS NOT NULL AND parentUuid != ''"
+		).all<{ uuid: string }>();
+		const groups = (result.results ?? []).map(r => r.uuid);
 		return c.json({ groups });
 	})
 
@@ -937,7 +936,7 @@ export const api = new Hono<IEnv>()
 					groupIdsAks = JSON.parse(settingsRow.value);
 				}
 			} catch { /* оставляем пустым */ }
-			const employeeName = await c.var.evotor.getEmployeeByUuid(employee);
+			const employeeName = await getEmployeeNameByUuid(c.get("db"), employee);
 
 			// Константа для Vape групп
 			const groupIdsVape = [
@@ -1115,17 +1114,14 @@ export const api = new Hono<IEnv>()
 			await saveOrUpdateUUIDs(groups, c.get("db"));
 			const uuid = await getAllUuid(c.get("db"));
 
-			// Получаем UUID магазинов
-			const shopIds: string[] = await c.var.evotor.getShopUuids();
-
-			// Фильтруем ненужные UUID
+				const shopIds = await getShopUuidsFromDB(c.get("db"));
 			const filteredUuids = shopIds.filter(
 				(uuid: string) => uuid !== "20231001-6611-407F-8068-AC44283C9196",
 			);
-			const groupsName = await c.var.evotor.getGroupsByName(
-				filteredUuids[0],
-				uuid,
-			);
+			const groupsResult = await c.get("db").prepare(
+				"SELECT DISTINCT parentUuid as uuid FROM shopProduct WHERE parentUuid IN (" + uuid.map(() => "?").join(",") + ")"
+			).bind(...uuid).all<{ uuid: string }>();
+			const groupsName = (groupsResult.results ?? []).map(r => r.uuid);
 
 			// Можно добавить логику обработки данных здесь
 
@@ -1148,37 +1144,23 @@ export const api = new Hono<IEnv>()
 	})
 
 	.get("/api/evotor/shops-names", async (c) => {
-		// Получение списка магазинов
-		const shopsName = await c.var.evotor.getShopsName();
-
-		assert(shopsName, "not an shopOptions");
-
+		const db = c.get("db");
+		const result = await db.prepare("SELECT name FROM shops").all<{ name: string }>();
+		const shopsName = (result.results ?? []).map(r => r.name);
 		return c.json({ shopsName });
 	})
 
 	.get("/api/evotor/sales-report", async (c) => {
-		// Получаем список магазинов
-		const shops = await c.var.evotor.getShops();
-
-		const shopOptions: Record<string, string> = shops.reduce(
-			(acc, shop) => {
-				acc[shop.uuid] = shop.name;
-				return acc;
-			},
-			{} as Record<string, string>,
-		);
-
-		// Получаем UUID магазинов
-		const shopIds: string[] = await c.var.evotor.getShopUuids();
-
-		// Фильтруем ненужные UUID
-		const filteredUuids = shopIds.filter(
-			(uuid: string) => uuid !== "20231001-6611-407F-8068-AC44283C9196",
-		);
-
-		// Получаем группы по UUID первого магазина
-		const groups = await c.var.evotor.getGroupsByNameUuid(filteredUuids[0]);
-
+		const db = c.get("db");
+		const shopsResult = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+		const shopOptions: Record<string, string> = {};
+		for (const row of shopsResult.results ?? []) {
+			shopOptions[row.uuid] = row.name;
+		}
+		const groupsResult = await db.prepare(
+			"SELECT DISTINCT parentUuid as uuid FROM shopProduct WHERE product_group = 0 AND parentUuid IS NOT NULL AND parentUuid != ''"
+		).all<{ uuid: string }>();
+		const groups = (groupsResult.results ?? []).map(r => r.uuid);
 		return c.json({ shopOptions, groups });
 	})
 
@@ -1190,7 +1172,8 @@ export const api = new Hono<IEnv>()
 			const since = formatDateWithTime(new Date(startDate), false);
 			const until = formatDateWithTime(new Date(endDate), true);
 
-			const shopName = await c.var.evotor.getShopName(shopUuid);
+			const shopRow = await c.get("db").prepare("SELECT name FROM shops WHERE uuid = ?").bind(shopUuid).first<{ name: string }>();
+			const shopName = shopRow?.name || shopUuid;
 
 			// Получаем названия товаров по группам из D1 (shopProduct)
 			const productNames = await getProductNamesByGroup(
@@ -1252,15 +1235,12 @@ export const api = new Hono<IEnv>()
 
 	.get("/api/evotor/shops", async (c) => {
 		// Получаем список магазинов
-		const shops = await c.var.evotor.getShops();
-
-		const shopOptions: Record<string, string> = shops.reduce(
-			(acc, shop) => {
-				acc[shop.uuid] = shop.name;
-				return acc;
-			},
-			{} as Record<string, string>,
-		);
+		const db2 = c.get("db");
+		const shopsResult = await db2.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+		const shopOptions: Record<string, string> = {};
+		for (const row of shopsResult.results ?? []) {
+			shopOptions[row.uuid] = row.name;
+		}
 		// console.log(shopOptions);
 
 		return c.json({ shopOptions });
@@ -1290,7 +1270,8 @@ export const api = new Hono<IEnv>()
 			// // Сортируем данные о товарах
 			// const sortedStockData = sortStockData(stockDataResponse, sortCriteria);
 			// // console.log("Отсортированные данные:", sortedStockData);
-			const shopName = await c.var.evotor.getShopName(shopUuid);
+			const shopNameRow = await c.get("db").prepare("SELECT name FROM shops WHERE uuid = ?").bind(shopUuid).first<{ name: string }>();
+			const shopName = shopNameRow?.name || shopUuid;
 
 			// Отправляем ответ
 			return c.json({ stockData: stockDataResponse, shopName });
@@ -1331,7 +1312,8 @@ export const api = new Hono<IEnv>()
 
 			// console.log("данные:", order);
 
-			const shopName = await c.var.evotor.getShopName(shopUuid);
+			const shopNameRow = await c.get("db").prepare("SELECT name FROM shops WHERE uuid = ?").bind(shopUuid).first<{ name: string }>();
+			const shopName = shopNameRow?.name || shopUuid;
 
 			// Отправляем ответ
 			return c.json({ order, startDate, endDate, shopName });
@@ -1751,7 +1733,7 @@ export const api = new Hono<IEnv>()
 			const endDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59)).toISOString();
 
 			// Получаем все магазины
-			const shops = (await evo.getShopNameUuids()) as Array<{ uuid: string; name: string }>;
+			const shopsResult = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>(); const shops = (shopsResult.results ?? []) as Array<{ uuid: string; name: string }>;
 			if (!shops?.length) {
 				return c.json({ shopsNameAndUuid: [] });
 			}
@@ -1822,7 +1804,7 @@ export const api = new Hono<IEnv>()
 		// Получаем название магазина
 		let shopName: string | undefined;
 		try {
-			const shops = (await evo.getShopNameUuids()) as Array<{ uuid: string; name: string }>;
+			const shopsResult = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>(); const shops = (shopsResult.results ?? []) as Array<{ uuid: string; name: string }>;
 			shopName = shops.find((s) => s.uuid === shopUuid)?.name;
 		} catch {
 			// название не критично
@@ -1888,7 +1870,7 @@ export const api = new Hono<IEnv>()
 				}>();
 
 			// Получаем все магазины для проверки неоткрытых
-			const shops = (await evo.getShopNameUuids()) as Array<{ uuid: string; name: string }>;
+			const shopsResult = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>(); const shops = (shopsResult.results ?? []) as Array<{ uuid: string; name: string }>;
 
 			// Для каждого открытия получаем фото
 			const records: OpeningRecord[] = [];
@@ -2151,8 +2133,9 @@ export const api = new Hono<IEnv>()
 			const db = c.env.DB;
 			const evo = c.var.evotor;
 
-			// Get shops
-			const shops = (await evo.getShopNameUuids()) as ShopUuidName[];
+			// Get shops from D1
+			const shopsResult = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+			const shops = (shopsResult.results ?? []) as ShopUuidName[];
 			if (!shops || !shops.length) return c.json({ rows: [], totalPlan: 0, actualNet: 0 });
 
 			// Filter by shopName
@@ -2368,6 +2351,17 @@ export const api = new Hono<IEnv>()
 						checksByShop[row.shop_id] = row.cnt;
 					}
 				}
+
+				const rows: Array<{
+					name: string;
+					revenue: number;
+					averageCheck: number;
+					refunds: number;
+					expenses: number;
+					netRevenue: number;
+					checks: number;
+					refundRate: number;
+				}> = [];
 
 				for (const uuid of allShopUuids) {
 					const shopName = uuidToName[uuid] || uuid;
