@@ -10,7 +10,6 @@ import {
   StockHealthWidget,
 } from "@widgets/home";
 import { buildHomeAccessModel } from "@features/dashboard/model/homePageModel";
-import { SellerPerformanceWidget } from "@widgets/home/SellerPerformanceWidget";
 import { DailyBriefing } from "@widgets/home/DailyBriefing";
 import { DateFilter, type DateFilterValue } from "@widgets/home/DateFilter";
 import { RevenueWidget } from "@widgets/home/RevenueWidget";
@@ -83,11 +82,6 @@ export default function Home() {
         <ErrorBoundary variant="widget" name="Ежедневный брифинг">
           <DailyBriefing />
         </ErrorBoundary>
-        {isSuperAdmin && (
-          <ErrorBoundary variant="widget" name="Продавцы дня">
-            <SellerPerformanceWidget />
-          </ErrorBoundary>
-        )}
         <DateFilter value={dateFilter} onChange={setDateFilter} />
         <ErrorBoundary variant="widget" name="План по магазинам">
           <PlanStatusWidget date={since} />
