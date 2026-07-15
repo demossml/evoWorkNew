@@ -1345,13 +1345,12 @@ export const api = new Hono<IEnv>()
 	.get("/api/evotor/report/financial/today", async (c) => {
 		try {
 			const db = c.get("db");
-			const evo = c.var.evotor;
 			const now = new Date();
 
 			const since = formatDateWithTime(now, false);
 			const until = formatDateWithTime(now, true);
 
-			const shopUuids = await evo.getShopUuids();
+			const shopUuids = await getShopUuidsFromDB(db);
 
 			const { salesDataByShopName, grandTotalSell, grandTotalRefund, dailySell } =
 				await getSalesgardenReportData(db, shopUuids, since, until);
@@ -1364,7 +1363,7 @@ export const api = new Hono<IEnv>()
 			);
 
 			const grandTotalCashOutcome = calculateTotalSum(cashOutcomeData);
-			const cash = await evo.getCashByShops();
+			const cash = await getCashByShopsFromD1(db);
 
 			return c.json({
 				salesDataByShopName,
@@ -1400,9 +1399,10 @@ export const api = new Hono<IEnv>()
 			// );
 
 			const { salesDataByShopName, grandTotalSell, grandTotaRefund, dailySell } =
-				await c.var.evotor.getSalesgardenReportData(shopUuids, since, until);
+				await getSalesgardenReportData(db, shopUuids, since, until);
 
-			const cashOutcomeData = await c.var.evotor.getDocumentsByCashOutcomeData(
+			const cashOutcomeData = await getDocumentsByCashOutcomeData(
+				db,
 				shopUuids,
 				since,
 				until,
@@ -2331,10 +2331,15 @@ export const api = new Hono<IEnv>()
 				weekUntil = formatDateWithTime(today, true);
 			}
 
-			// Get shops
+			// Get shops from D1
+			const shopsResult = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
 			const allShopUuids = shopUuid
 				? [shopUuid]
-				: await evo.getShopUuids();
+				: (shopsResult.results ?? []).map(r => r.uuid);
+			const uuidToName: Record<string, string> = {};
+			for (const row of shopsResult.results ?? []) {
+				uuidToName[row.uuid] = row.name;
+			}
 
 			// Compute KPI rows for a period
 			const computeRows = async (since: string, until: string) => {
@@ -2364,27 +2369,8 @@ export const api = new Hono<IEnv>()
 					}
 				}
 
-				const shopNames = await Promise.all(
-					allShopUuids.map((uuid: string) => evo.getShopName(uuid)),
-				);
-				const uuidToName: Record<string, string> = {};
-				allShopUuids.forEach((uuid: string, i: number) => {
-					uuidToName[uuid] = shopNames[i] || uuid;
-				});
-
-				const rows: Array<{
-					name: string;
-					revenue: number;
-					averageCheck: number;
-					refunds: number;
-					expenses: number;
-					netRevenue: number;
-					checks: number;
-					refundRate: number;
-				}> = [];
-
 				for (const uuid of allShopUuids) {
-					const shopName = uuidToName[uuid];
+					const shopName = uuidToName[uuid] || uuid;
 					const shopSales = salesDataByShopName[shopName];
 					const revenue = shopSales?.totalSell || 0;
 					const refunds = Object.values(shopSales?.refund || {}).reduce((s, v) => s + v, 0);
