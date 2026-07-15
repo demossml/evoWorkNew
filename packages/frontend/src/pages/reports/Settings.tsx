@@ -22,6 +22,14 @@ const DAYS_OF_WEEK = [
 
 type DayKey = (typeof DAYS_OF_WEEK)[number]["key"];
 
+// Маппинг: ключи фронтенда → номера дней в БД (0=Вс..6=Сб)
+const DAY_KEY_TO_WEEKDAY: Record<DayKey, number> = {
+  mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 0,
+};
+const WEEKDAY_TO_DAY_KEY: Record<number, DayKey> = {
+  1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat", 0: "sun",
+};
+
 interface DaySchedule {
   open: string;  // "HH:MM"
   close: string; // "HH:MM"
@@ -67,19 +75,42 @@ const Settings = () => {
   const [schedulesMessage, setSchedulesMessage] = useState<string | null>(null);
   const [schedulesLoaded, setSchedulesLoaded] = useState(false);
 
-  // Инициализация расписания при загрузке списка магазинов
+  // Загрузка сохранённого расписания при монтировании
   useEffect(() => {
-    if (shops.length > 0 && !schedulesLoaded) {
-      setSchedules((prev) => {
-        const next: ShopSchedulesData = {};
-        for (const shop of shops) {
-          next[shop.uuid] = prev[shop.uuid] ?? { ...DEFAULT_SCHEDULE };
-        }
-        return next;
-      });
-      setSchedulesLoaded(true);
-    }
-  }, [shops, schedulesLoaded]);
+    if (shops.length === 0) return;
+    const loadSchedules = async () => {
+      try {
+        const response = await client.api.evotor.settings["shop-schedules"].$get();
+        if (!response.ok) return;
+        const data = await response.json() as { ok: boolean; rows: { shop_id: string; weekday: number; open_time: string; close_time: string; is_working_day: boolean }[] };
+        if (!data.rows || data.rows.length === 0) return;
+
+        setSchedules((prev) => {
+          const next: ShopSchedulesData = {};
+          for (const shop of shops) {
+            next[shop.uuid] = { ...DEFAULT_SCHEDULE };
+          }
+          for (const row of data.rows) {
+            const dayKey = WEEKDAY_TO_DAY_KEY[row.weekday];
+            if (!dayKey) continue;
+            if (!next[row.shop_id]) {
+              next[row.shop_id] = { ...DEFAULT_SCHEDULE };
+            }
+            next[row.shop_id][dayKey] = {
+              open: row.open_time,
+              close: row.close_time,
+              working: row.is_working_day,
+            };
+          }
+          return next;
+        });
+        setSchedulesLoaded(true);
+      } catch (err) {
+        console.error("Не удалось загрузить расписание:", err);
+      }
+    };
+    void loadSchedules();
+  }, [shops]);
   const [error, setError] = useState<string | null>(null);
   const [groupsMessage, setGroupsMessage] = useState<string | null>(null);
   const [salaryBonusMessage, setSalaryBonusMessage] = useState<string | null>(null);
@@ -273,8 +304,21 @@ const Settings = () => {
     setError(null);
     setIsSavingSchedules(true);
     try {
+      // Трансформируем { [shopUuid]: { [dayKey]: DaySchedule } } → ShopScheduleRow[]
+      const rows: { shop_id: string; weekday: number; open_time: string; close_time: string; is_working_day: boolean }[] = [];
+      for (const [shopUuid, schedule] of Object.entries(schedules)) {
+        for (const [dayKey, day] of Object.entries(schedule)) {
+          rows.push({
+            shop_id: shopUuid,
+            weekday: DAY_KEY_TO_WEEKDAY[dayKey as DayKey],
+            open_time: day.open,
+            close_time: day.close,
+            is_working_day: day.working,
+          });
+        }
+      }
       const response = await client.api.evotor.settings["shop-schedules"].$post({
-        json: { schedules },
+        json: { rows },
       } as any);
       if (!response.ok) throw new Error(`Ошибка: ${response.status}`);
       setSchedulesMessage("Расписание сохранено");
