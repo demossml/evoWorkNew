@@ -3373,10 +3373,13 @@ ${storesList}
 				const schedule = scheduleByShop.get(shop.uuid);
 				const session = sessionByShop.get(shop.uuid);
 
-				// Извлекаем время открытия (HH:MM) из close_date
-				const extractTime = (dateStr: string): string => {
-					const t = dateStr.match(/T(\d{2}:\d{2})/);
-					return t ? t[1] : "—";
+// Извлекаем время открытия (HH:MM) из close_date с конвертацией UTC→MSK
+			const extractTimeMSK = (dateStr: string): string => {
+				// Формат: "2026-07-15T04:21:00.000+0000" или "2026-07-15 04:21:00"
+				const t = dateStr.match(/[T ](\d{2}):(\d{2})/);
+				if (!t) return "—";
+				const h = (parseInt(t[1]) + 3) % 24; // UTC → MSK
+				return `${String(h).padStart(2, "0")}:${t[2]}`;
 				};
 
 				const parseMinutes = (time: string): number => {
@@ -3392,7 +3395,7 @@ ${storesList}
 				let notOpenedYet = true;
 
 				if (session) {
-					openTime = extractTime(session.time);
+					openTime = extractTimeMSK(session.time);
 					sellerName = employeeNames.get(session.userUuid) || session.userUuid;
 					sellerUuid = session.userUuid;
 					notOpenedYet = false;
