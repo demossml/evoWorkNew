@@ -1137,21 +1137,13 @@ export const api = new Hono<IEnv>()
 	})
 
 	.post("/api/evotor/shops", async (c) => {
-		// Объект для хранения сопоставления shopUuid -> shopName
+		// Используем D1 вместо Evotor API — быстрее и надёжнее
+		const db = c.get("db");
+		const result = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
 		const shopOptions: Record<string, string> = {};
-
-		// Получение списка магазинов
-		const shops: ShopUuidName[] | null = await c.var.evotor.getShopNameUuids();
-		if (shops) {
-			// console.log(shops);
-			// Добавление магазинов в shopOptions
-			shops.forEach((shop) => {
-				shopOptions[shop.uuid] = shop.name;
-			});
+		for (const row of result.results ?? []) {
+			shopOptions[row.uuid] = row.name;
 		}
-
-		assert(shopOptions, "not an shopOptions");
-
 		return c.json({ shopOptions });
 	})
 
