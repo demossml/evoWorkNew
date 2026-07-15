@@ -29,6 +29,10 @@ interface DeadStockItem {
 interface DynamicTableDeadStocksV2Props {
   data: DeadStockItem[];
   shopUuid: string;
+  aiAnalysis?: {
+    analysis: { name: string; quantity: number; category: string; reason: string; moveToStoreName?: string; monthlySales?: number }[];
+    summary: string;
+  } | null;
 }
 
 interface QuantityPickerModalProps {
@@ -131,9 +135,27 @@ const QuantityPickerModal = ({
 export const DynamicTableDeadStocksV2 = ({
   data,
   shopUuid,
+  aiAnalysis,
 }: DynamicTableDeadStocksV2Props) => {
   const queryClient = useQueryClient();
-  const [items, setItems] = useState<DeadStockItem[]>(data);
+
+  // Merge AI analysis into items
+  const dataWithAi = useMemo(() => {
+    if (!aiAnalysis?.analysis) return data;
+    const aiMap = new Map(aiAnalysis.analysis.map(a => [a.name, a]));
+    return data.map(item => {
+      const ai = aiMap.get(item.name);
+      if (!ai) return item;
+      return {
+        ...item,
+        mark: ai.category as DeadStockItem["mark"],
+        moveToStore: ai.moveToStoreName,
+        moveCount: ai.monthlySales,
+      };
+    });
+  }, [data, aiAnalysis]);
+
+  const [items, setItems] = useState<DeadStockItem[]>(dataWithAi);
   const [filter, setFilter] = useState("all");
   const [showSave, setShowSave] = useState(false);
 
@@ -175,6 +197,13 @@ export const DynamicTableDeadStocksV2 = ({
   useEffect(() => {
     setVisibleRowsCount(INITIAL_VISIBLE_ROWS);
   }, [sortedData.length, sortConfig.key, sortConfig.direction, filter]);
+
+  // Sync items when AI analysis arrives
+  useEffect(() => {
+    if (aiAnalysis?.analysis) {
+      setItems(dataWithAi);
+    }
+  }, [aiAnalysis]);
 
   const hasMoreRows = visibleRowsCount < sortedData.length;
   const renderedRows = useMemo(

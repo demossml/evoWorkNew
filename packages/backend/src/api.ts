@@ -1639,6 +1639,171 @@ export const api = new Hono<IEnv>()
 		}
 	})
 
+	// AI-анализ мёртвых остатков: авто-категоризация + рекомендации по переброске
+	.post("/api/dead-stocks/ai-analysis", async (c) => {
+		try {
+			const db = c.get("db");
+			const apiKey = c.env.DEEPSEEK_API_KEY as string;
+			const { shopUuid, items } = await c.req.json<{
+				shopUuid: string;
+				items: { name: string; quantity: number }[];
+			}>();
+
+			if (!items?.length) return c.json({ analysis: [], summary: "" });
+
+			// 1. Получаем список других магазинов
+			const shopsResult = await db.prepare(
+				"SELECT uuid, name FROM shops WHERE uuid != ?"
+			).bind(shopUuid).all<{ uuid: string; name: string }>();
+			const otherShops = shopsResult.results ?? [];
+
+			// 2. Ищем продажи каждого товара в других магазинах за последние 30 дней
+			const since = new Date();
+			since.setDate(since.getDate() - 30);
+			const sinceStr = since.toISOString().slice(0, 10);
+			const untilStr = new Date().toISOString().slice(0, 10);
+
+			const analysis: {
+				name: string;
+				quantity: number;
+				category: "keep" | "move" | "sellout" | "writeoff";
+				reason: string;
+				moveToStore?: string;
+				moveToStoreName?: string;
+				monthlySales?: number;
+			}[] = [];
+
+			const noSalesItems: { name: string; quantity: number }[] = [];
+
+			for (const item of items) {
+				// Ищем продажи в других магазинах
+				let foundStore: string | null = null;
+				let foundStoreName: string | null = null;
+				let maxSales = 0;
+
+				for (const shop of otherShops) {
+					const productRow = await db.prepare(
+						"SELECT uuid FROM shopProduct WHERE shopId = ? AND name = ? LIMIT 1"
+					).bind(shop.uuid, item.name).first<{ uuid: string }>();
+
+					if (!productRow?.uuid) continue;
+
+					const salesResult = await db.prepare(
+						`SELECT SUM(CAST(JSON_EXTRACT(tx.value, '$.quantity') AS INTEGER)) as qty
+						 FROM index_documents,
+						 JSON_EACH(transactions) AS tx
+						 WHERE shop_id = ? AND type = 'SELL'
+						 AND close_date >= ? AND close_date <= ?
+						 AND JSON_EXTRACT(tx.value, '$.commodityUuid') = ?`
+					).bind(shop.uuid, sinceStr + "T00:00:00", untilStr + "T23:59:59", productRow.uuid)
+						.first<{ qty: number | null }>();
+
+					const qty = salesResult?.qty ?? 0;
+					if (qty > maxSales) {
+						maxSales = qty;
+						foundStore = shop.uuid;
+						foundStoreName = shop.name;
+					}
+				}
+
+				if (foundStore && maxSales >= 3) {
+					analysis.push({
+						name: item.name,
+						quantity: item.quantity,
+						category: "move",
+						reason: `Продаётся в «${foundStoreName}» — ${maxSales} шт. за 30 дней`,
+						moveToStore: foundStore,
+						moveToStoreName: foundStoreName,
+						monthlySales: maxSales,
+					});
+				} else {
+					noSalesItems.push(item);
+				}
+			}
+
+			// 3. AI-категоризация для товаров без продаж нигде
+			if (noSalesItems.length > 0 && apiKey) {
+				const itemList = noSalesItems.map(i => `- ${i.name} (остаток: ${i.quantity} шт.)`).join("\n");
+				const system = `Ты — эксперт по управлению товарными запасами в розничной сети вейп-магазинов.
+Проанализируй список товаров, которые не продавались ни в одном магазине сети за последние 30 дней.
+Для каждого товара выбери одну из трёх категорий:
+- "keep" — оставить (сезонный товар, может понадобиться позже)
+- "sellout" — распродать со скидкой (есть шанс продать по сниженной цене)
+- "writeoff" — списать (просрочка, нет спроса, неликвид)
+
+Ответь СТРОГО в JSON-формате:
+{
+  "items": [
+    { "name": "Название товара", "category": "sellout", "reason": "почему" }
+  ],
+  "summary": "краткий анализ ситуации с мёртвыми остатками, 2-3 предложения"
+}`;
+
+				const user = `Магазин: вейп-сеть. Товары без продаж за 30 дней:\n${itemList}`;
+
+				try {
+					const aiText = await deepseekChat({
+						apiKey,
+						system,
+						user,
+						maxTokens: 1500,
+						temperature: 0.3,
+					});
+
+					const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+					if (jsonMatch) {
+						const aiResult = JSON.parse(jsonMatch[0]);
+						for (const aiItem of (aiResult.items || [])) {
+							analysis.push({
+								name: aiItem.name,
+								quantity: noSalesItems.find(i => i.name === aiItem.name)?.quantity ?? 0,
+								category: aiItem.category || "writeoff",
+								reason: aiItem.reason || "",
+							});
+						}
+						// Добавляем AI-саммари
+						analysis.unshift({
+							name: "__summary__",
+							quantity: 0,
+							category: "keep",
+							reason: aiResult.summary || "",
+						} as any);
+					}
+				} catch (aiErr) {
+					console.error("DeepSeek analysis error:", aiErr);
+					// Если AI недоступен — помечаем все как sellout
+					for (const item of noSalesItems) {
+						analysis.push({
+							name: item.name,
+							quantity: item.quantity,
+							category: "sellout",
+							reason: "Нет продаж в сети — рекомендуется распродажа",
+						});
+					}
+				}
+			} else if (noSalesItems.length > 0) {
+				// Нет API ключа — базовые правила
+				for (const item of noSalesItems) {
+					analysis.push({
+						name: item.name,
+						quantity: item.quantity,
+						category: "sellout",
+						reason: "Нет продаж в сети — рекомендуется распродажа",
+					});
+				}
+			}
+
+			const summaryItem = analysis.find(a => (a as any).name === "__summary__");
+			const summary = summaryItem ? summaryItem.reason : "";
+			const items_result = analysis.filter(a => (a as any).name !== "__summary__");
+
+			return c.json({ analysis: items_result, summary });
+		} catch (err) {
+			console.error("ai-analysis error:", err);
+			return c.json({ analysis: [], summary: "", error: String(err) }, 500);
+		}
+	})
+
 	.post("/api/dead-stocks/update", async (c) => {
 		const db = c.get("drizzle");
 

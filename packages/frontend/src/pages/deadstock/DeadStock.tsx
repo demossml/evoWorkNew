@@ -36,6 +36,11 @@ export default function DeadSt() {
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<{
+    analysis: { name: string; quantity: number; category: string; reason: string; moveToStoreName?: string; monthlySales?: number }[];
+    summary: string;
+  } | null>(null);
   const [isLoadingShops, setIsLoadingShops] = useState(false);
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
@@ -121,6 +126,31 @@ export default function DeadSt() {
     isFormValid,
     isMiniApp,
   ]);
+
+  // 🔹 AI-анализ мёртвых остатков
+  const runAiAnalysis = async () => {
+    if (!reportData || !selectedShop) return;
+    setIsAiAnalyzing(true);
+    setAiAnalysis(null);
+    try {
+      const response = await client.api["dead-stocks"]["ai-analysis"].$post({
+        json: {
+          shopUuid: selectedShop,
+          items: reportData.salesData.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+          })),
+        },
+      } as any);
+      if (!response.ok) throw new Error(`Ошибка: ${response.status}`);
+      const result = await response.json();
+      setAiAnalysis(result);
+    } catch (err) {
+      console.error("AI analysis error:", err);
+    } finally {
+      setIsAiAnalyzing(false);
+    }
+  };
 
   // 🔹 Инициализация Telegram Mini App
   useEffect(() => {
@@ -303,7 +333,41 @@ export default function DeadSt() {
             <DynamicTableDeadStocks
               data={tableData}
               shopUuid={selectedShop ?? ""}
+              aiAnalysis={aiAnalysis}
             />
+          </div>
+
+          {/* 🔮 AI-анализ */}
+          <div className="mt-4 px-2 space-y-3">
+            {!aiAnalysis && (
+              <button
+                onClick={runAiAnalysis}
+                disabled={isAiAnalyzing}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+              >
+                {isAiAnalyzing ? (
+                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Анализирую...</>
+                ) : (
+                  <>🔮 AI-анализ мёртвых остатков</>
+                )}
+              </button>
+            )}
+
+            {aiAnalysis?.summary && (
+              <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-3 border border-violet-200 dark:border-violet-800">
+                <div className="text-xs font-medium text-violet-700 dark:text-violet-300 mb-1">📋 Вывод AI</div>
+                <div className="text-xs text-violet-600 dark:text-violet-400">{aiAnalysis.summary}</div>
+              </div>
+            )}
+
+            {aiAnalysis && (
+              <div className="text-xs text-muted-foreground flex gap-3 flex-wrap">
+                <span>🟢 оставить: {aiAnalysis.analysis.filter(a => a.category === 'keep').length}</span>
+                <span>🔵 переместить: {aiAnalysis.analysis.filter(a => a.category === 'move').length}</span>
+                <span>🟡 распродать: {aiAnalysis.analysis.filter(a => a.category === 'sellout').length}</span>
+                <span>🔴 списать: {aiAnalysis.analysis.filter(a => a.category === 'writeoff').length}</span>
+              </div>
+            )}
           </div>
         </motion.div>
       </motion.div>
