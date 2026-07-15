@@ -2975,7 +2975,8 @@ export const api = new Hono<IEnv>()
 			}
 
 			// Один магазин
-			const shopName = await c.var.evotor.getShopName(shopUuid);
+			const shopNameRow = await c.get("db").prepare("SELECT name FROM shops WHERE uuid = ?").bind(shopUuid).first<{ name: string }>();
+			const shopName = shopNameRow?.name || shopUuid;
 			const productNames = await getProductNamesByGroup(
 				c.get("db"),
 				shopUuid,
@@ -3073,16 +3074,13 @@ export const api = new Hono<IEnv>()
 				return c.json({ error: "DEEPSEEK_API_KEY not configured" }, 500);
 			}
 
-			// Получаем список всех магазинов
-			const allShops = await c.var.evotor.getShopUuids();
+			// Получаем список всех магазинов из D1
+			const shopsRes = await c.get("db").prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
 			const shopNames: Record<string, string> = {};
-			for (const sid of allShops) {
-				try {
-					shopNames[sid] = await c.var.evotor.getShopName(sid);
-				} catch {
-					shopNames[sid] = sid;
-				}
+			for (const row of shopsRes.results ?? []) {
+				shopNames[row.uuid] = row.name;
 			}
+			const allShops = Object.keys(shopNames);
 
 			const currentShopName = shopNames[shopUuid] || shopUuid;
 			const otherShops = allShops
