@@ -3529,13 +3529,12 @@ ${storesList}
 			let shopNameMap: Record<string, string> = {};
 
 			if (role === "SUPERADMIN") {
-				const shopUuids = await evo.getShopUuids();
-				const names = await Promise.all(
-					shopUuids.map((uuid: string) => evo.getShopName(uuid))
-				);
-				shopNameMap = Object.fromEntries(
-					shopUuids.map((uuid: string, i: number) => [uuid, names[i] || uuid])
-				);
+				// D1 вместо Evotor API — мгновенно
+				const db = c.get("db");
+				const shopsResult = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+				for (const row of shopsResult.results ?? []) {
+					shopNameMap[row.uuid] = row.name;
+				}
 			} else {
 				const employees = await evo.getEmployees();
 				const employee = employees.find((emp: any) => emp.lastName === userId);
