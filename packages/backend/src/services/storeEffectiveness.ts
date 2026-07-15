@@ -32,11 +32,12 @@ export interface StoreMetrics {
   uniqueSellers: number;
   sellerTurnoverPct: number | null; // доля продавцов текущего месяца, которых не было в предыдущем
   categoryMix: { category: string; sharePct: number; networkSharePct: number; deviationPp: number }[];
-  hourlyRevenue: { hour: number; avgRevenue: number }[]; // распределение по часам, усреднённое по дням
+  hourlyRevenue: { hour: number; avgRevenue: number }[]; // распределение по часам (локальное время магазина), усреднённое по дням
   riskLevel: "ok" | "warn" | "critical";
   riskReasons: string[];
   dailyRevenue: { date: string; value: number }[];
   rankEligible: boolean;
+  utcOffset: number; // +N часов к UTC для локального времени магазина (автоопределено)
 }
 
 export interface OpeningCorrelation {
@@ -59,6 +60,31 @@ interface DocRow {
   shop_id: string;
   open_user_uuid: string;
   transactions: string;
+}
+
+/**
+ * Автоопределение UTC-смещения магазина по распределению транзакций.
+ * Алгоритм: находим час P5 (5-й перцентиль транзакций) в UTC и считаем,
+ * что это 9:00 утра по локальному времени магазина.
+ * offset = 9 - p5HourUtc  (напр., P5=5 UTC → offset=+4, Самарское время)
+ */
+function detectUtcOffset(hourlyCounts: Map<number, number>): number {
+  const entries = [...hourlyCounts.entries()].sort((a, b) => a[0] - b[0]);
+  if (entries.length === 0) return 3; // default Moscow
+
+  const total = entries.reduce((sum, [, c]) => sum + c, 0);
+  if (total === 0) return 3;
+
+  let cum = 0;
+  for (const [h, c] of entries) {
+    cum += c;
+    if (cum >= total * 0.05) {
+      const offset = 9 - h;
+      // clamp to realistic Russian timezones: UTC+2 (Kaliningrad) to UTC+12 (Kamchatka)
+      return Math.max(2, Math.min(12, offset));
+    }
+  }
+  return 3;
 }
 
 export async function computeStoreEffectiveness(
@@ -217,8 +243,14 @@ export async function computeStoreEffectiveness(
       })
       .sort((a, b) => Math.abs(b.deviationPp) - Math.abs(a.deviationPp));
 
+    // Detect store timezone from hourly distribution
+    const utcOffset = detectUtcOffset(s.hourlyRevenue);
+
     const hourlyRevenue = [...s.hourlyRevenue.entries()]
-      .map(([hour, total]) => ({ hour, avgRevenue: Math.round(total / Math.max(1, s.hourlyDayCount.size)) }))
+      .map(([hourUtc, total]) => {
+        const localHour = (hourUtc + utcOffset + 24) % 24;
+        return { hour: localHour, avgRevenue: Math.round(total / Math.max(1, s.hourlyDayCount.size)) };
+      })
       .sort((a, b) => a.hour - b.hour);
 
     // Turnover proxy
@@ -278,12 +310,13 @@ export async function computeStoreEffectiveness(
       riskReasons,
       dailyRevenue,
       rankEligible,
+      utcOffset,
     });
   }
 
   stores.sort((a, b) => b.netRevenue - a.netRevenue);
 
-  const openingCorrelation = await computeOpeningCorrelation(db, since, until, byStore);
+  const openingCorrelation = await computeOpeningCorrelation(db, since, until, byStore, Object.fromEntries(stores.map(s => [s.uuid, s.utcOffset])));
   const hypotheses = buildHypotheses(stores, openingCorrelation);
 
   return { stores, openingCorrelation, hypotheses, since, until };
@@ -359,6 +392,7 @@ async function computeOpeningCorrelation(
   since: string,
   until: string,
   byStore: Map<string, { dailyNet: Map<string, number> }>,
+  storeOffsets: Record<string, number>,
 ): Promise<OpeningCorrelation> {
   let rows: { shop_uuid: string; date: string; last_photo: string }[] = [];
   try {
@@ -384,8 +418,9 @@ async function computeOpeningCorrelation(
     if (rev == null) continue;
     const ms = Date.parse(row.last_photo.replace(" ", "T") + "Z"); // created_at — SQLite datetime('now'), это UTC
     if (Number.isNaN(ms)) continue;
-    const mskMs = ms + 3 * 3_600_000; // магазины работают по МСК, а не по UTC
-    const hourOfDay = new Date(mskMs).getUTCHours() + new Date(mskMs).getUTCMinutes() / 60;
+    const offsetHours = storeOffsets[row.shop_uuid] ?? 3;
+    const localMs = ms + offsetHours * 3_600_000;
+    const hourOfDay = new Date(localMs).getUTCHours() + new Date(localMs).getUTCMinutes() / 60;
     hours.push(hourOfDay);
     revenues.push(rev);
   }

@@ -354,7 +354,7 @@ function StoreCard({ store, index, expanded, onToggle, onAskAI }: {
                   <ResponsiveContainer width="100%" height={160}>
                     <BarChart data={store.peakHourCoverage}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="hour" tick={{ fontSize: 9 }} label={{ value: "час (МСК)", position: "insideBottom", offset: -5, fontSize: 9 }} />
+                      <XAxis dataKey="hour" tick={{ fontSize: 9 }} label={{ value: `час (UTC+${store.utcOffset})`, position: "insideBottom", offset: -5, fontSize: 9 }} />
                       <YAxis tick={{ fontSize: 9 }} width={45} />
                       <Tooltip formatter={(v: number) => fmtRub(v)} />
                       <Bar dataKey="revenue" name="Выручка точки" fill="#3b82f6" radius={[4, 4, 0, 0]} />
