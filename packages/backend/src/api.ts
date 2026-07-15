@@ -1569,6 +1569,94 @@ export const api = new Hono<IEnv>()
 
 		return c.json({ ok: true });
 	})
+	// Генерация отчёта «мёртвые остатки» — товары без продаж
+	.post("/api/dead-stocks/data", async (c) => {
+		try {
+			const db = c.get("db");
+			const { startDate, endDate, shopUuid, groups } = await c.req.json<{
+				startDate: string;
+				endDate: string;
+				shopUuid: string;
+				groups: string[];
+			}>();
+
+			// Получаем название магазина
+			const shopRow = await db.prepare("SELECT name FROM shops WHERE uuid = ?").bind(shopUuid).first<{ name: string }>();
+			const shopName = shopRow?.name || shopUuid;
+
+			// Получаем все товары магазина (shopProduct)
+			const products = await db.prepare(
+				`SELECT uuid, name FROM shopProduct WHERE shopId = ? AND product_group = 0`
+			).bind(shopUuid).all<{ uuid: string; name: string }>();
+
+			if (!products.results || products.results.length === 0) {
+				return c.json({ salesData: [], shopName, startDate, endDate });
+			}
+
+			// Если выбраны группы — фильтруем товары по группам
+			let productUuids = products.results.map(p => p.uuid);
+			if (groups.length > 0) {
+				const placeholders = groups.map(() => "?").join(",");
+				const filtered = await db.prepare(
+					`SELECT DISTINCT uuid FROM shopProduct WHERE parentUuid IN (${placeholders}) AND shopId = ?`
+				).bind(...groups, shopUuid).all<{ uuid: string }>();
+				const filteredSet = new Set((filtered.results ?? []).map(r => r.uuid));
+				productUuids = productUuids.filter(uuid => filteredSet.has(uuid));
+			}
+
+			// Получаем все SELL документы за период для этого магазина
+			const soldUuids = new Set<string>();
+			const lastSaleByUuid = new Map<string, string>();
+			const soldQtyByUuid = new Map<string, number>();
+
+			const docs = await db.prepare(
+				`SELECT type, transactions, close_date FROM index_documents
+				 WHERE shop_id = ? AND close_date >= ? AND close_date <= ?
+				 AND type IN ('SELL', 'PAYBACK')`
+			).bind(shopUuid, startDate + "T00:00:00", endDate + "T23:59:59").all<{
+				type: string; transactions: string; close_date: string;
+			}>();
+
+			for (const doc of (docs.results ?? [])) {
+				const isRefund = doc.type === "PAYBACK";
+				const sign = isRefund ? -1 : 1;
+				let txs: any[];
+				try { txs = JSON.parse(doc.transactions); } catch { continue; }
+				if (!Array.isArray(txs)) continue;
+
+				for (const tx of txs) {
+					if (tx.type !== "REGISTER_POSITION") continue;
+					const uuid = tx.commodityUuid;
+					if (!uuid) continue;
+					if (!productUuids.includes(uuid)) continue;
+					soldUuids.add(uuid);
+					soldQtyByUuid.set(uuid, (soldQtyByUuid.get(uuid) ?? 0) + (tx.quantity ?? 0) * sign);
+					const day = doc.close_date.slice(0, 10);
+					if (!lastSaleByUuid.has(uuid) || day > lastSaleByUuid.get(uuid)!) {
+						lastSaleByUuid.set(uuid, day);
+					}
+				}
+			}
+
+			// Товары, которых нет в soldUuids = «мёртвые остатки»
+			const productNameMap = new Map(products.results.map(p => [p.uuid, p.name]));
+			const salesData = productUuids
+				.filter(uuid => !soldUuids.has(uuid))
+				.map(uuid => ({
+					name: productNameMap.get(uuid) || uuid,
+					quantity: 1, // заглушка — реальное кол-во остатков потребует данных из Evotor API
+					sold: soldQtyByUuid.get(uuid) ?? 0,
+					lastSaleDate: lastSaleByUuid.get(uuid) || null,
+				}))
+				.sort((a, b) => a.name.localeCompare(b.name));
+
+			return c.json({ salesData, shopName, startDate, endDate });
+		} catch (err) {
+			console.error("dead-stocks/data error:", err);
+			return c.json({ salesData: [], shopName: "", startDate: "", endDate: "" }, 500);
+		}
+	})
+
 	.post("/api/dead-stocks/update", async (c) => {
 		const db = c.get("drizzle");
 

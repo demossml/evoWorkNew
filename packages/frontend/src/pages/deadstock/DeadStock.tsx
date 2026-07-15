@@ -75,7 +75,7 @@ export default function DeadSt() {
       telegram.WebApp.MainButton.showProgress(true);
     }
     try {
-      const response = await client.api.deadStocks.data.$post({
+      const response = await client.api["dead-stocks"].data.$post({
         json: {
           startDate,
           endDate,
