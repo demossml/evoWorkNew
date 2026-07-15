@@ -13,7 +13,7 @@ import {
   mad,
   formatDateLocal,
   resolveStoreParam,
-} from "./statistics";
+} from "./sharedStats";
 
 const MIN_DAYS_FOR_TREND = 5;
 const LOW_MARGIN_THRESHOLD = 15; // %

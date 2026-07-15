@@ -19,16 +19,16 @@ export function ReportShareButton({ targetRef, filename = "report" }: ReportShar
     setShareUrl(null);
 
     try {
-      const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(targetRef.current, {
+      const { toJpeg } = await import("html-to-image");
+      const dataUrl = await toJpeg(targetRef.current, {
         backgroundColor: "#ffffff",
-        scale: 2,
+        pixelRatio: 2,
+        quality: 0.92,
       });
 
       setState("uploading");
-      const blob = await new Promise<Blob>((resolve) =>
-        canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.92)
-      );
+      const imgRes = await fetch(dataUrl);
+      const blob = await imgRes.blob();
 
       const formData = new FormData();
       formData.append("file", blob, `${filename}.jpg`);

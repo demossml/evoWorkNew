@@ -96,6 +96,61 @@ export function dayOfWeek(dateStr: string): number {
   return new Date(dateStr + "T12:00:00+03:00").getDay();
 }
 
+export function coefficientOfVariation(mean: number, sd: number): number {
+  return mean > 0 ? (sd / mean) * 100 : 0;
+}
+
+export interface LinearRegressionResult {
+  slope: number;
+  intercept: number;
+  r2: number;
+}
+
+export function formatDateLocal(d: Date): string {
+  const offset = 3 * 60 * 60 * 1000; // MSK
+  const local = new Date(d.getTime() + offset);
+  return local.toISOString().slice(0, 10);
+}
+
+/**
+ * The frontend's store filters are built from human-typed shop names
+ * that don't necessarily match the real `shops.name` values exactly.
+ * Tries, in order: already a real UUID → exact name match → case-insensitive
+ * substring match. Returns undefined (no filter) if nothing matches.
+ */
+export function resolveStoreParam(
+  store: string | undefined,
+  shopNames: Record<string, string>,
+): string | undefined {
+  if (!store || store === "all") return undefined;
+  if (shopNames[store] != null) return store;
+  const entries = Object.entries(shopNames);
+  const exact = entries.find(([, name]) => name === store);
+  if (exact) return exact[0];
+  const needle = store.trim().toLowerCase();
+  const partial = entries.find(([, name]) => name.toLowerCase().includes(needle));
+  if (partial) return partial[0];
+  return undefined;
+}
+
+/**
+ * A trend is only reported as up/down if BOTH the slope clears a meaningful
+ * magnitude AND r² shows the line actually fits the data.
+ */
+export function trendDirection(
+  reg: LinearRegressionResult,
+  pointCount: number,
+  minPoints: number,
+  slopeThreshold: number,
+  minR2 = 0.3,
+): "↑" | "↓" | "→" {
+  const meaningful = pointCount >= minPoints && reg.r2 >= minR2;
+  if (!meaningful) return "→";
+  if (reg.slope > slopeThreshold) return "↑";
+  if (reg.slope < -slopeThreshold) return "↓";
+  return "→";
+}
+
 // ===================== Category map =====================
 
 /**

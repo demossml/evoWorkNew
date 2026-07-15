@@ -9,7 +9,7 @@ import {
   linearRegression,
   trendDirection,
   formatDateLocal,
-} from "./statistics";
+} from "./sharedStats";
 
 const MIN_DAYS_FOR_TREND = 5;
 

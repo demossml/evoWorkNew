@@ -66,4 +66,24 @@ export default defineConfig({
       "/api": "http://localhost:8787",
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Фреймворк — меняется редко, кэшируется надолго
+          vendor: ["react", "react-dom", "react-router", "react-router-dom"],
+          // Анимации — отдельно, не блокируют первый рендер
+          framer: ["framer-motion"],
+          // Чарты — только для страниц с графиками
+          charts: ["recharts"],
+          // Иконки — тяжёлые, отдельным чанком
+          icons: ["lucide-react"],
+          // Утилиты — общие для всех страниц
+          utils: ["date-fns", "clsx", "tailwind-merge", "zustand"],
+        },
+      },
+    },
+    // Увеличиваем лимит, чтобы не было ложных предупреждений
+    chunkSizeWarningLimit: 600,
+  },
 });

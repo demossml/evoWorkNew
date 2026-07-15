@@ -1,7 +1,7 @@
 // services/sellerEffectiveness.ts
 // Расчёт эффективности продавцов на основе D1-данных (index_documents).
 
-import { avg, stddev, linearRegression, mad, median, dayOfWeek, formatDateLocal, resolveStoreParam } from "./statistics";
+import { avg, stddev, linearRegression, mad, median, dayOfWeek, formatDateLocal, resolveStoreParam } from "./sharedStats";
 
 export interface SellerStoreMetrics {
   store: string;

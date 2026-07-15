@@ -365,18 +365,18 @@ function ExportBlock({ shop, date }: { shop: PlanShop; date: string }) {
       `;
       document.body.appendChild(reportDiv);
 
-      const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(reportDiv, {
+      const { toJpeg } = await import("html-to-image");
+      const dataUrl = await toJpeg(reportDiv, {
         backgroundColor: "#ffffff",
-        scale: 2,
+        pixelRatio: 2,
+        quality: 0.92,
       });
 
       document.body.removeChild(reportDiv);
 
       setState("uploading");
-      const blob = await new Promise<Blob>((resolve) =>
-        canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.92)
-      );
+      const imgRes = await fetch(dataUrl);
+      const blob = await imgRes.blob();
 
       const formData = new FormData();
       formData.append("file", blob, "report.jpg");

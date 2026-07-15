@@ -1,29 +1,42 @@
 import type React from "react";
 
-// Типизация данных таблицы
 interface TableData {
   [key: string]: string | number;
 }
 
 interface DownloadTableButtonProps {
-  data: TableData[]; // Данные для скачивания
-  fileName: string; // Имя файла для скачивания
+  data: TableData[];
+  fileName: string;
+}
+
+function jsonToCsv(data: TableData[]): string {
+  if (data.length === 0) return "";
+  const keys = Object.keys(data[0]);
+  const header = keys.join(",");
+  const rows = data.map(row =>
+    keys.map(k => {
+      const v = row[k];
+      if (typeof v === "string" && (v.includes(",") || v.includes("\"") || v.includes("\n")))
+        return `"${v.replace(/"/g, "\"\"")}"`;
+      return String(v ?? "");
+    }).join(",")
+  );
+  return "\uFEFF" + header + "\n" + rows.join("\n");
 }
 
 const DownloadTableButton: React.FC<DownloadTableButtonProps> = ({
   data,
   fileName,
 }) => {
-  // Функция для скачивания
-  const handleDownload = async () => {
-    const XLSX = await import("xlsx");
-    // Создание рабочей книги из данных
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Report");
-
-    // Генерация файла и скачивание
-    XLSX.writeFile(wb, `${fileName}.xlsx`);
+  const handleDownload = () => {
+    const csv = jsonToCsv(data);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${fileName}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -31,7 +44,7 @@ const DownloadTableButton: React.FC<DownloadTableButtonProps> = ({
       onClick={handleDownload}
       className="m-2 px-3 py-1 bg-primary text-primary-foreground font-semibold rounded-lg shadow-md hover:bg-primary/90 transition-all"
     >
-      Скачать таблицу (.xlsx)
+      Скачать таблицу (.csv)
     </button>
   );
 };
