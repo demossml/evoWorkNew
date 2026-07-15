@@ -76,12 +76,14 @@ import {
 	getAccessoriesSalesFromD1,
 	extractSalesInfoFromD1,
 	getCashByShopsFromD1,
+	getOpenSessionsFromD1,
 } from "./evotor/utils";
 import {
 	getShopUuidsFromDB,
 	getShopNameFromDB,
 	getShopNameUuidsFromDB,
 	getEmployeeNameFromDB,
+	getEmployeeNameByUuid,
 	getEmployeeByLastNameDB,
 	getEmployeesByShopIdDB,
 	getEmployeesLastNameAndUuidFromDB,
@@ -3316,6 +3318,113 @@ ${storesList}
 		} catch (err) {
 			console.error("save shop-schedules error:", err);
 			return c.json({ ok: false, error: String(err) }, 500);
+		}
+	})
+
+	// --- /api/evotor/shops/open-status?date=YYYY-MM-DD ---
+	// Возвращает статус открытия магазинов на указанную дату:
+	// кто открыл, во сколько, сравнение с расписанием
+	.get("/api/evotor/shops/open-status", async (c) => {
+		try {
+			const db = c.get("db");
+			const dateParam = c.req.query("date") || formatDate(new Date());
+			const since = formatDateWithTime(new Date(dateParam + "T12:00:00+03:00"), false);
+			const until = formatDateWithTime(new Date(dateParam + "T12:00:00+03:00"), true);
+
+			// Получаем расписание на этот день недели
+			const targetWeekday = new Date(dateParam + "T12:00:00+03:00").getDay();
+			await createShopSchedulesTable(db);
+			const allSchedules = await getShopSchedules(db);
+			const scheduleByShop = new Map<string, { open: string; close: string; working: boolean }>();
+			for (const s of allSchedules) {
+				if (s.weekday === targetWeekday) {
+					scheduleByShop.set(s.shop_id, { open: s.open_time, close: s.close_time, working: s.is_working_day });
+				}
+			}
+
+			// Получаем OPEN_SESSION за сегодня
+			const sessions = await getOpenSessionsFromD1(db, since, until);
+			const sessionByShop = new Map<string, { userUuid: string; time: string }>();
+			for (const s of sessions) {
+				// Берём самый ранний OPEN_SESSION (если их несколько)
+				if (!sessionByShop.has(s.storeUuid) || s.openTime < sessionByShop.get(s.storeUuid)!.time) {
+					sessionByShop.set(s.storeUuid, { userUuid: s.openUserUuid, time: s.openTime });
+				}
+			}
+
+			// Получаем список всех магазинов
+			const shopsResult = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+			const shops = shopsResult.results ?? [];
+
+			// Собираем имена сотрудников (кэшируем, чтобы не делать N запросов)
+			const employeeNames = new Map<string, string>();
+			for (const s of sessions) {
+				if (!employeeNames.has(s.openUserUuid)) {
+					try {
+						const name = await getEmployeeNameByUuid(db, s.openUserUuid);
+						employeeNames.set(s.openUserUuid, name || s.openUserUuid.slice(0, 8));
+					} catch {
+						employeeNames.set(s.openUserUuid, s.openUserUuid.slice(0, 8));
+					}
+				}
+			}
+
+			const result = shops.map(shop => {
+				const schedule = scheduleByShop.get(shop.uuid);
+				const session = sessionByShop.get(shop.uuid);
+
+				// Извлекаем время открытия (HH:MM) из close_date
+				const extractTime = (dateStr: string): string => {
+					const t = dateStr.match(/T(\d{2}:\d{2})/);
+					return t ? t[1] : "—";
+				};
+
+				const parseMinutes = (time: string): number => {
+					const [h, m] = time.split(":").map(Number);
+					return h * 60 + m;
+				};
+
+				let openTime: string | null = null;
+				let sellerName: string | null = null;
+				let sellerUuid: string | null = null;
+				let onTime: boolean | null = null;
+				let lateByMinutes: number | null = null;
+				let notOpenedYet = true;
+
+				if (session) {
+					openTime = extractTime(session.time);
+					sellerName = employeeNames.get(session.userUuid) || session.userUuid;
+					sellerUuid = session.userUuid;
+					notOpenedYet = false;
+
+					if (schedule && schedule.working && schedule.open) {
+						const actualMin = parseMinutes(openTime);
+						const scheduleMin = parseMinutes(schedule.open);
+						lateByMinutes = Math.max(0, actualMin - scheduleMin);
+						onTime = lateByMinutes <= 10;
+					}
+				}
+
+				return {
+					shopId: shop.uuid,
+					shopName: shop.name,
+					opened: !notOpenedYet,
+					openTime,
+					sellerName,
+					sellerUuid,
+					scheduleOpen: schedule?.open || null,
+					scheduleClose: schedule?.close || null,
+					isWorkingDay: schedule?.working ?? true,
+					onTime,
+					lateByMinutes,
+					notOpenedYet,
+				};
+			});
+
+			return c.json({ shops: result, date: dateParam, targetWeekday });
+		} catch (err) {
+			console.error("open-status error:", err);
+			return c.json({ shops: [], error: String(err) }, 500);
 		}
 	})
 

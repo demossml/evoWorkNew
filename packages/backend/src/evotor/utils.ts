@@ -737,18 +737,19 @@ export async function getOpenSessionsFromD1(
 	db: D1Database,
 	since: string,
 	until: string,
-): Promise<Array<{ storeUuid: string; openUserUuid: string }>> {
+): Promise<Array<{ storeUuid: string; openUserUuid: string; openTime: string }>> {
 	const result = await db
 		.prepare(
-			`SELECT shop_id, open_user_uuid FROM index_documents
+			`SELECT shop_id, open_user_uuid, close_date FROM index_documents
 			 WHERE close_date >= ? AND close_date <= ? AND type = 'OPEN_SESSION'`
 		)
 		.bind(since, until)
-		.all<{ shop_id: string; open_user_uuid: string }>();
+		.all<{ shop_id: string; open_user_uuid: string; close_date: string }>();
 
 	return (result.results ?? []).map((r) => ({
 		storeUuid: r.shop_id,
 		openUserUuid: r.open_user_uuid,
+		openTime: r.close_date,
 	}));
 }
 

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { usePlanData, usePlanWeekAgo } from "@/hooks/usePlanData";
 import { useGetShopNames } from "@/hooks/useGetShopNames";
+import { useOpenStatus, type ShopOpenStatus } from "@/hooks/useOpenStatus";
 import {
   formatMoney,
   formatPercent,
@@ -74,12 +75,14 @@ function ShopCard({
   isExpanded,
   onToggle,
   todayDate,
+  openStatus,
 }: {
   shop: PlanShop;
   index: number;
   isExpanded: boolean;
   onToggle: () => void;
   todayDate: string;
+  openStatus: ShopOpenStatus | null;
 }) {
   const colors = STATUS_COLORS[shop.status];
   const progressPct = Math.min(shop.progress * 100, 100);
@@ -113,6 +116,30 @@ function ShopCard({
             </span>
           </div>
         </div>
+
+        {/* Статус открытия: кто открыл + во сколько */}
+        {openStatus && (
+          <div className="flex items-center gap-1.5 mb-2 text-xs">
+            {openStatus.opened ? (
+              <>
+                <span className="text-muted-foreground/60">
+                  {openStatus.sellerName || "—"}
+                </span>
+                <span className="text-muted-foreground/40">·</span>
+                <span className={openStatus.onTime ? "text-emerald-500 font-medium" : "text-red-500 font-medium"}>
+                  {openStatus.openTime}
+                  {openStatus.lateByMinutes != null && openStatus.lateByMinutes > 0 && (
+                    <span className="ml-0.5 opacity-70">+{openStatus.lateByMinutes}м</span>
+                  )}
+                </span>
+              </>
+            ) : (
+              <span className="text-red-400 font-medium">
+                {openStatus.isWorkingDay ? "Ещё закрыта" : "Выходной"}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Прогресс-бар */}
         <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mb-2.5">
@@ -422,7 +449,15 @@ interface PlanStatusWidgetProps {
 export function PlanStatusWidget({ date }: PlanStatusWidgetProps) {
   const { data: shopNames = [], isLoading: shopsLoading } = useGetShopNames();
   const { data: model, isLoading, isError, error, refetch } = usePlanData(date);
+  const { data: openStatusData } = useOpenStatus(date);
   const [expandedShop, setExpandedShop] = useState<string | null>(null);
+
+  const openStatusByShop = new Map<string, ShopOpenStatus>();
+  if (openStatusData?.shops) {
+    for (const s of openStatusData.shops) {
+      openStatusByShop.set(s.shopName, s);
+    }
+  }
 
   const toggleExpand = useCallback((shopName: string) => {
     setExpandedShop((prev) => (prev === shopName ? null : shopName));
@@ -486,6 +521,7 @@ export function PlanStatusWidget({ date }: PlanStatusWidgetProps) {
             isExpanded={expandedShop === shop.shopId}
             onToggle={() => toggleExpand(shop.shopId)}
             todayDate={date}
+            openStatus={openStatusByShop.get(shop.name) ?? null}
           />
         ))}
       </div>

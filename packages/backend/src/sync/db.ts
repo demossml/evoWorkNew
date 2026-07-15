@@ -494,6 +494,11 @@ export async function getEmployeeNameFromDB(db: D1Database, lastName: string): P
   return result?.name ?? null;
 }
 
+export async function getEmployeeNameByUuid(db: D1Database, uuid: string): Promise<string | null> {
+  const result = await db.prepare("SELECT name FROM employees WHERE uuid = ?").bind(uuid).first<{ name: string }>();
+  return result?.name ?? null;
+}
+
 export async function getEmployeeByLastNameDB(db: D1Database, lastName: string): Promise<{ uuid: string; name: string }[]> {
   const result = await db.prepare("SELECT uuid, name FROM employees WHERE last_name = ?").bind(lastName).all<{ uuid: string; name: string }>();
   return result.results ?? [];
