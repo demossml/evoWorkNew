@@ -350,7 +350,7 @@ function StoreCard({ store, index, expanded, onToggle, onAskAI }: {
               {/* Peak hour coverage */}
               {store.peakHourCoverage?.length > 0 && (
                 <div>
-                  <div className="text-xs font-medium text-muted-foreground mb-1">Загрузка по часам vs сеть</div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1">Выручка по часам (серая — среднее по такому же дню недели)</div>
                   <ResponsiveContainer width="100%" height={160}>
                     <BarChart data={store.peakHourCoverage}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -358,7 +358,7 @@ function StoreCard({ store, index, expanded, onToggle, onAskAI }: {
                       <YAxis tick={{ fontSize: 9 }} width={45} />
                       <Tooltip formatter={(v: number) => fmtRub(v)} />
                       <Bar dataKey="revenue" name="Выручка точки" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="networkAvgRevenue" name="Среднее по сети" fill="#e5e7eb" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="networkAvgRevenue" name="Среднее по дню недели" fill="#d1d5db" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

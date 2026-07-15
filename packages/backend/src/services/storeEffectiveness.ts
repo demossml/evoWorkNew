@@ -33,6 +33,7 @@ export interface StoreMetrics {
   sellerTurnoverPct: number | null; // доля продавцов текущего месяца, которых не было в предыдущем
   categoryMix: { category: string; sharePct: number; networkSharePct: number; deviationPp: number }[];
   hourlyRevenue: { hour: number; avgRevenue: number }[]; // распределение по часам (локальное время магазина), усреднённое по дням
+  hourlyRevenueWeekdayAvg: { hour: number; avgRevenue: number }[]; // среднее только по таким же дням недели (последний день периода)
   riskLevel: "ok" | "warn" | "critical";
   riskReasons: string[];
   dailyRevenue: { date: string; value: number }[];
@@ -121,6 +122,9 @@ export async function computeStoreEffectiveness(
     categoryRevenue: Map<string, number>;
     hourlyRevenue: Map<number, number>;
     hourlyDayCount: Set<string>;
+    // Для расчёта «среднее по такому же дню недели»:
+    // day → Map<hour, revenue>
+    hourlyByDay: Map<string, Map<number, number>>;
   };
   const byStore = new Map<string, Agg>();
   const networkCategoryRevenue = new Map<string, number>();
@@ -135,6 +139,7 @@ export async function computeStoreEffectiveness(
         revenue: 0, quantity: 0, refundRevenue: 0, refundCost: 0, cost: 0,
         dailyNet: new Map(), sellers: new Set(), dailySpanMs: new Map(),
         categoryRevenue: new Map(), hourlyRevenue: new Map(), hourlyDayCount: new Set(),
+        hourlyByDay: new Map(),
       });
     }
     const s = byStore.get(store)!;
@@ -179,6 +184,9 @@ export async function computeStoreEffectiveness(
       const hour = new Date(ms).getUTCHours();
       s.hourlyRevenue.set(hour, (s.hourlyRevenue.get(hour) ?? 0) + docSum);
       s.hourlyDayCount.add(day);
+      // Per-day hourly tracking for weekday-matched average
+      if (!s.hourlyByDay.has(day)) s.hourlyByDay.set(day, new Map());
+      s.hourlyByDay.get(day)!.set(hour, (s.hourlyByDay.get(day)!.get(hour) ?? 0) + docSum);
     }
   }
 
@@ -253,6 +261,26 @@ export async function computeStoreEffectiveness(
       })
       .sort((a, b) => a.hour - b.hour);
 
+    // Weekday-matched hourly average — «среднее по таким же дням недели»
+    // Определяем целевой день недели (последний день периода = «сегодня»)
+    const targetWeekday = new Date(until + "T12:00:00+03:00").getDay();
+    const weekdayHourlyTotals = new Map<number, number>();
+    let weekdayDayCount = 0;
+    for (const [day, hourMap] of s.hourlyByDay) {
+      const wd = new Date(day + "T12:00:00+03:00").getDay();
+      if (wd !== targetWeekday) continue;
+      weekdayDayCount++;
+      for (const [h, v] of hourMap) {
+        weekdayHourlyTotals.set(h, (weekdayHourlyTotals.get(h) ?? 0) + v);
+      }
+    }
+    const hourlyRevenueWeekdayAvg = [...weekdayHourlyTotals.entries()]
+      .map(([hourUtc, total]) => {
+        const localHour = (hourUtc + utcOffset + 24) % 24;
+        return { hour: localHour, avgRevenue: Math.round(total / Math.max(1, weekdayDayCount)) };
+      })
+      .sort((a, b) => a.hour - b.hour);
+
     // Turnover proxy
     const monthKeys = [...employeesByStoreMonth.keys()].filter(k => k.startsWith(storeId + "|")).sort();
     let sellerTurnoverPct: number | null = null;
@@ -306,6 +334,7 @@ export async function computeStoreEffectiveness(
       sellerTurnoverPct,
       categoryMix,
       hourlyRevenue,
+      hourlyRevenueWeekdayAvg,
       riskLevel,
       riskReasons,
       dailyRevenue,

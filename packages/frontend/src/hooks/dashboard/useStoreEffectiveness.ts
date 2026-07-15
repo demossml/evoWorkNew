@@ -22,6 +22,7 @@ export interface StoreMetrics {
   sellerTurnoverPct: number | null;
   categoryMix: { category: string; sharePct: number; networkSharePct: number; deviationPp: number }[];
   hourlyRevenue: { hour: number; avgRevenue: number }[];
+  hourlyRevenueWeekdayAvg: { hour: number; avgRevenue: number }[]; // среднее по таким же дням недели
   riskLevel: "ok" | "warn" | "critical";
   riskReasons: string[];
   dailyRevenue: { date: string; value: number }[];
@@ -107,6 +108,18 @@ function pctRank(v: number, all: number[]): number {
   return Math.round((idx / (sorted.length - 1)) * 100);
 }
 
+function buildPeakHourCoverage(
+  hourly: { hour: number; avgRevenue: number }[],
+  weekdayAvg: { hour: number; avgRevenue: number }[],
+): { hour: number; revenue: number; networkAvgRevenue: number }[] {
+  const weekdayMap = new Map(weekdayAvg.map(w => [w.hour, w.avgRevenue]));
+  return hourly.map(h => ({
+    hour: h.hour,
+    revenue: h.avgRevenue,
+    networkAvgRevenue: weekdayMap.get(h.hour) ?? 0,
+  }));
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function enrichStore(raw: any, idx: number, all: any[], openingCorr: OpeningCorrelation): StoreMetrics {
   const rubPerHour: number | null = raw.revenuePerHour ?? null;
@@ -132,6 +145,7 @@ function enrichStore(raw: any, idx: number, all: any[], openingCorr: OpeningCorr
     sellerTurnoverPct: raw.sellerTurnoverPct,
     categoryMix: raw.categoryMix || [],
     hourlyRevenue: raw.hourlyRevenue || [],
+    hourlyRevenueWeekdayAvg: raw.hourlyRevenueWeekdayAvg || [],
     riskLevel: raw.riskLevel,
     riskReasons: raw.riskReasons || [],
     dailyRevenue: raw.dailyRevenue || [],
@@ -160,7 +174,7 @@ function enrichStore(raw: any, idx: number, all: any[], openingCorr: OpeningCorr
     lateOpenDays: 0,
     lateOpenRevenueImpact: null,
     categoryMixDelta: (raw.categoryMix || []).map((c: any) => ({ category: c.category, delta: c.deviationPp })),
-    peakHourCoverage: (raw.hourlyRevenue || []).map((h: any) => ({ hour: h.hour, revenue: h.avgRevenue, networkAvgRevenue: 0 })),
+    peakHourCoverage: buildPeakHourCoverage(raw.hourlyRevenue || [], raw.hourlyRevenueWeekdayAvg || []),
     anomalyDays: [],
     waterfall: null,
     hypotheses: [],
