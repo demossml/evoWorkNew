@@ -347,6 +347,97 @@ telegram.WebApp.MainButton.onClick(handler);
 telegram.WebApp.HapticFeedback.impactOccurred("light");
 ```
 
+### 6.9. Паттерны и конвенции (жёсткие правила)
+
+#### 🎨 Цвета — только из токенов `src/index.css`
+
+Никаких хардкод-цветов (`bg-blue-500`, `text-green-400`). Все цвета — через CSS-переменные из `index.css`:
+- `bg-primary text-primary-foreground` — основной акцент (синий `221 83% 53%`)
+- `bg-card text-card-foreground` — карточки
+- `bg-muted text-muted-foreground` — второстепенный фон/текст
+- `bg-destructive text-destructive-foreground` — ошибки/возвраты
+- `text-success` — положительные значения (продажи)
+- `bg-background text-foreground` — фон страницы
+- Не выдумывать новые цвета — использовать токены.
+
+#### 📊 Статистика — `services/sharedStats.ts`
+
+Все статистические функции уже есть в `services/sharedStats.ts`. Не писать свои:
+- `avg(arr)` — среднее
+- `stddev(arr, mean)` — стандартное отклонение
+- `linearRegression(xs, ys)` → `{ slope, intercept, r2 }` — тренд
+- `coefficientOfVariation(mean, sd)` → CV в %
+- `trendDirection(reg, count, minPts, slopeThreshold, minR2)` → `"↑" | "↓" | "→"`
+- `median(arr)`, `mad(values, med)` — робастная статистика
+
+При создании нового сервиса статистики → `services/statistics.ts` (ре-экспорт из sharedStats + новые функции).
+
+#### 💰 Себестоимость и маржа — из транзакций
+
+Данные о себестоимости лежат в `index_documents.transactions` (JSON), тип транзакции `REGISTER_POSITION`, поле `costPrice`:
+```typescript
+const txs = JSON.parse(doc.transactions);
+for (const tx of txs) {
+  if (tx.type === "REGISTER_POSITION") {
+    const cost = tx.costPrice ?? 0;    // себестоимость единицы
+    const qty = tx.quantity ?? 0;       // количество
+    const revenue = tx.sum ?? 0;        // выручка
+    const margin = revenue - cost * qty; // маржа
+  }
+}
+```
+
+#### 📂 Категория товара — `shopProduct.parentUuid`
+
+Группа товара определяется через `parentUuid` в таблице `shopProduct`. Название группы — `shopProduct.name` где `product_group = 1`:
+```sql
+SELECT sp.name AS product_name, gr.name AS group_name
+FROM shopProduct sp
+LEFT JOIN shopProduct gr ON sp.parentUuid = gr.uuid AND gr.product_group = 1
+WHERE sp.product_group = 0
+```
+
+#### 🏪 Имя магазина → UUID — `resolveStoreParam()`
+
+Фронтенд передаёт человеческие названия магазинов. Бэкенд резолвит через `resolveStoreParam()` из `services/sharedStats.ts`:
+```typescript
+import { resolveStoreParam } from "./sharedStats";
+const shopId = resolveStoreParam(rawShopId, shopNames);
+// пробует: точный UUID → точное имя → substring match → undefined (все магазины)
+```
+
+#### 🪝 Паттерн API-хука — `useSellerEffectiveness.ts`
+
+Все API-хуки пишутся по образцу `hooks/dashboard/useSellerEffectiveness.ts`:
+```typescript
+import { useQuery } from "@tanstack/react-query";
+export function useMyData(params: { since: string; until: string }) {
+  return useQuery({
+    queryKey: ["myData", params],
+    queryFn: async () => {
+      const resp = await fetch(`/api/...?since=${params.since}&until=${params.until}`);
+      if (!resp.ok) throw new Error(`Ошибка ${resp.status}`);
+      return resp.json();
+    },
+    staleTime: 60_000,
+    enabled: !!params.since,
+  });
+}
+```
+
+#### 📱 Safe-area для fixed/sticky — класс `app-safe-top`
+
+Любой `fixed` или `sticky` элемент у верхнего края экрана **должен** иметь класс `app-safe-top`, иначе на iPhone с чёлкой уедет под неё:
+```html
+<div className="fixed top-0 left-0 right-0 z-50 app-safe-top bg-background">
+  <!-- хедер / тулбар -->
+</div>
+```
+Определение в `src/index.css` (строка 173):
+```css
+.app-safe-top { padding-top: var(--tg-app-top-offset, var(--tg-safe-top, 0px)); }
+```
+
 ---
 
 ## 7. АНТИ-ПАТТЕРНЫ (ЧТО НЕЛЬЗЯ ДЕЛАТЬ)
