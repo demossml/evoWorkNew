@@ -1178,11 +1178,6 @@ export async function getSalaryData(
 	return null;
 }
 
-// Утилита для создания задержки (таймаута)
-export function delay(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 type Data = Record<string, Record<string, number>>;
 
 export function calculateTotalSum(data: Data): number {
