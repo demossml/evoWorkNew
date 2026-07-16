@@ -2318,6 +2318,207 @@ export const api = new Hono<IEnv>()
 		}
 	})
 
+	// --- /api/analytics/dead-stock/analyze ---
+	// AI-анализ конкретного товара через DeepSeek
+	// Параметры: itemId, shopId
+	.get("/api/analytics/dead-stock/analyze", async (c) => {
+		try {
+			const db = c.get("db");
+			const apiKey = c.env.DEEPSEEK_API_KEY as string;
+			const itemId = c.req.query("itemId");
+			const shopId = c.req.query("shopId");
+
+			if (!itemId || !shopId) {
+				return c.json({ error: "itemId и shopId обязательны" }, 400);
+			}
+			if (!apiKey) {
+				return c.json({ error: "DEEPSEEK_API_KEY не настроен" }, 500);
+			}
+
+			// 1. Данные из кэша
+			await createDeadStockCacheTable(db);
+			const cacheRow = await db.prepare(
+				"SELECT * FROM dead_stock_cache WHERE itemId = ? AND shopId = ?"
+			).bind(itemId, shopId).first<DeadStockCacheRow>();
+
+			if (!cacheRow) {
+				return c.json({ error: "Товар не найден в кэше" }, 404);
+			}
+
+			// 2. Детальные продажи за последние 90 дней (по дням)
+			const since90 = new Date();
+			since90.setDate(since90.getDate() - 90);
+			const sinceStr = since90.toISOString().slice(0, 10);
+
+			const salesHistory: { date: string; qty: number; sum: number }[] = [];
+			const docs = await db.prepare(
+				`SELECT close_date, transactions, index_documents.type FROM index_documents
+				 WHERE shop_id = ? AND close_date >= ? AND index_documents.type IN ('SELL', 'PAYBACK')`
+			).bind(shopId, sinceStr + "T00:00:00").all<{
+				close_date: string; transactions: string; type: string;
+			}>();
+
+			for (const doc of docs.results ?? []) {
+				const isRefund = doc.type === "PAYBACK";
+				const sign = isRefund ? -1 : 1;
+				const day = doc.close_date.slice(0, 10);
+				let txs: any[];
+				try { txs = JSON.parse(doc.transactions); } catch { continue; }
+				if (!Array.isArray(txs)) continue;
+
+				for (const tx of txs) {
+					if (tx.type !== "REGISTER_POSITION") continue;
+					if (tx.commodityUuid !== itemId) continue;
+					const existing = salesHistory.find(s => s.date === day);
+					if (existing) {
+						existing.qty += (tx.quantity ?? 0) * sign;
+						existing.sum += (tx.sum ?? 0) * sign;
+					} else {
+						salesHistory.push({
+							date: day,
+							qty: (tx.quantity ?? 0) * sign,
+							sum: (tx.sum ?? 0) * sign,
+						});
+					}
+				}
+			}
+			salesHistory.sort((a, b) => b.date.localeCompare(a.date));
+
+			// 3. Маржа (из transaction costPrice)
+			let marginPct = 0;
+			let totalCost = 0;
+			let totalRevenue = 0;
+			for (const doc of docs.results ?? []) {
+				let txs: any[];
+				try { txs = JSON.parse(doc.transactions); } catch { continue; }
+				if (!Array.isArray(txs)) continue;
+				for (const tx of txs) {
+					if (tx.type !== "REGISTER_POSITION") continue;
+					if (tx.commodityUuid !== itemId) continue;
+					const qty = tx.quantity ?? 0;
+					const cost = (tx.costPrice ?? 0) * qty;
+					const rev = tx.sum ?? 0;
+					if (doc.type !== "PAYBACK") {
+						totalCost += cost;
+						totalRevenue += rev;
+					}
+				}
+			}
+			if (totalRevenue > 0) {
+				marginPct = Math.round(((totalRevenue - totalCost) / totalRevenue) * 100);
+			}
+
+			// 4. Продажи в других магазинах
+			const otherShopsSales: { shopName: string; qty: number }[] = [];
+			const otherShops = await db.prepare(
+				"SELECT uuid, name FROM shops WHERE uuid != ?"
+			).bind(shopId).all<{ uuid: string; name: string }>();
+
+			for (const shop of otherShops.results ?? []) {
+				const productRow = await db.prepare(
+					"SELECT uuid FROM shopProduct WHERE shopId = ? AND uuid = ? LIMIT 1"
+				).bind(shop.uuid, itemId).first<{ uuid: string }>();
+
+				if (!productRow?.uuid) continue;
+
+				const salesResult = await db.prepare(
+					`SELECT SUM(CAST(JSON_EXTRACT(tx.value, '$.quantity') AS INTEGER)) as qty
+					 FROM index_documents,
+					 JSON_EACH(transactions) AS tx
+					 WHERE shop_id = ? AND index_documents.type = 'SELL'
+					 AND close_date >= ?
+					 AND JSON_EXTRACT(tx.value, '$.commodityUuid') = ?`
+				).bind(shop.uuid, sinceStr + "T00:00:00", itemId)
+					.first<{ qty: number | null }>();
+
+				const qty = salesResult?.qty ?? 0;
+				if (qty > 0) {
+					otherShopsSales.push({ shopName: shop.name, qty });
+				}
+			}
+
+			// 5. Формируем промпт
+			const salesSummary = salesHistory.length > 0
+				? salesHistory.slice(0, 10).map(s => `${s.date}: ${s.qty} шт, ${s.sum} ₽`).join("\n")
+				: "нет продаж за последние 90 дней";
+
+			const otherShopsInfo = otherShopsSales.length > 0
+				? otherShopsSales.map(s => `${s.shopName}: ${s.qty} шт`).join(", ")
+				: "не продаётся ни в одном магазине сети";
+
+			const system = `Ты — категорийный менеджер сети вейп-шопов. Твоя задача — проанализировать конкретный товар и дать чёткие, основанные на данных рекомендации. Будь конкретным, избегай общих фраз.`;
+
+			const user = `Товар: ${cacheRow.name}
+Артикул: ${cacheRow.article || "не указан"}
+Остаток: ${cacheRow.currentStock ?? "неизвестно"} шт.
+Дней без продаж: ${cacheRow.daysWithoutSales}
+Последняя продажа: ${cacheRow.lastSaleDate || "никогда"}
+Выручка за 90 дней: ${cacheRow.totalRevenueLast90Days} ₽
+Маржа: ${marginPct}%
+Магазин: ${cacheRow.shopName}
+
+Продажи по дням (последние 10 дней с продажами):
+${salesSummary}
+
+Продажи в других магазинах сети за 90 дней:
+${otherShopsInfo}
+
+Проанализируй и дай конкретные рекомендации:
+1. Почему товар стал мёртвым (2–3 реальные причины, основанные на данных)
+2. Что делать:
+   - Переместить (в какой магазин и сколько штук, почему)
+   - Списать (полностью или частично, причина)
+   - Сделать промо (какое именно)
+   - Оставить как есть
+3. Ожидаемый эффект от твоей рекомендации
+
+Ответь СТРОГО в JSON-формате:
+{
+  "reasons": ["причина 1", "причина 2", "причина 3"],
+  "recommendedAction": "move" | "writeoff" | "promo" | "keep",
+  "targetShopId": "uuid магазина или null",
+  "targetShopName": "название магазина или null",
+  "quantity": число,
+  "explanation": "подробное объяснение рекомендации",
+  "expectedEffect": "ожидаемый результат"
+}`;
+
+			const aiText = await deepseekChat({
+				apiKey,
+				system,
+				user,
+				maxTokens: 1200,
+				temperature: 0.4,
+			});
+
+			const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+			if (!jsonMatch) {
+				return c.json({ error: "AI не вернул JSON", raw: aiText }, 500);
+			}
+
+			const analysis = JSON.parse(jsonMatch[0]);
+
+			return c.json({
+				item: {
+					itemId: cacheRow.itemId,
+					name: cacheRow.name,
+					shopId: cacheRow.shopId,
+					shopName: cacheRow.shopName,
+					daysWithoutSales: cacheRow.daysWithoutSales,
+					lastSaleDate: cacheRow.lastSaleDate,
+					totalRevenueLast90Days: cacheRow.totalRevenueLast90Days,
+					marginPct,
+				},
+				analysis,
+				salesHistory: salesHistory.slice(0, 14),
+				otherShopsSales,
+			});
+		} catch (err) {
+			console.error("dead-stock analyze error:", err);
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+
 	// --- /api/analytics/* stubs ---
 	.get("/api/analytics/revenue/hourly-plan-fact", async (c) => {
 		try {
