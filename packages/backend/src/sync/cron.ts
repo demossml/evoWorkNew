@@ -1,5 +1,6 @@
 import type { D1Database, D1PreparedStatement } from "@cloudflare/workers-types";
 import { Evotor } from "../evotor";
+import type { StockApiItem } from "../evotor/types";
 import {
   formatDate,
   formatDateWithTime,
@@ -241,7 +242,7 @@ export async function syncStock(env: SyncEnv): Promise<void> {
 
     for (const shopId of shops) {
       try {
-        const items = (await evo.getStoreStock(shopId)) as any[];
+        const items: StockApiItem[] = await evo.getStoreStock(shopId);
         console.log(`[syncStock] Магазин ${shopId}: получено ${items.length} позиций`);
 
         if (!items || items.length === 0) continue;

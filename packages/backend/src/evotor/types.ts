@@ -293,3 +293,12 @@ export interface SalesStats {
 	totalSum: number;
 	quantityByProduct: Record<string, number>;
 }
+
+/** Ответ API v2 /stores/{id}/stock — остатки товаров */
+export interface StockApiItem {
+	productUuid: string;
+	quantity: number;
+	measureName: string;
+	purchasePrice: number;
+	sellingPrice: number;
+}

@@ -47,6 +47,19 @@ export interface DeadStockItem {
 	moveToStore?: string;
 }
 
+/** Элемент отчёта мёртвых остатков (ответ API) */
+export interface DeadStockReportItem {
+	itemId: string;
+	name: string;
+	article: string;
+	quantity: number;
+	sold: number;
+	lastSaleDate: string | null;
+	daysWithoutSales: number;
+	shopId: string;
+	shopName: string;
+}
+
 export interface SaveDeadStocksRequest {
 	shopUuid: string;
 	items: DeadStockItem[];
