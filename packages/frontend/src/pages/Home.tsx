@@ -8,6 +8,7 @@ import {
   QuickActionsWidget,
   TodayAlertsWidget,
   StockHealthWidget,
+  DeadStockWidget,
 } from "@widgets/home";
 import { buildHomeAccessModel } from "@features/dashboard/model/homePageModel";
 import { DailyBriefing } from "@widgets/home/DailyBriefing";
@@ -86,6 +87,12 @@ export default function Home() {
         <ErrorBoundary variant="widget" name="План по магазинам">
           <PlanStatusWidget date={since} />
         </ErrorBoundary>
+
+        {isSuperAdmin && (
+          <ErrorBoundary variant="widget" name="Мёртвые остатки">
+            <DeadStockWidget />
+          </ErrorBoundary>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div className={isExpanded("revenue") ? "col-span-2" : ""}>
