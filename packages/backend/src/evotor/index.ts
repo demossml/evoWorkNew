@@ -1,3 +1,5 @@
+import type { StockApiItem } from "./types";
+
 import {
 	calculateDateRanges,
 	// formatDateTime,
@@ -144,11 +146,12 @@ export class Evotor {
 	/**
 	 * Получает остатки товаров для магазина (v2 stock API)
 	 */
-	async getStoreStock(shopId: string): Promise<unknown[]> {
+	async getStoreStock(shopId: string): Promise<StockApiItem[]> {
 		try {
 			const url = this._replacePlaceholders(this.urls.getStock, [shopId]);
 			const data = await this._fetchData(url);
-			return (data as any)?.items ?? data ?? [];
+			const items = (data as any)?.items ?? data ?? [];
+			return Array.isArray(items) ? items : [];
 		} catch (error) {
 			this._logError(`Ошибка при получении остатков для ${shopId}`, error);
 			return [];
