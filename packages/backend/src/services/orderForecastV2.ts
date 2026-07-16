@@ -4,14 +4,13 @@
 // ============================================================================
 
 import type { D1Database } from "@cloudflare/workers-types";
-import type { Evotor } from "../evotor";
 import { classifyABC, classifyXYZ } from "./sharedStats";
+import { getProductsByGroupFromD1 } from "../evotor/utils";
 
 // ── Типы ────────────────────────────────────────────────────────────────────
 
 export interface OrderForecastV2Input {
 	db: D1Database;
-	evotor: Evotor;
 	shopUuid: string;
 	groups: string[];
 	startDate: string; // YYYY-MM-DD — начало периода, на который нужен товар
@@ -116,7 +115,6 @@ export async function runOrderForecastV2(
 ): Promise<OrderForecastV2Result> {
 	const {
 		db,
-		evotor,
 		shopUuid,
 		groups,
 		startDate,
@@ -157,30 +155,28 @@ export async function runOrderForecastV2(
 
 	const docs = docsResult.results || [];
 
-	// 2. Получаем ВСЕ продукты магазина ОДНИМ запросом
-	//    (getProductsByGroup и getProductStockByGroups тоже дёргают getProducts внутри —
-	//     объединяем в один вызов чтобы не ходить в API 3 раза)
+	// 2. Получаем данные о товарах из D1 (вместо Evotor API)
 	const groupSet = new Set(groups);
-	const allProducts = await evotor.getProducts(shopUuid);
-	const allItems = Array.isArray(allProducts) ? allProducts : (allProducts.items || []);
 
-	const productGroupUuids = new Set<string>();
+	// UUID товаров в заданных группах
+	const productGroupUuids = new Set(await getProductsByGroupFromD1(db, groups));
+
+	// Информация о товарах (имя + цена) и остатки — из shopProduct
+	const productRows = await db.prepare(
+		`SELECT uuid, name, price, quantity FROM shopProduct WHERE shopId = ? AND product_group = 0`
+	).bind(shopUuid).all<{ uuid: string; name: string; price: number | null; quantity: number | null }>();
+
 	const productInfo = new Map<string, { name: string; cost: number }>();
 	const stockMap = new Map<string, number>();
 
-	for (const p of allItems) {
-		// Фильтруем: принадлежит ли товар к нужным группам и есть ли остаток
-		if (p.parentUuid && groupSet.has(p.parentUuid)) {
-			productGroupUuids.add(p.uuid);
-			productInfo.set(p.uuid, {
-				name: p.name || p.uuid,
-				cost: p.price || 0,
-			});
-			const qty = (p as any).quantity ?? 0;
-			if (qty > 0) {
-				stockMap.set(p.uuid, qty);
-			}
-		}
+	for (const p of (productRows.results ?? [])) {
+		if (!productGroupUuids.has(p.uuid)) continue;
+		productInfo.set(p.uuid, {
+			name: p.name || p.uuid,
+			cost: p.price || 0,
+		});
+		const qty = p.quantity ?? 0;
+		if (qty > 0) stockMap.set(p.uuid, qty);
 	}
 
 	// 5. Агрегируем продажи по дням и продуктам

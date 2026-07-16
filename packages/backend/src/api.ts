@@ -3668,7 +3668,6 @@ ${otherShopsInfo}
 
 			const result = await runOrderForecastV2({
 				db: c.env.DB,
-				evotor: c.var.evotor,
 				shopUuid,
 				groups,
 				startDate,
