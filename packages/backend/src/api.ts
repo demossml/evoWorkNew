@@ -96,6 +96,10 @@ import {
 	upsertAbsenceEvents,
 	getAbsenceEvents,
 	type SellerAbsenceEvent,
+	createDeadStockCacheTable,
+	refreshDeadStockCache,
+	getDeadStockCache,
+	type DeadStockCacheRow,
 } from "./sync/db";
 import { saveDeadStocks } from "./db/repositories/saveDeadStocks";
 import { sendDeadStocksToTelegram } from "../utils/sendDeadStocksToTelegram";
@@ -105,6 +109,7 @@ import {
   syncDocuments,
   updateProducts,
   updateProductsShope,
+  refreshDeadStockTask,
 } from "./sync/cron";
 
 type OpeningRecord = {
@@ -1862,6 +1867,7 @@ export const api = new Hono<IEnv>()
 			shops: { label: "синхронизация магазинов", run: updateProductsShope },
 			products: { label: "синхронизация товаров", run: updateProducts },
 			salary: { label: "расчёт ЗП", run: getDataForCurrentDate },
+			"dead-stock": { label: "кэш мёртвых остатков", run: refreshDeadStockTask },
 		};
 
 		const entry = tasks[task];
@@ -2287,6 +2293,29 @@ export const api = new Hono<IEnv>()
 	.post("/api/admin/data-mode", async (c) => {
 		const { mode } = await c.req.json<{ mode: string }>();
 		return c.json({ ok: true, mode: mode || "DB", meta: { source: (mode || "DB") as "DB" | "ELVATOR", aiAvailable: true } });
+	})
+
+	// --- /api/analytics/dead-stock ---
+	// Параметры: daysWithoutSales (default 45), shopId (опционально)
+	// Возвращает товары из кэша dead_stock_cache, где дней без продаж >= порог
+	.get("/api/analytics/dead-stock", async (c) => {
+		try {
+			const db = c.get("db");
+			const daysWithoutSales = parseInt(c.req.query("daysWithoutSales") || "45");
+			const shopId = c.req.query("shopId") || undefined;
+
+			await createDeadStockCacheTable(db);
+			const rows = await getDeadStockCache(db, daysWithoutSales, shopId);
+
+			return c.json({
+				items: rows,
+				total: rows.length,
+				threshold: daysWithoutSales,
+			});
+		} catch (err) {
+			console.error("dead-stock analytics error:", err);
+			return c.json({ items: [], total: 0, error: String(err) }, 500);
+		}
 	})
 
 	// --- /api/analytics/* stubs ---

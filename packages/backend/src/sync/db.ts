@@ -824,3 +824,150 @@ export async function getAbsenceEvents(
     .all<SellerAbsenceEvent>();
   return res.results ?? [];
 }
+
+// ============================================================================
+// Table: dead_stock_cache
+// Ночной кэш мёртвых остатков — чтобы не парсить JSON на лету
+// ============================================================================
+
+export interface DeadStockCacheRow {
+  itemId: string;
+  name: string;
+  article: string | null;
+  currentStock: number | null;
+  daysWithoutSales: number;
+  lastSaleDate: string | null;
+  shopId: string;
+  shopName: string;
+  totalRevenueLast90Days: number;
+  updatedAt: string;
+}
+
+export async function createDeadStockCacheTable(db: D1Database): Promise<void> {
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS dead_stock_cache (
+        itemId TEXT NOT NULL,
+        shopId TEXT NOT NULL,
+        name TEXT NOT NULL,
+        article TEXT,
+        currentStock INTEGER,
+        daysWithoutSales INTEGER NOT NULL DEFAULT 0,
+        lastSaleDate TEXT,
+        shopName TEXT NOT NULL DEFAULT '',
+        totalRevenueLast90Days REAL NOT NULL DEFAULT 0,
+        updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (itemId, shopId)
+      )`,
+    )
+    .run();
+  await db
+    .prepare(`CREATE INDEX IF NOT EXISTS idx_dsc_shop_days ON dead_stock_cache (shopId, daysWithoutSales)`)
+    .run();
+  console.log("Таблица 'dead_stock_cache' создана или уже существует.");
+}
+
+export async function refreshDeadStockCache(
+  db: D1Database,
+): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
+
+  // 1. Все товары из shopProduct
+  const products = await db.prepare(
+    "SELECT uuid, name, shopId FROM shopProduct WHERE product_group = 0"
+  ).all<{ uuid: string; name: string; shopId: string }>();
+
+  // 2. Получаем имена магазинов
+  const shops = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+  const shopNames = new Map(shops.results?.map(r => [r.uuid, r.name]) ?? []);
+
+  // 3. Все SELL/PAYBACK за последние 90 дней
+  const since90 = new Date();
+  since90.setDate(since90.getDate() - 90);
+  const sinceStr = since90.toISOString().slice(0, 10);
+
+  const docs = await db.prepare(
+    `SELECT shop_id, transactions, close_date, type FROM index_documents
+     WHERE close_date >= ? AND type IN ('SELL', 'PAYBACK')`
+  ).bind(sinceStr + "T00:00:00").all<{
+    shop_id: string; transactions: string; close_date: string; type: string;
+  }>();
+
+  // 4. Обходим документы, агрегируем по товарам
+  const lastSale = new Map<string, string>();
+  const revenue90 = new Map<string, number>();
+
+  for (const doc of docs.results ?? []) {
+    const isRefund = doc.type === "PAYBACK";
+    const sign = isRefund ? -1 : 1;
+    const day = doc.close_date.slice(0, 10);
+    let txs: any[];
+    try { txs = JSON.parse(doc.transactions); } catch { continue; }
+    if (!Array.isArray(txs)) continue;
+
+    for (const tx of txs) {
+      if (tx.type !== "REGISTER_POSITION") continue;
+      const uuid = tx.commodityUuid;
+      if (!uuid) continue;
+      const key = `${uuid}|${doc.shop_id}`;
+      revenue90.set(key, (revenue90.get(key) ?? 0) + (tx.sum ?? 0) * sign);
+      if (!lastSale.has(key) || day > lastSale.get(key)!) {
+        lastSale.set(key, day);
+      }
+    }
+  }
+
+  // 5. Формируем строки кэша
+  const rows: DeadStockCacheRow[] = [];
+  for (const p of products.results ?? []) {
+    const key = `${p.uuid}|${p.shopId}`;
+    const last = lastSale.get(key) || null;
+    const rev = Math.round(revenue90.get(key) ?? 0);
+    const days = last
+      ? Math.floor((Date.now() - new Date(last + "T12:00:00+03:00").getTime()) / 86400000)
+      : 999;
+
+    rows.push({
+      itemId: p.uuid,
+      name: p.name,
+      article: null,
+      currentStock: null,
+      daysWithoutSales: days,
+      lastSaleDate: last,
+      shopId: p.shopId,
+      shopName: shopNames.get(p.shopId) || p.shopId,
+      totalRevenueLast90Days: rev,
+      updatedAt: today,
+    });
+  }
+
+  // 6. Очищаем и вставляем
+  await db.prepare("DELETE FROM dead_stock_cache").run();
+  const stmt = db.prepare(
+    `INSERT OR REPLACE INTO dead_stock_cache
+       (itemId, shopId, name, article, currentStock, daysWithoutSales, lastSaleDate, shopName, totalRevenueLast90Days, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const batch = rows.map(r =>
+    stmt.bind(r.itemId, r.shopId, r.name, r.article, r.currentStock, r.daysWithoutSales, r.lastSaleDate, r.shopName, r.totalRevenueLast90Days, r.updatedAt)
+  );
+  await db.batch(batch);
+
+  return rows.length;
+}
+
+export async function getDeadStockCache(
+  db: D1Database,
+  daysWithoutSales: number,
+  shopId?: string,
+): Promise<DeadStockCacheRow[]> {
+  let sql = `SELECT * FROM dead_stock_cache WHERE daysWithoutSales >= ?`;
+  const binds: any[] = [daysWithoutSales];
+  if (shopId) {
+    sql += ` AND shopId = ?`;
+    binds.push(shopId);
+  }
+  sql += ` ORDER BY daysWithoutSales DESC, totalRevenueLast90Days DESC`;
+  const res = await db.prepare(sql).bind(...binds).all<DeadStockCacheRow>();
+  return res.results ?? [];
+}

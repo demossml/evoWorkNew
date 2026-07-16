@@ -24,6 +24,8 @@ import {
   upsertSaleByPlanData,
   createSellerDailyMetricsTable,
   upsertSellerDailyMetrics,
+  createDeadStockCacheTable,
+  refreshDeadStockCache,
 } from "./db";
 
 // ============================================================================
@@ -1029,5 +1031,17 @@ export async function sendDailyTopSellers(env: SyncEnv): Promise<void> {
     }
   } catch (err: any) {
     console.error("[top-sellers] Error:", err.message);
+  }
+}
+
+// Task: refreshDeadStockCache — ночное обновление кэша мёртвых остатков
+export async function refreshDeadStockTask(env: SyncEnv): Promise<void> {
+  try {
+    console.log("[dead-stock-cache] Начало обновления кэша...");
+    await createDeadStockCacheTable(env.DB);
+    const count = await refreshDeadStockCache(env.DB);
+    console.log(`[dead-stock-cache] Обновлено ${count} записей`);
+  } catch (err: any) {
+    console.error("[dead-stock-cache] Error:", err.message);
   }
 }
