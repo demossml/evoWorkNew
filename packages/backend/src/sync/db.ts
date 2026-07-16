@@ -894,6 +894,7 @@ export async function refreshDeadStockCache(
   }>();
 
   // 4. Обходим документы, агрегируем по товарам
+  //    Ключ: uuid|shop_id ИЛИ name|shop_id (UUID разный в разных магазинах!)
   const lastSale = new Map<string, string>();
   const revenue90 = new Map<string, number>();
 
@@ -908,21 +909,43 @@ export async function refreshDeadStockCache(
     for (const tx of txs) {
       if (tx.type !== "REGISTER_POSITION") continue;
       const uuid = tx.commodityUuid;
-      if (!uuid) continue;
-      const key = `${uuid}|${doc.shop_id}`;
-      revenue90.set(key, (revenue90.get(key) ?? 0) + (tx.sum ?? 0) * sign);
-      if (!lastSale.has(key) || day > lastSale.get(key)!) {
-        lastSale.set(key, day);
+      const name = (tx.commodityName || "").trim();
+      if (!uuid && !name) continue;
+
+      // Ключ по UUID (основной)
+      if (uuid) {
+        const key = `${uuid}|${doc.shop_id}`;
+        revenue90.set(key, (revenue90.get(key) ?? 0) + (tx.sum ?? 0) * sign);
+        if (!lastSale.has(key) || day > lastSale.get(key)!) {
+          lastSale.set(key, day);
+        }
+      }
+      // Ключ по имени (fallback — UUID может не совпадать между магазинами)
+      if (name) {
+        const nameKey = `name:${name}|${doc.shop_id}`;
+        revenue90.set(nameKey, (revenue90.get(nameKey) ?? 0) + (tx.sum ?? 0) * sign);
+        if (!lastSale.has(nameKey) || day > lastSale.get(nameKey)!) {
+          lastSale.set(nameKey, day);
+        }
       }
     }
   }
 
-  // 5. Формируем строки кэша
+  // 5. Формируем строки кэша — матчим по UUID, затем по имени
   const rows: DeadStockCacheRow[] = [];
   for (const p of products.results ?? []) {
-    const key = `${p.uuid}|${p.shopId}`;
-    const last = lastSale.get(key) || null;
-    const rev = Math.round(revenue90.get(key) ?? 0);
+    // Сначала ищем по UUID (основной ключ)
+    const uuidKey = `${p.uuid}|${p.shopId}`;
+    let last = lastSale.get(uuidKey) || null;
+    let rev = Math.round(revenue90.get(uuidKey) ?? 0);
+
+    // Если не нашли по UUID — ищем по имени (fallback)
+    if (!last && p.name) {
+      const nameKey = `name:${p.name}|${p.shopId}`;
+      last = lastSale.get(nameKey) || null;
+      rev = Math.round(revenue90.get(nameKey) ?? 0);
+    }
+
     const days = last
       ? Math.floor((Date.now() - new Date(last + "T12:00:00+03:00").getTime()) / 86400000)
       : 999;

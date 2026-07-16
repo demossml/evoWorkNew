@@ -14,6 +14,7 @@ import {
   checkAndSendCriticalAlerts,
   checkPlanLagAndAlert,
   sendDailyTopSellers,
+  refreshDeadStockTask,
 } from "./sync/cron";
 import { runMigrations } from "./db/migrations";
 import type { IEnv } from "./types";
@@ -51,6 +52,9 @@ export default {
       ],
       "0 4 * * *": [
         { label: "агрегация метрик продавцов (daily)", run: aggregateSellerDailyMetrics },
+      ],
+      "0 */6 * * *": [
+        { label: "кэш мёртвых остатков", run: refreshDeadStockTask },
       ],
       "0 5 * * *": [
         { label: "алерт: отставание от плана >20%", run: checkPlanLagAndAlert },
