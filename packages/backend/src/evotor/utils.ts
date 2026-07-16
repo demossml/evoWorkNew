@@ -1082,16 +1082,23 @@ export async function getPerShopSales(
 	since: string,
 ): Promise<{ shopName: string; qty: number }[]> {
 	const shops = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+	const shopList = shops.results ?? [];
 	const results: { shopName: string; qty: number }[] = [];
 
-	for (const shop of (shops.results ?? [])) {
-		// Проверяем наличие товара в магазине
-		const product = await db.prepare(
-			"SELECT uuid FROM shopProduct WHERE shopId = ? AND name = ? LIMIT 1"
-		).bind(shop.uuid, productName).first<{ uuid: string }>();
+	if (shopList.length === 0) return results;
 
+	// Один запрос: в каких магазинах есть этот товар
+	const shopUuids = shopList.map(s => s.uuid);
+	const placeholders = shopUuids.map(() => "?").join(",");
+	const productRows = await db.prepare(
+		`SELECT shopId FROM shopProduct WHERE name = ? AND shopId IN (${placeholders})`
+	).bind(productName, ...shopUuids).all<{ shopId: string }>();
+	const shopsWithProduct = new Set((productRows.results ?? []).map(r => r.shopId));
+
+	// Для каждого магазина с товаром — считаем продажи
+	for (const shop of shopList) {
 		let qty = 0;
-		if (product?.uuid) {
+		if (shopsWithProduct.has(shop.uuid)) {
 			const docs = await db.prepare(
 				`SELECT transactions FROM index_documents
 				 WHERE shop_id = ? AND close_date >= ? AND type IN ('SELL', 'PAYBACK')`
@@ -1111,7 +1118,6 @@ export async function getPerShopSales(
 		results.push({ shopName: shop.name, qty });
 	}
 
-	// Сортируем: магазины с продажами — вверх
 	results.sort((a, b) => b.qty - a.qty);
 	return results;
 }
