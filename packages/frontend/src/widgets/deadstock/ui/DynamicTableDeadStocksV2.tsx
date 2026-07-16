@@ -335,7 +335,7 @@ export const DynamicTableDeadStocksV2 = ({
         className="max-h-[calc(100vh-6rem)] overflow-y-auto"
       >
         <table className="w-full table-auto">
-          <thead className="sticky top-0 bg-muted z-10">
+          <thead className="sticky top-0 bg-muted z-10 app-safe-top">
             <tr>
               {Object.keys(tableN).map((key) => (
                 <th

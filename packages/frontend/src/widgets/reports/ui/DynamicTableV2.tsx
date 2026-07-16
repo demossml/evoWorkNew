@@ -231,7 +231,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
         onScroll={handleContainerScroll}
       >
         {/* Sort chips — bigger, better spacing */}
-        <div className="sticky top-0 z-20 -mx-2 px-2 py-2.5 bg-background/95 backdrop-blur-sm border-b border-border">
+        <div className="sticky top-0 z-20 -mx-2 px-2 py-2.5 bg-background/95 backdrop-blur-sm border-b border-border app-safe-top">
           <div className="flex gap-2 overflow-x-auto no-scrollbar">
             {mobileSortColumns.map((key) => {
               const isActive = sortConfig.key === key;
@@ -334,7 +334,7 @@ export const DynamicTableV2: React.FC<DynamicTableProps> = ({
       {/* === DESKTOP LAYOUT (V2) === */}
       <div className="relative hidden lg:block">
         <table className="w-full table-auto bg-card rounded-lg shadow-sm">
-          <thead className="bg-muted sticky top-0 z-10">
+          <thead className="bg-muted sticky top-0 z-10 app-safe-top">
             <tr>
               {columns.map((key) => {
                 const alignClass = isNumericColumn(key)

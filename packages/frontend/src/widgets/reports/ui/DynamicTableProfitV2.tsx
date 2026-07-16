@@ -140,7 +140,7 @@ export const DynamicTableProfitV2: React.FC<DynamicTableProfitV2Props> = ({
       {/* === ДЕСКТОП === */}
       <div className="hidden sm:block relative" ref={scrollRef} style={{ maxHeight: "calc(100vh - 4rem)", overflowY: "auto", overflowX: "auto" }}>
         <table className="w-full table-auto bg-card rounded-lg shadow-sm">
-          <thead className="bg-muted sticky top-0 z-10">
+          <thead className="bg-muted sticky top-0 z-10 app-safe-top">
             <tr>
               {tableKeys.map((key) => (
                 <th key={key}

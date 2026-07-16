@@ -62,7 +62,7 @@ export const DynamicTableSalesReportV2: React.FC<
   return (
     <div className="rounded-2xl border border-border bg-card overflow-hidden">
       {/* Column headers — aligned with data columns */}
-      <div className="sticky top-0 z-10 border-b border-border bg-muted/95 backdrop-blur-sm">
+      <div className="sticky top-0 z-10 border-b border-border bg-muted/95 backdrop-blur-sm app-safe-top">
         <div className="flex items-center">
           <button
             type="button"

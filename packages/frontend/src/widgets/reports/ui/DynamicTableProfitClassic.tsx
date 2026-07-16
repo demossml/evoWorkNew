@@ -173,7 +173,7 @@ export const DynamicTableProfitClassic: React.FC<DynamicTableProfitProps> = ({
         }}
       >
         <table className="w-full table-auto bg-background rounded-lg shadow-md">
-          <thead className="bg-muted sticky top-0 z-10">
+          <thead className="bg-muted sticky top-0 z-10 app-safe-top">
             <tr>
               {tableKeys.map((key) => (
                 <th

@@ -172,7 +172,7 @@ function AnalysisModal({
         className="bg-card w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-xl"
       >
         {/* Header */}
-        <div className="sticky top-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between z-10 app-safe-top">
           <div className="flex-1 min-w-0 mr-2">
             <h2 className="text-base font-bold truncate">{item.name}</h2>
             <p className="text-xs text-muted-foreground">

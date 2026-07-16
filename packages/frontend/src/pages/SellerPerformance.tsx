@@ -377,7 +377,7 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between z-10 app-safe-top">
           <div>
             <h2 className="font-bold text-foreground">{seller.name}</h2>
             <div className="text-xs text-gray-400">{seller.daysWorked} смен · {seller.totalChecks} чеков · {seller.storeLabels.join(", ")}</div>
@@ -1030,7 +1030,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
         className="bg-card rounded-t-2xl sm:rounded-2xl max-h-[85vh] w-full sm:max-w-lg overflow-y-auto shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        <div className="sticky top-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between z-10 app-safe-top">
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-blue-500" />
             <div>

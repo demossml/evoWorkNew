@@ -347,7 +347,7 @@ export function OrderForecastCards({
   return (
     <div className="mx-auto max-w-[420px]">
       {/* Sticky summary bar */}
-      <div className="sticky top-0 z-20 border-b border-border bg-card/95 px-3 py-2.5 backdrop-blur -mx-4 sm:-mx-6">
+      <div className="sticky top-0 z-20 border-b border-border bg-card/95 px-3 py-2.5 backdrop-blur -mx-4 sm:-mx-6 app-safe-top">
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">

@@ -64,7 +64,7 @@ export default function SellersAnalytics() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Sticky header */}
-      <div className="sticky top-0 z-20 bg-card/85 backdrop-blur-md border-b border-border">
+      <div className="sticky top-0 z-20 bg-card/85 backdrop-blur-md border-b border-border app-safe-top">
         <div className="px-4 py-3">
           <div className="flex items-center gap-3">
             <button

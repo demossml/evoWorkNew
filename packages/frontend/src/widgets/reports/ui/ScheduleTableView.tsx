@@ -75,7 +75,7 @@ const ScheduleTableView: React.FC<ScheduleTableProps> = ({ scheduleTable }) => {
             {Object.keys(tableHeaders).map((key) => (
               <th
                 key={key}
-                className="sticky top-0 z-10 px-4 py-3 text-left text-xs sm:text-sm text-muted-foreground cursor-pointer hover:bg-muted"
+                className="sticky top-0 z-10 px-4 py-3 text-left text-xs sm:text-sm text-muted-foreground cursor-pointer hover:bg-muted app-safe-top"
                 onClick={() => handleSort(key)}
               >
                 <div className="flex items-center">

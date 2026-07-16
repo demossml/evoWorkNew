@@ -230,7 +230,7 @@ export const DeadStockDetailModal: React.FC<DeadStockDetailModalProps> = ({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="sticky top-0 bg-card z-10 flex items-start justify-between p-4 border-b border-border">
+          <div className="sticky top-0 bg-card z-10 flex items-start justify-between p-4 border-b border-border app-safe-top">
             <div className="min-w-0 flex-1 pr-3">
               <h2 className="text-base font-semibold leading-tight">{item.name}</h2>
               <p className="text-[11px] text-muted-foreground font-mono mt-0.5">{item.article}</p>
