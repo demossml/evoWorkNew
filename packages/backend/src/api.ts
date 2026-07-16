@@ -2393,15 +2393,18 @@ export const api = new Hono<IEnv>()
 	})
 
 	// --- /api/analytics/dead-stock ---
-	// Параметры: daysWithoutSales (default 45), shopId (опционально), since, until
-	// Возвращает товары из кэша dead_stock_cache, где дней без продаж >= порог
+	// Параметры: daysWithoutSales (default 45), shopId (null/"all" = все), since, until
+	// Возвращает товары из кэша dead_stock_cache
 	.get("/api/analytics/dead-stock", async (c) => {
 		try {
 			const db = c.get("db");
 			const daysWithoutSales = parseInt(c.req.query("daysWithoutSales") || "45");
-			const shopId = c.req.query("shopId") || undefined;
+			const shopIdRaw = c.req.query("shopId") || undefined;
 			const since = c.req.query("since") || undefined;
 			const until = c.req.query("until") || undefined;
+
+			// Нормализация: null, "all", "" → все магазины
+			const shopId = (shopIdRaw && shopIdRaw !== "all" && shopIdRaw !== "null") ? shopIdRaw : undefined;
 
 			await createDeadStockCacheTable(db);
 			const rows = await getDeadStockCache(db, daysWithoutSales, shopId, since, until);
@@ -2410,6 +2413,7 @@ export const api = new Hono<IEnv>()
 				items: rows,
 				total: rows.length,
 				threshold: daysWithoutSales,
+				shopId: shopId || null,
 				since: since || null,
 				until: until || null,
 			});

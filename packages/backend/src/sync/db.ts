@@ -965,18 +965,26 @@ export async function getDeadStockCache(
 ): Promise<DeadStockCacheRow[]> {
   let sql = `SELECT * FROM dead_stock_cache WHERE daysWithoutSales >= ?`;
   const binds: any[] = [daysWithoutSales];
-  if (shopId) {
+
+  // shopId: пропускаем если null/"all"/undefined
+  if (shopId && shopId !== "all") {
     sql += ` AND shopId = ?`;
     binds.push(shopId);
   }
+
+  // since: фильтр по lastSaleDate (>= since).
+  // NULL lastSaleDate (никогда не продавался) — включается всегда, т.к. нет даты для сравнения
   if (since) {
-    sql += ` AND lastSaleDate >= ?`;
+    sql += ` AND (lastSaleDate >= ? OR lastSaleDate IS NULL)`;
     binds.push(since);
   }
+
+  // until: фильтр по lastSaleDate (<= until)
   if (until) {
-    sql += ` AND lastSaleDate <= ?`;
+    sql += ` AND (lastSaleDate <= ? OR lastSaleDate IS NULL)`;
     binds.push(until);
   }
+
   sql += ` ORDER BY daysWithoutSales DESC, totalRevenueLast90Days DESC`;
   const res = await db.prepare(sql).bind(...binds).all<DeadStockCacheRow>();
   return res.results ?? [];

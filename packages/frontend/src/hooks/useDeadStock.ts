@@ -32,7 +32,7 @@ interface UseDeadStockParams {
 function buildQuery(params: UseDeadStockParams): string {
   const q = new URLSearchParams();
   if (params.daysWithoutSales) q.set("daysWithoutSales", String(params.daysWithoutSales));
-  if (params.shopId) q.set("shopId", params.shopId);
+  if (params.shopId && params.shopId !== "all") q.set("shopId", params.shopId);
   if (params.since) q.set("since", params.since);
   if (params.until) q.set("until", params.until);
   return q.toString();
