@@ -1,19 +1,21 @@
 // components/cards/RevenueCard.tsx
 import { motion } from "framer-motion";
 import { formatCurrency } from "../../../utils/formatCurrency";
-import { DollarSign, TrendingUp } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown } from "lucide-react";
 import { Sparkline } from "@shared/ui";
 
 interface RevenueCardProps {
   value: number;
   percentPlan?: number;
+  prevValue?: number;
   onClick?: () => void;
   /** Last 7 days of revenue, oldest → newest. Optional — omitted while loading. */
   trend?: number[];
 }
 
-export function RevenueCard({ value, percentPlan, onClick, trend }: RevenueCardProps) {
+export function RevenueCard({ value, percentPlan, prevValue, onClick, trend }: RevenueCardProps) {
   const pct = typeof percentPlan === "number" ? Math.min(percentPlan, 100) : undefined;
+  const delta = prevValue && prevValue > 0 ? Math.round(((value - prevValue) / prevValue) * 100) : null;
   return (
     <motion.div
       whileHover={{ scale: 1.03, y: -2 }}
@@ -31,11 +33,16 @@ export function RevenueCard({ value, percentPlan, onClick, trend }: RevenueCardP
           <Sparkline values={trend} width={56} height={20} className="text-primary-foreground/70 shrink-0" />
         )}
       </div>
-      <div className="text-xs opacity-75 mt-1 flex items-center gap-1">
-        <TrendingUp className="w-3 h-3" />
-        <span>
+      <div className="text-xs opacity-75 mt-1 flex items-center gap-3">
+        {delta !== null && (
+          <span className={`flex items-center gap-0.5 ${delta >= 0 ? "text-green-300" : "text-red-300"}`}>
+            {delta >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+            {delta >= 0 ? "+" : ""}{delta}% к вчера
+          </span>
+        )}
+        <span className="flex items-center gap-1">
           {pct != null
-            ? `~ ${pct}% от плана`
+            ? `План: ~${pct}%`
             : "План загружается..."}
         </span>
       </div>

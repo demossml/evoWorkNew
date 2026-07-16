@@ -84,7 +84,7 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
     <div className="space-y-2">
       {Object.entries(salesDataByShopName)
         .sort(([, a], [, b]) => b.totalSell - a.totalSell)
-        .map(([shopName, shopData]) => {
+        .map(([shopName, shopData], index) => {
           const totalSell = shopData.totalSell;
           const totalRefund = getTotalRefund(shopData);
           const netShopSales = totalSell - totalRefund;
@@ -96,7 +96,10 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
           return (
             <div
               key={shopName}
-              className="bg-muted rounded-lg p-3 hover:bg-muted/70 transition-colors"
+              className={`rounded-lg p-3 transition-colors ${
+                refundRate > 5 ? "bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800" :
+                index % 2 === 0 ? "bg-muted/50" : "bg-card"
+              } hover:bg-muted/70`}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -105,9 +108,16 @@ export const RevenueDetailsAdmin: React.FC<RevenueDetailsAdminProps> = ({
                     {shopName}
                   </span>
                 </div>
-                <span className="text-sm font-medium text-muted-foreground">
-                  {percentOfTotal.toFixed(1)}%
-                </span>
+                <div className="flex items-center gap-2">
+                  {refundRate > 5 && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 font-medium">
+                      Высокий возврат
+                    </span>
+                  )}
+                  <span className="text-sm font-medium text-muted-foreground">
+                    {percentOfTotal.toFixed(1)}%
+                  </span>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">

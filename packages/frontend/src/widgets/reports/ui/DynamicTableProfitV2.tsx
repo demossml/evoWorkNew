@@ -159,7 +159,7 @@ export const DynamicTableProfitV2: React.FC<DynamicTableProfitV2Props> = ({
                 <Fragment key={idx}>
                   <motion.tr initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.25, delay: idx < 12 ? idx * 0.03 : 0, ease: "easeInOut" }}
-                    className={`border-b border-border ${isTotalRow ? "font-bold bg-blue-50 dark:bg-blue-900/20" : "hover:bg-accent/50"}`}>
+                    className={`border-b border-border ${isTotalRow ? "font-bold bg-blue-50 dark:bg-blue-900/20" : idx % 2 === 0 ? "bg-muted/20 hover:bg-accent/50" : "hover:bg-accent/50"}`}>
                     <td className="px-3 sm:px-4 py-2.5 text-sm font-medium text-foreground">{row.shopName}</td>
                     <td className="px-3 sm:px-4 py-2.5 text-right text-sm font-semibold text-foreground whitespace-nowrap">{row.totalEvoExpenses.toLocaleString()} ₽</td>
                     <td className="px-3 sm:px-4 py-2.5 text-right text-sm font-semibold text-foreground whitespace-nowrap">{row.expenses1C.toLocaleString()} ₽</td>

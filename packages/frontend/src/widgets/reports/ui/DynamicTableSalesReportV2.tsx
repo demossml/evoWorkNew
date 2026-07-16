@@ -99,6 +99,7 @@ export const DynamicTableSalesReportV2: React.FC<
                 duration: 0.15,
                 delay: index < 20 ? index * 0.01 : 0,
               }}
+              className={index % 2 === 0 ? "bg-muted/20" : ""}
             >
               {/* Line 1: product name — full width */}
               <div className="px-3 pt-1.5 pb-0 text-[13px] leading-tight font-medium text-foreground">
