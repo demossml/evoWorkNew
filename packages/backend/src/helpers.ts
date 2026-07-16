@@ -4,6 +4,7 @@ import { Evotor } from "./evotor";
 import type { IContext } from "./types";
 import { assert, createIndexDocumentsTable, createOpeningPhotosTable, createOpenStorsTable, isValidSign } from "./utils";
 import { createSettingsTable } from "./db/repositories/settings";
+import { runMigrations } from "./db/migrations";
 import { drizzle } from "drizzle-orm/d1";
 
 let tablesInitialized = false;
@@ -14,6 +15,7 @@ async function ensureTables(db: D1Database): Promise<void> {
   await createSettingsTable(db);
   await createOpeningPhotosTable(db);
   await createOpenStorsTable(db);
+  await runMigrations(db);
   tablesInitialized = true;
 }
 

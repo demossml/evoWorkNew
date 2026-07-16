@@ -1157,29 +1157,38 @@ export async function getProductStockFromD1(
 ): Promise<Map<string, number>> {
 	const result = new Map<string, number>();
 
-	if (productNames.length === 0) {
-		// Все товары магазина с ненулевым остатком
-		const rows = await db.prepare(
-			"SELECT name, quantity FROM shopProduct WHERE shopId = ? AND quantity > 0"
-		).bind(shopId).all<{ name: string; quantity: number }>();
+	try {
+		if (productNames.length === 0) {
+			// Все товары магазина с ненулевым остатком
+			const rows = await db.prepare(
+				"SELECT name, quantity FROM shopProduct WHERE shopId = ? AND quantity > 0"
+			).bind(shopId).all<{ name: string; quantity: number }>();
 
-		for (const row of (rows.results ?? [])) {
-			result.set(row.name, row.quantity);
+			for (const row of (rows.results ?? [])) {
+				result.set(row.name, row.quantity);
+			}
+		} else {
+			// Конкретные товары по именам
+			const placeholders = productNames.map(() => "?").join(",");
+			const rows = await db.prepare(
+				`SELECT name, quantity FROM shopProduct WHERE shopId = ? AND name IN (${placeholders})`
+			).bind(shopId, ...productNames).all<{ name: string; quantity: number }>();
+
+			for (const row of (rows.results ?? [])) {
+				result.set(row.name, row.quantity ?? 0);
+			}
+
+			// Товары, не найденные в shopProduct — остаток 0
+			for (const name of productNames) {
+				if (!result.has(name)) result.set(name, 0);
+			}
 		}
-	} else {
-		// Конкретные товары по именам
-		const placeholders = productNames.map(() => "?").join(",");
-		const rows = await db.prepare(
-			`SELECT name, quantity FROM shopProduct WHERE shopId = ? AND name IN (${placeholders})`
-		).bind(shopId, ...productNames).all<{ name: string; quantity: number }>();
-
-		for (const row of (rows.results ?? [])) {
-			result.set(row.name, row.quantity ?? 0);
-		}
-
-		// Товары, не найденные в shopProduct — остаток 0
+	} catch (e: any) {
+		// Колонка quantity может отсутствовать до первой миграции — не фатально
+		console.warn("[getProductStockFromD1] ошибка (возможно нет колонки quantity):", e?.message);
+		// Возвращаем 0 для всех запрошенных имён
 		for (const name of productNames) {
-			if (!result.has(name)) result.set(name, 0);
+			result.set(name, 0);
 		}
 	}
 
