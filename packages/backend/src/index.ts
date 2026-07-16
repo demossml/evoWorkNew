@@ -38,13 +38,11 @@ export default {
     > = {
       "*/3 * * * *": [
         { label: "синхронизация документов (SELL)", run: syncDocuments },
+        { label: "синхронизация остатков (stock)", run: syncStock },
       ],
       "*/25 * * * *": [
         { label: "обновления продуктов", run: updateProducts },
         { label: "обновления продуктов магазинов", run: updateProductsShope },
-      ],
-      "*/30 * * * *": [
-        { label: "синхронизация остатков (stock)", run: syncStock },
       ],
       "0 3 * * *": [
         { label: "план-факт", run: getDataForCurrentDate },
