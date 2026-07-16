@@ -2295,22 +2295,123 @@ export const api = new Hono<IEnv>()
 		return c.json({ ok: true, mode: mode || "DB", meta: { source: (mode || "DB") as "DB" | "ELVATOR", aiAvailable: true } });
 	})
 
+	// --- /api/analytics/dead-stock/actions ---
+	// Принимает массив действий, возвращает CSV-файл
+	.post("/api/analytics/dead-stock/actions", async (c) => {
+		try {
+			const db = c.get("db");
+			const actionLabels: Record<string, string> = {
+				move: "Переместить",
+				writeoff: "Списать",
+				promo: "Промо",
+				keep: "Оставить",
+			};
+			const body = await c.req.json<{
+				actions: {
+					itemId: string;
+					shopId: string;
+					action: "move" | "writeoff" | "promo" | "keep";
+					targetShopId?: string;
+					quantity?: number;
+					reason?: string;
+				}[];
+			}>();
+
+			const actions = body.actions ?? [];
+			if (actions.length === 0) {
+				return c.json({ error: "actions is empty" }, 400);
+			}
+
+			// Обогащаем action названиями товаров и магазинов
+			const enriched: {
+				name: string;
+				shopName: string;
+				action: string;
+				targetShop: string;
+				quantity: number;
+				reason: string;
+			}[] = [];
+
+			for (const a of actions) {
+				const item = await db.prepare(
+					"SELECT name, shopName FROM dead_stock_cache WHERE itemId = ? AND shopId = ?"
+				).bind(a.itemId, a.shopId).first<{ name: string; shopName: string }>();
+
+				let targetShop = "—";
+				if (a.targetShopId) {
+					const shop = await db.prepare(
+						"SELECT name FROM shops WHERE uuid = ?"
+					).bind(a.targetShopId).first<{ name: string }>();
+					targetShop = shop?.name || a.targetShopId;
+				}
+
+				enriched.push({
+					name: item?.name || a.itemId,
+					shopName: item?.shopName || a.shopId,
+					action: actionLabels[a.action] || a.action,
+					targetShop,
+					quantity: a.quantity ?? 0,
+					reason: a.reason || "",
+				});
+			}
+
+			// Статистика
+			const moveCount = enriched.filter(e => e.action === "Переместить").length;
+			const moveQty = enriched.filter(e => e.action === "Переместить").reduce((s, e) => s + e.quantity, 0);
+			const writeoffCount = enriched.filter(e => e.action === "Списать").length;
+			const promoCount = enriched.filter(e => e.action === "Промо").length;
+			const keepCount = enriched.filter(e => e.action === "Оставить").length;
+
+			// CSV с BOM для Excel
+			const BOM = "\uFEFF";
+			const header = "Товар;Магазин;Действие;Куда;Количество;Причина";
+			const rows = enriched.map(e =>
+				`"${e.name}";"${e.shopName}";${e.action};"${e.targetShop}";${e.quantity};"${e.reason}"`
+			);
+			const summary = [
+				"",
+				"ИТОГО",
+				`Переместить: ${moveCount} товаров, ${moveQty} шт`,
+				`Списать: ${writeoffCount} товаров`,
+				`Промо: ${promoCount} товаров`,
+				`Оставить: ${keepCount} товаров`,
+				`Дата: ${new Date().toISOString().slice(0, 10)}`,
+			].map(s => `${s};;;;;`);
+
+			const csv = BOM + [header, ...rows, ...summary].join("\n");
+
+			return new Response(csv, {
+				headers: {
+					"Content-Type": "text/csv; charset=utf-8",
+					"Content-Disposition": `attachment; filename="dead-stock-actions-${new Date().toISOString().slice(0, 10)}.csv"`,
+				},
+			});
+		} catch (err) {
+			console.error("dead-stock actions error:", err);
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+
 	// --- /api/analytics/dead-stock ---
-	// Параметры: daysWithoutSales (default 45), shopId (опционально)
+	// Параметры: daysWithoutSales (default 45), shopId (опционально), since, until
 	// Возвращает товары из кэша dead_stock_cache, где дней без продаж >= порог
 	.get("/api/analytics/dead-stock", async (c) => {
 		try {
 			const db = c.get("db");
 			const daysWithoutSales = parseInt(c.req.query("daysWithoutSales") || "45");
 			const shopId = c.req.query("shopId") || undefined;
+			const since = c.req.query("since") || undefined;
+			const until = c.req.query("until") || undefined;
 
 			await createDeadStockCacheTable(db);
-			const rows = await getDeadStockCache(db, daysWithoutSales, shopId);
+			const rows = await getDeadStockCache(db, daysWithoutSales, shopId, since, until);
 
 			return c.json({
 				items: rows,
 				total: rows.length,
 				threshold: daysWithoutSales,
+				since: since || null,
+				until: until || null,
 			});
 		} catch (err) {
 			console.error("dead-stock analytics error:", err);

@@ -1,10 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import {
   Package, TrendingDown, Clock, Sparkles,
-  Truck, Trash2, Tag, ShieldCheck, X, FileText,
+  Truck, Trash2, Tag, ShieldCheck, X, Download,
 } from "lucide-react";
+import { useDeadStock } from "@/hooks/useDeadStock";
 
 // ── Types ──
 
@@ -18,6 +19,18 @@ interface DeadStockItem {
   shopId: string;
   shopName: string;
   totalRevenueLast90Days: number;
+}
+
+interface PlanAction {
+  itemId: string;
+  shopId: string;
+  shopName: string;
+  itemName: string;
+  action: "move" | "writeoff" | "promo" | "keep";
+  targetShopId?: string;
+  targetShopName?: string;
+  quantity?: number;
+  reason?: string;
 }
 
 interface AiAnalysis {
@@ -124,9 +137,11 @@ function DeadTile({
 function AnalysisModal({
   item,
   onClose,
+  onAction,
 }: {
   item: DeadStockItem;
   onClose: () => void;
+  onAction: (action: PlanAction) => void;
 }) {
   const { data, isLoading, isError } = useQuery<AnalyzeResponse>({
     queryKey: ["dead-stock-analyze", item.itemId, item.shopId],
@@ -274,24 +289,48 @@ function AnalysisModal({
         {data && (
           <div className="border-t border-border p-3 grid grid-cols-2 gap-2">
             <button
+              onClick={() => onAction({
+                itemId: item.itemId, shopId: item.shopId, shopName: item.shopName, itemName: item.name,
+                action: "move",
+                targetShopId: data.analysis.targetShopId ?? undefined,
+                targetShopName: data.analysis.targetShopName ?? undefined,
+                quantity: data.analysis.quantity,
+                reason: data.analysis.explanation,
+              })}
               className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium active:bg-blue-700 transition-colors"
             >
               <Truck className="w-4 h-4" />
               Переместить
             </button>
             <button
+              onClick={() => onAction({
+                itemId: item.itemId, shopId: item.shopId, shopName: item.shopName, itemName: item.name,
+                action: "writeoff",
+                quantity: item.currentStock ?? undefined,
+                reason: data.analysis.explanation,
+              })}
               className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-600 text-white text-sm font-medium active:bg-red-700 transition-colors"
             >
               <Trash2 className="w-4 h-4" />
               Списать
             </button>
             <button
+              onClick={() => onAction({
+                itemId: item.itemId, shopId: item.shopId, shopName: item.shopName, itemName: item.name,
+                action: "promo",
+                reason: "Распродажа со скидкой",
+              })}
               className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-600 text-white text-sm font-medium active:bg-amber-700 transition-colors"
             >
               <Tag className="w-4 h-4" />
               Промо
             </button>
             <button
+              onClick={() => onAction({
+                itemId: item.itemId, shopId: item.shopId, shopName: item.shopName, itemName: item.name,
+                action: "keep",
+                reason: "Оставить без изменений",
+              })}
               className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium active:bg-emerald-700 transition-colors"
             >
               <ShieldCheck className="w-4 h-4" />
@@ -306,22 +345,67 @@ function AnalysisModal({
 
 // ── Widget ──
 
+const PERIOD_PRESETS: { label: string; since: string; until: string }[] = [
+  { label: "7 дн.", since: (d => { d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10); })(new Date()), until: new Date().toISOString().slice(0, 10) },
+  { label: "30 дн.", since: (d => { d.setDate(d.getDate() - 29); return d.toISOString().slice(0, 10); })(new Date()), until: new Date().toISOString().slice(0, 10) },
+  { label: "90 дн.", since: (d => { d.setDate(d.getDate() - 89); return d.toISOString().slice(0, 10); })(new Date()), until: new Date().toISOString().slice(0, 10) },
+];
+
 export function DeadStockWidget() {
   const [selected, setSelected] = useState<DeadStockItem | null>(null);
   const [limit, setLimit] = useState(6);
+  const [daysThreshold, setDaysThreshold] = useState(45);
+  const [shopId, setShopId] = useState<string | null>(null);
+  const [preset, setPreset] = useState("90 дн.");
+  const [plannedActions, setPlannedActions] = useState<PlanAction[]>([]);
+  const downloadRef = useRef<HTMLAnchorElement>(null);
 
-  const { data, isLoading, isError } = useQuery<{ items: DeadStockItem[]; total: number }>({
-    queryKey: ["dead-stock-widget"],
+  const presetData = PERIOD_PRESETS.find(p => p.label === preset) || PERIOD_PRESETS[2];
+
+  const { data, isLoading, isError } = useDeadStock({
+    daysWithoutSales: daysThreshold,
+    shopId: shopId,
+    since: presetData.since,
+    until: presetData.until,
+  });
+
+  // Fetch shops for dropdown
+  const { data: shopsData } = useQuery<{ shopOptions: Record<string, string> }>({
+    queryKey: ["shops-list"],
     queryFn: async () => {
-      const res = await fetch("/api/analytics/dead-stock?daysWithoutSales=45");
-      if (!res.ok) throw new Error("Ошибка загрузки");
+      const res = await fetch("/api/evotor/shops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: "" }) });
+      if (!res.ok) return { shopOptions: {} };
       return res.json();
     },
-    refetchInterval: 300_000,
-    staleTime: 120_000,
+    staleTime: 600_000,
   });
 
   const items = data?.items?.slice(0, limit) ?? [];
+
+  const handleDownload = async () => {
+    if (plannedActions.length === 0) return;
+    const res = await fetch("/api/analytics/dead-stock/actions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actions: plannedActions }),
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dead-stock-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const addAction = useCallback((action: PlanAction) => {
+    setPlannedActions(prev => {
+      const exists = prev.find(a => a.itemId === action.itemId && a.shopId === action.shopId);
+      if (exists) return prev.map(a => a.itemId === action.itemId && a.shopId === action.shopId ? action : a);
+      return [...prev, action];
+    });
+  }, []);
 
   if (isLoading) {
     return (
@@ -336,8 +420,6 @@ export function DeadStockWidget() {
     );
   }
 
-  if (isError || !items.length) return null;
-
   return (
     <>
       <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -351,23 +433,71 @@ export function DeadStockWidget() {
             </span>
           </div>
           <button
-            className="flex items-center gap-1 text-[10px] font-medium text-violet-600 bg-violet-50 px-2 py-1 rounded-lg active:bg-violet-100 transition-colors"
+            onClick={handleDownload}
+            disabled={plannedActions.length === 0}
+            className="flex items-center gap-1 text-[10px] font-medium text-violet-600 bg-violet-50 px-2 py-1 rounded-lg active:bg-violet-100 disabled:opacity-30 transition-colors"
           >
-            <FileText className="w-3 h-3" />
-            Документ
+            <Download className="w-3 h-3" />
+            {plannedActions.length > 0 ? `Скачать (${plannedActions.length})` : "Документ"}
           </button>
         </div>
 
-        {/* Tiles */}
-        <div className="p-2 grid grid-cols-2 gap-2">
-          {items.map((item) => (
-            <DeadTile
-              key={item.itemId + item.shopId}
-              item={item}
-              onClick={() => setSelected(item)}
-            />
-          ))}
+        {/* Filters */}
+        <div className="px-3 py-2 flex flex-wrap gap-1.5 border-b border-border/50">
+          {/* Period presets */}
+          <div className="flex gap-1">
+            {PERIOD_PRESETS.map(p => (
+              <button
+                key={p.label}
+                onClick={() => setPreset(p.label)}
+                className={`px-2 py-0.5 text-[10px] rounded-full ${preset === p.label ? "bg-violet-600 text-white" : "bg-muted text-muted-foreground"}`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Days threshold */}
+          <select
+            value={daysThreshold}
+            onChange={e => setDaysThreshold(Number(e.target.value))}
+            className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-muted border-0"
+          >
+            <option value={30}>≥30 дней</option>
+            <option value={45}>≥45 дней</option>
+            <option value={60}>≥60 дней</option>
+            <option value={90}>≥90 дней</option>
+          </select>
+
+          {/* Shop */}
+          <select
+            value={shopId ?? ""}
+            onChange={e => setShopId(e.target.value || null)}
+            className="text-[10px] px-1.5 py-0.5 rounded bg-muted border-0 max-w-[100px]"
+          >
+            <option value="">Все</option>
+            {Object.entries(shopsData?.shopOptions ?? {}).map(([id, name]) => (
+              <option key={id} value={id}>{name}</option>
+            ))}
+          </select>
         </div>
+
+        {/* Tiles */}
+        {items.length > 0 ? (
+          <div className="p-2 grid grid-cols-2 gap-2">
+            {items.map((item) => (
+              <DeadTile
+                key={item.itemId + item.shopId}
+                item={item}
+                onClick={() => setSelected(item)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="py-8 text-center text-xs text-muted-foreground">
+            {isError ? "Ошибка загрузки" : "Нет мёртвых остатков за выбранный период"}
+          </div>
+        )}
 
         {/* Show more */}
         {data && data.total > limit && (
@@ -386,6 +516,7 @@ export function DeadStockWidget() {
           <AnalysisModal
             item={selected}
             onClose={() => setSelected(null)}
+            onAction={addAction}
           />
         )}
       </AnimatePresence>
