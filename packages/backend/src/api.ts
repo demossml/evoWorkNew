@@ -77,6 +77,7 @@ import {
 	extractSalesInfoFromD1,
 	getCashByShopsFromD1,
 	getOpenSessionsFromD1,
+	getProductStockFromD1,
 } from "./evotor/utils";
 import {
 	getShopUuidsFromDB,
@@ -1557,87 +1558,158 @@ export const api = new Hono<IEnv>()
 		return c.json({ ok: true });
 	})
 	// Генерация отчёта «мёртвые остатки» — товары без продаж
+	// Параметры: startDate, endDate, shopIds (string[] | null), groups (string[])
 	.post("/api/dead-stocks/data", async (c) => {
 		try {
 			const db = c.get("db");
-			const { startDate, endDate, shopUuid, groups } = await c.req.json<{
+			const { startDate, endDate, shopIds, groups } = await c.req.json<{
 				startDate: string;
 				endDate: string;
-				shopUuid: string;
+				shopIds: string[] | null;
 				groups: string[];
 			}>();
 
-			// Получаем название магазина
-			const shopRow = await db.prepare("SELECT name FROM shops WHERE uuid = ?").bind(shopUuid).first<{ name: string }>();
-			const shopName = shopRow?.name || shopUuid;
-
-			// Получаем все товары магазина (shopProduct)
-			const products = await db.prepare(
-				`SELECT uuid, name FROM shopProduct WHERE shopId = ? AND product_group = 0`
-			).bind(shopUuid).all<{ uuid: string; name: string }>();
-
-			if (!products.results || products.results.length === 0) {
-				return c.json({ salesData: [], shopName, startDate, endDate });
+			// Определяем список магазинов
+			let targetShopUuids: string[] = [];
+			if (shopIds && shopIds.length > 0) {
+				targetShopUuids = shopIds;
+			} else {
+				const allShops = await db.prepare("SELECT uuid FROM shops").all<{ uuid: string }>();
+				targetShopUuids = (allShops.results ?? []).map(s => s.uuid);
 			}
 
-			// Если выбраны группы — фильтруем товары по группам
-			let productUuids = products.results.map(p => p.uuid);
-			if (groups.length > 0) {
-				const placeholders = groups.map(() => "?").join(",");
-				const filtered = await db.prepare(
-					`SELECT DISTINCT uuid FROM shopProduct WHERE parentUuid IN (${placeholders}) AND shopId = ?`
-				).bind(...groups, shopUuid).all<{ uuid: string }>();
-				const filteredSet = new Set((filtered.results ?? []).map(r => r.uuid));
-				productUuids = productUuids.filter(uuid => filteredSet.has(uuid));
+			if (targetShopUuids.length === 0) {
+				return c.json({ salesData: [], shopName: "Все магазины", startDate, endDate });
 			}
 
-			// Получаем все SELL документы за период для этого магазина
-			const soldUuids = new Set<string>();
-			const lastSaleByUuid = new Map<string, string>();
-			const soldQtyByUuid = new Map<string, number>();
+			const allSalesData: {
+				itemId: string; name: string; article: string; quantity: number;
+				sold: number; lastSaleDate: string | null; daysWithoutSales: number;
+				shopId: string; shopName: string;
+			}[] = [];
 
-			const docs = await db.prepare(
-				`SELECT type, transactions, close_date FROM index_documents
-				 WHERE shop_id = ? AND close_date >= ? AND close_date <= ?
-				 AND type IN ('SELL', 'PAYBACK')`
-			).bind(shopUuid, startDate + "T00:00:00", endDate + "T23:59:59").all<{
-				type: string; transactions: string; close_date: string;
-			}>();
+			const now = new Date();
+			const nowStr = now.toISOString().slice(0, 10);
 
-			for (const doc of (docs.results ?? [])) {
-				const isRefund = doc.type === "PAYBACK";
-				const sign = isRefund ? -1 : 1;
-				let txs: any[];
-				try { txs = JSON.parse(doc.transactions); } catch { continue; }
-				if (!Array.isArray(txs)) continue;
+			for (const shopUuid of targetShopUuids) {
+				const shopRow = await db.prepare(
+					"SELECT name FROM shops WHERE uuid = ?"
+				).bind(shopUuid).first<{ name: string }>();
+				const shopName = shopRow?.name || shopUuid;
 
-				for (const tx of txs) {
-					if (tx.type !== "REGISTER_POSITION") continue;
-					const uuid = tx.commodityUuid;
-					if (!uuid) continue;
-					if (!productUuids.includes(uuid)) continue;
-					soldUuids.add(uuid);
-					soldQtyByUuid.set(uuid, (soldQtyByUuid.get(uuid) ?? 0) + (tx.quantity ?? 0) * sign);
-					const day = doc.close_date.slice(0, 10);
-					if (!lastSaleByUuid.has(uuid) || day > lastSaleByUuid.get(uuid)!) {
-						lastSaleByUuid.set(uuid, day);
+				// Получаем все товары магазина (shopProduct)
+				let productsQuery = `SELECT uuid, name, article FROM shopProduct WHERE shopId = ? AND product_group = 0`;
+				const products = await db.prepare(productsQuery).bind(shopUuid).all<{
+					uuid: string; name: string; article: string | null;
+				}>();
+
+				if (!products.results || products.results.length === 0) continue;
+
+				// Фильтр по группам (если выбраны)
+				let productUuids = products.results.map(p => p.uuid);
+				const productMap = new Map(products.results.map(p => [p.uuid, p]));
+
+				if (groups && groups.length > 0) {
+					const placeholders = groups.map(() => "?").join(",");
+					const filtered = await db.prepare(
+						`SELECT DISTINCT uuid FROM shopProduct WHERE parentUuid IN (${placeholders}) AND shopId = ?`
+					).bind(...groups, shopUuid).all<{ uuid: string }>();
+					const filteredSet = new Set((filtered.results ?? []).map(r => r.uuid));
+					productUuids = productUuids.filter(uuid => filteredSet.has(uuid));
+				}
+
+				if (productUuids.length === 0) continue;
+
+				// Проданные товары за период
+				const soldQtyByUuid = new Map<string, number>();
+				const lastSaleByUuid = new Map<string, string>();
+
+				const docs = await db.prepare(
+					`SELECT type, transactions, close_date FROM index_documents
+					 WHERE shop_id = ? AND close_date >= ? AND close_date <= ?
+					 AND type IN ('SELL', 'PAYBACK')`
+				).bind(shopUuid, startDate + "T00:00:00", endDate + "T23:59:59").all<{
+					type: string; transactions: string; close_date: string;
+				}>();
+
+				for (const doc of (docs.results ?? [])) {
+					const isRefund = doc.type === "PAYBACK";
+					const sign = isRefund ? -1 : 1;
+					let txs: any[];
+					try { txs = JSON.parse(doc.transactions); } catch { continue; }
+					if (!Array.isArray(txs)) continue;
+
+					for (const tx of txs) {
+						if (tx.type !== "REGISTER_POSITION") continue;
+						const uuid = tx.commodityUuid;
+						if (!uuid) continue;
+						if (!productUuids.includes(uuid)) continue;
+						soldQtyByUuid.set(uuid, (soldQtyByUuid.get(uuid) ?? 0) + (tx.quantity ?? 0) * sign);
+						const day = doc.close_date.slice(0, 10);
+						if (!lastSaleByUuid.has(uuid) || day > lastSaleByUuid.get(uuid)!) {
+							lastSaleByUuid.set(uuid, day);
+						}
 					}
+				}
+
+				// Товары без продаж = мёртвые остатки
+				const deadProductNames: string[] = [];
+				const deadProducts: { uuid: string; name: string; article: string; lastSale: string | null; daysWithoutSales: number }[] = [];
+
+				for (const uuid of productUuids) {
+					if (soldQtyByUuid.has(uuid)) continue; // продавался — не мёртвый
+					const product = productMap.get(uuid);
+					if (!product) continue;
+
+					const lastSale = lastSaleByUuid.get(uuid);
+					const daysWithoutSales = lastSale
+						? Math.floor((new Date(nowStr).getTime() - new Date(lastSale).getTime()) / 86400000)
+						: 999;
+
+					deadProductNames.push(product.name);
+					deadProducts.push({
+						uuid,
+						name: product.name,
+						article: product.article || "",
+						lastSale: lastSale || null,
+						daysWithoutSales,
+					});
+				}
+
+				// Получаем реальные остатки из D1 (синхронизированы через syncStock)
+				const stockMap = deadProductNames.length > 0
+					? await getProductStockFromD1(db, shopUuid, deadProductNames)
+					: new Map<string, number>();
+
+				for (const dp of deadProducts) {
+					const qty = stockMap.get(dp.name) ?? 0;
+					if (qty <= 0) continue; // только фактические остатки > 0
+
+					allSalesData.push({
+						itemId: dp.uuid,
+						name: dp.name,
+						article: dp.article,
+						quantity: qty,
+						sold: 0,
+						lastSaleDate: dp.lastSale,
+						daysWithoutSales: dp.daysWithoutSales,
+						shopId: shopUuid,
+						shopName,
+					});
 				}
 			}
 
-			// Товары, которых нет в soldUuids = «мёртвые остатки»
-			const productNameMap = new Map(products.results.map(p => [p.uuid, p.name]));
-			const salesData = productUuids
-				.filter(uuid => !soldUuids.has(uuid))
-				.map(uuid => ({
-					name: productNameMap.get(uuid) || uuid,
-					quantity: 1, // заглушка — реальное кол-во остатков потребует данных из Evotor API
-					sold: soldQtyByUuid.get(uuid) ?? 0,
-					lastSaleDate: lastSaleByUuid.get(uuid) || null,
-				}))
-				.sort((a, b) => a.name.localeCompare(b.name));
+			// Сортируем: сначала самые «мёртвые» (999 дней), потом по имени
+			allSalesData.sort((a, b) => {
+				if (b.daysWithoutSales !== a.daysWithoutSales) return b.daysWithoutSales - a.daysWithoutSales;
+				return a.name.localeCompare(b.name);
+			});
 
-			return c.json({ salesData, shopName, startDate, endDate });
+			const displayName = targetShopUuids.length === 1
+				? allSalesData[0]?.shopName || "Магазин"
+				: "Все магазины";
+
+			return c.json({ salesData: allSalesData, shopName: displayName, startDate, endDate });
 		} catch (err) {
 			console.error("dead-stocks/data error:", err);
 			return c.json({ salesData: [], shopName: "", startDate: "", endDate: "" }, 500);
@@ -2425,19 +2497,17 @@ export const api = new Hono<IEnv>()
 
 	// --- /api/analytics/dead-stock/analyze ---
 	// AI-анализ конкретного товара через DeepSeek
-	// Параметры: itemId, shopId
+	// Параметры: itemId, shopId, fast=1 (быстрый режим без AI)
 	.get("/api/analytics/dead-stock/analyze", async (c) => {
 		try {
 			const db = c.get("db");
 			const apiKey = c.env.DEEPSEEK_API_KEY as string;
 			const itemId = c.req.query("itemId");
 			const shopId = c.req.query("shopId");
+			const fast = c.req.query("fast");
 
 			if (!itemId || !shopId) {
 				return c.json({ error: "itemId и shopId обязательны" }, 400);
-			}
-			if (!apiKey) {
-				return c.json({ error: "DEEPSEEK_API_KEY не настроен" }, 500);
 			}
 
 			// 1. Данные из кэша
@@ -2449,6 +2519,8 @@ export const api = new Hono<IEnv>()
 			if (!cacheRow) {
 				return c.json({ error: "Товар не найден в кэше" }, 404);
 			}
+
+			const productName = cacheRow.name;
 
 			// 2. Детальные продажи за последние 90 дней (по дням)
 			const since90 = new Date();
@@ -2488,6 +2560,69 @@ export const api = new Hono<IEnv>()
 				}
 			}
 			salesHistory.sort((a, b) => b.date.localeCompare(a.date));
+
+			// --- fast=1: быстрый режим без AI (только данные) ---
+			if (fast === "1") {
+				// Продажи по всем магазинам (по имени товара, т.к. UUID разный)
+				const allShops = await db.prepare(
+					"SELECT uuid, name FROM shops ORDER BY name"
+				).all<{ uuid: string; name: string }>();
+
+				const allShopsSales: { shopName: string; uuid: string; qty: number; hasProduct: boolean }[] = [];
+
+				// Проверяем наличие товара и продажи в каждом магазине
+				for (const shop of (allShops.results ?? [])) {
+					const productRow = await db.prepare(
+						"SELECT uuid FROM shopProduct WHERE shopId = ? AND name = ? LIMIT 1"
+					).bind(shop.uuid, productName).first<{ uuid: string }>();
+
+					let qty = 0;
+					const hasProduct = !!productRow?.uuid;
+
+					if (hasProduct) {
+						const shopDocs = await db.prepare(
+							`SELECT transactions, index_documents.type FROM index_documents
+							 WHERE shop_id = ? AND close_date >= ? AND index_documents.type IN ('SELL', 'PAYBACK')`
+						).bind(shop.uuid, sinceStr + "T00:00:00").all<{
+							transactions: string; type: string;
+						}>();
+
+						for (const doc of (shopDocs.results ?? [])) {
+							const isRefund = doc.type === "PAYBACK";
+							const sign = isRefund ? -1 : 1;
+							let txs: any[];
+							try { txs = JSON.parse(doc.transactions); } catch { continue; }
+							if (!Array.isArray(txs)) continue;
+							for (const tx of txs) {
+								if (tx.type !== "REGISTER_POSITION") continue;
+								if ((tx.commodityName || "").trim() !== productName) continue;
+								qty += (tx.quantity ?? 0) * sign;
+							}
+						}
+					}
+
+					allShopsSales.push({
+						shopName: shop.name,
+						uuid: shop.uuid,
+						qty: Math.max(0, qty),
+						hasProduct,
+					});
+				}
+
+				allShopsSales.sort((a, b) => b.qty - a.qty);
+
+				return c.json({
+					salesHistory: salesHistory.slice(0, 14),
+					allShopsSales,
+					allShops: (allShops.results ?? []).map(s => ({ uuid: s.uuid, name: s.name })),
+				});
+			}
+
+			// --- /fast=1 ---
+
+			if (!apiKey) {
+				return c.json({ error: "DEEPSEEK_API_KEY не настроен" }, 500);
+			}
 
 			// 3. Маржа (из transaction costPrice)
 			let marginPct = 0;

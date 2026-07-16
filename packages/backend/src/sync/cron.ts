@@ -1,4 +1,4 @@
-import type { D1Database } from "@cloudflare/workers-types";
+import type { D1Database, D1PreparedStatement } from "@cloudflare/workers-types";
 import { Evotor } from "../evotor";
 import {
   formatDate,
@@ -221,7 +221,7 @@ export async function syncStock(env: SyncEnv): Promise<void> {
   const evo = new Evotor(token);
 
   try {
-    // Ensure stock table exists
+    // Ensure stock table exists (detail table)
     await env.DB.prepare(`
       CREATE TABLE IF NOT EXISTS stock (
         shop_id TEXT NOT NULL,
@@ -243,7 +243,45 @@ export async function syncStock(env: SyncEnv): Promise<void> {
       try {
         const items = (await evo.getStoreStock(shopId)) as any[];
         console.log(`[syncStock] Магазин ${shopId}: получено ${items.length} позиций`);
-        // Future: insert stock data into D1 table
+
+        if (!items || items.length === 0) continue;
+
+        // Get shop name for stock table
+        const shopRow = await env.DB.prepare(
+          "SELECT name FROM shops WHERE uuid = ?"
+        ).bind(shopId).first<{ name: string }>();
+        const shopName = shopRow?.name || shopId;
+
+        // Batch update both stock table and shopProduct.quantity
+        const stockStmt = env.DB.prepare(`
+          INSERT OR REPLACE INTO stock (shop_id, product_uuid, product_name, quantity, measure_name, purchase_price, selling_price, updated_at)
+          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))
+        `);
+
+        const productStmt = env.DB.prepare(`
+          UPDATE shopProduct SET quantity = ?1, price = ?2, measureName = ?3
+          WHERE shopId = ?4 AND uuid = ?5
+        `);
+
+        const batch: D1PreparedStatement[] = [];
+
+        for (const item of items) {
+          const uuid = item.productUuid || item.uuid;
+          const qty = item.quantity ?? 0;
+          const price = item.sellingPrice ?? item.price ?? 0;
+          const purchasePrice = item.purchasePrice ?? 0;
+          const measureName = item.measureName || "шт";
+
+          if (!uuid) continue;
+
+          batch.push(stockStmt.bind(shopId, uuid, shopName, qty, measureName, purchasePrice, price));
+          batch.push(productStmt.bind(qty, price, measureName, shopId, uuid));
+        }
+
+        if (batch.length > 0) {
+          await env.DB.batch(batch);
+          console.log(`[syncStock] Магазин ${shopId}: сохранено ${items.length} позиций`);
+        }
       } catch (e) {
         console.error(`[syncStock] Ошибка для магазина ${shopId}:`, e);
       }

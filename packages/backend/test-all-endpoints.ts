@@ -3,7 +3,7 @@
  * Запуск: npx tsx test-all-endpoints.ts
  */
 
-const BASE = "http://localhost:3000";
+const BASE = "http://localhost:8787";
 const GUEST_HEADERS = { "Content-Type": "application/json", "initData": "guest" };
 
 async function test(method: string, path: string, body?: any, qs?: string): Promise<string> {
@@ -110,6 +110,9 @@ const tests: TestCase[] = [
 	{ label: "POST /api/schedules/table-view", method: "POST", path: "/api/schedules/table-view", body: { date: TODAY } },
 	{ label: "POST /api/dead-stocks/update", method: "POST", path: "/api/dead-stocks/update", body: { shopUuid: SHOP_ID } },
 	{ label: "POST /api/deadStocks/update", method: "POST", path: "/api/deadStocks/update", body: { shopUuid: SHOP_ID } },
+	{ label: "POST /api/dead-stocks/data (null=all)", method: "POST", path: "/api/dead-stocks/data", body: { startDate: TODAY, endDate: TODAY, shopIds: null, groups: [] } },
+	{ label: "GET  /api/analytics/dead-stock", method: "GET", path: "/api/analytics/dead-stock", qs: "daysWithoutSales=30" },
+	{ label: "GET  /api/analytics/dead-stock/analyze (fast)", method: "GET", path: "/api/analytics/dead-stock/analyze", qs: `itemId=test&shopId=${SHOP_ID_DB}&fast=1` },
 	{ label: "POST /api/ai/dashboard-summary2-insights", method: "POST", path: "/api/ai/dashboard-summary2-insights", body: { date: TODAY } },
 	{ label: "POST /api/admin/data-mode", method: "POST", path: "/api/admin/data-mode", body: { mode: "test" } },
 	{ label: "POST /api/analytics/event", method: "POST", path: "/api/analytics/event", body: { type: "test" } },

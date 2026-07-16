@@ -15,6 +15,7 @@ import {
   checkPlanLagAndAlert,
   sendDailyTopSellers,
 } from "./sync/cron";
+import { runMigrations } from "./db/migrations";
 import type { IEnv } from "./types";
 
 const app = new Hono<IEnv>()
@@ -64,6 +65,9 @@ export default {
       console.log(`[cron] Нет задач для расписания: ${controller.cron}`);
       return;
     }
+
+    // Миграции перед задачами (идемпотентно, безопасно)
+    await runMigrations(env.DB);
 
     for (const task of tasks) {
       console.log(`[cron] Запуск: ${task.label}`);

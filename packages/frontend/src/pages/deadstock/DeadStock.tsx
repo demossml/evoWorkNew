@@ -1,12 +1,17 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useMe } from "../../hooks/useApi";
 import { motion } from "framer-motion";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { telegram, isTelegramMiniApp } from "../../helpers/telegram";
 import { client } from "../../helpers/api";
+import type { DateRange } from "react-day-picker";
+import { Popover, PopoverContent, PopoverTrigger, Calendar } from "../../components/ui";
 import { ErrorState, LoadingState } from "@shared/ui/states";
-import { DynamicTableDeadStocks } from "@widgets/deadstock";
-import { DateRangePicker, GroupSelector, ShopSelector } from "@widgets/reports";
+import { DeadStockGrid, type DeadStockTileItem } from "@widgets/deadstock/ui/DeadStockGrid";
+import type { PlannedAction } from "@widgets/deadstock/ui/DeadStockDetailModal";
+import { GroupSelector } from "@widgets/reports";
+import { ShopFilter } from "@widgets/filters";
+import { FileDown } from "lucide-react";
 
 interface GroupOption {
   name: string;
@@ -14,10 +19,15 @@ interface GroupOption {
 }
 
 interface ReportDataItem {
+  itemId: string;
   name: string;
+  article: string;
   quantity: number;
   sold: number;
   lastSaleDate: string | null;
+  daysWithoutSales: number;
+  shopId: string;
+  shopName: string;
 }
 
 interface ReportData {
@@ -27,28 +37,86 @@ interface ReportData {
   endDate: string;
 }
 
+/** Генерация Excel-совместимого CSV с запланированными действиями */
+function downloadActionsCsv(actions: PlannedAction[]) {
+  const BOM = "\uFEFF";
+  const header = "Товар;Артикул;Действие;Количество;Магазин;Куда;Причина";
+  const actionLabels: Record<string, string> = {
+    move: "Переместить", writeoff: "Списать", promo: "Промо", keep: "Оставить",
+  };
+  const rows = actions.map(a => {
+    const targets = a.targetShops?.map(t => `${t.shopName}:${t.qty}`).join(" | ") || "";
+    return [
+      a.name, a.article,
+      actionLabels[a.action] || a.action,
+      String(a.quantity), a.shopName,
+      targets, a.reason || "",
+    ]
+    .map(v => `"${String(v).replace(/"/g, '""')}"`)
+    .join(";");
+  });
+  const moveCount = actions.filter(a => a.action === "move").length;
+  const writeoffCount = actions.filter(a => a.action === "writeoff").length;
+  const promoCount = actions.filter(a => a.action === "promo").length;
+  const keepCount = actions.filter(a => a.action === "keep").length;
+  const totalQty = actions.reduce((s, a) => s + a.quantity, 0);
+  const summary = [
+    "",
+    `"Дата: ${new Date().toISOString().slice(0, 10)}";;;;;;`,
+    `"Всего: ${actions.length} товаров, ${totalQty} шт.";;;;;;`,
+    `"Переместить: ${moveCount}";;;;;;`,
+    `"Списать: ${writeoffCount}";;;;;;`,
+    `"Промо: ${promoCount}";;;;;;`,
+    `"Оставить: ${keepCount}";;;;;;`,
+  ];
+
+  const csv = BOM + [header, ...rows, ...summary].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `dead-stock-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+const PRESETS = [
+  { key: "month1", label: "Месяц назад" },
+  { key: "month2", label: "2 месяца назад" },
+  { key: "month3", label: "3 месяца назад" },
+  { key: "month6", label: "6 месяцев назад" },
+  { key: "alltime", label: "Всё время" },
+];
+
 export default function DeadSt() {
   const [shopOptions, setShopOptions] = useState<Record<string, string>>({});
-  const [selectedShop, setSelectedShop] = useState<string | null>(null);
+  const [selectedShops, setSelectedShops] = useState<string[]>([]);
   const [groupOptions, setGroupOptions] = useState<GroupOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
-  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState<{
-    analysis: { name: string; quantity: number; category: string; reason: string; moveToStoreName?: string; monthlySales?: number }[];
-    summary: string;
-  } | null>(null);
+  const [plannedActions, setPlannedActions] = useState<PlannedAction[]>([]);
   const [isLoadingShops, setIsLoadingShops] = useState(false);
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
 
-  // Состояния для отслеживания открытых модальных окон
+  // Date picker state (Calendar for "period" mode)
+  const [showPeriodPicker, setShowPeriodPicker] = useState(false);
+  const [period, setPeriod] = useState<DateRange | undefined>(undefined);
+  const [tempPeriod, setTempPeriod] = useState<DateRange | undefined>(undefined);
+  const [showPresetDropdown, setShowPresetDropdown] = useState(false);
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+
+  // Отслеживание открытых модальных окон
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [isShopSelectorOpen, setIsShopSelectorOpen] = useState(false);
   const [isGroupSelectorOpen, setIsGroupSelectorOpen] = useState(false);
+
+  // Ref для предотвращения двойной загрузки
+  const autoSubmitLock = useRef(false);
+  // Ref: пользователь вручную вернулся к фильтрам — не авто-отправлять
+  const manualReturnToFilters = useRef(false);
 
   const isMiniApp = isTelegramMiniApp();
 
@@ -57,34 +125,76 @@ export default function DeadSt() {
   const { data } = useMe();
   const userId = data?.id?.toString() || "";
 
-  const isFormValid =
-    !!startDate && !!endDate && !!selectedShop && selectedGroups.length > 0;
+  const formatLocalDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
-  // Проверяем, что все модальные окна закрыты
+  // Применение календарного периода
+  useEffect(() => {
+    if (!period?.from || !period?.to) return;
+    setStartDate(formatLocalDate(period.from));
+    setEndDate(formatLocalDate(period.to));
+  }, [period]);
+
+  // Обработчик быстрых пресетов периода
+  const applyPreset = (preset: string) => {
+    const now = new Date();
+    const end = formatLocalDate(now);
+    let start = end;
+    switch (preset) {
+      case "month1":
+        start = formatLocalDate(new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()));
+        break;
+      case "month2":
+        start = formatLocalDate(new Date(now.getFullYear(), now.getMonth() - 2, now.getDate()));
+        break;
+      case "month3":
+        start = formatLocalDate(new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()));
+        break;
+      case "month6":
+        start = formatLocalDate(new Date(now.getFullYear(), now.getMonth() - 6, now.getDate()));
+        break;
+      case "alltime":
+        start = "2020-01-01";
+        break;
+    }
+    setStartDate(start);
+    setEndDate(end);
+    setPeriod(undefined);
+    setActivePreset(preset);
+    setShowPresetDropdown(false);
+  };
+
+  const isFormValid =
+    !!startDate && !!endDate &&
+    (selectedGroups.length > 0 || selectedShops.length === 0);
+
+  // Модальные окна закрыты?
   const areAllModalsClosed =
-    !isDatePickerOpen && !isShopSelectorOpen && !isGroupSelectorOpen;
+    !isDatePickerOpen && !isGroupSelectorOpen && !showPeriodPicker;
 
   // 🔹 Функция генерации отчёта с useCallback
   const submitForecast = useCallback(async () => {
-    if (!isFormValid) {
-      if (isMiniApp) {
-        telegram.WebApp.HapticFeedback.impactOccurred("light");
-      } else {
-        alert("Пожалуйста, выберите все параметры для формирования отчёта.");
-      }
-      return;
-    }
+    if (!isFormValid) return;
+
+    // Блокировка повторного вызова
+    if (autoSubmitLock.current) return;
+    autoSubmitLock.current = true;
 
     setIsLoadingReport(true);
+    setError(null);
     if (isMiniApp) {
       telegram.WebApp.MainButton.showProgress(true);
     }
     try {
       const response = await client.api["dead-stocks"].data.$post({
         json: {
-          startDate,
-          endDate,
-          shopUuid: selectedShop,
+          startDate: startDate!,
+          endDate: endDate!,
+          shopIds: selectedShops.length === 0 ? null : selectedShops,
           groups: selectedGroups,
         },
       });
@@ -93,7 +203,6 @@ export default function DeadSt() {
 
       const result = await response.json();
 
-      // 🔹 Проверяем, что пришли данные отчёта
       if (
         "salesData" in result &&
         "shopName" in result &&
@@ -114,49 +223,28 @@ export default function DeadSt() {
       }
     } finally {
       setIsLoadingReport(false);
+      autoSubmitLock.current = false;
       if (isMiniApp) {
         telegram.WebApp.MainButton.showProgress(false);
       }
     }
-  }, [
-    startDate,
-    endDate,
-    selectedShop,
-    selectedGroups,
-    isFormValid,
-    isMiniApp,
-  ]);
+  }, [startDate, endDate, selectedShops, selectedGroups, isFormValid, isMiniApp]);
 
-  // 🔹 AI-анализ мёртвых остатков
-  const runAiAnalysis = async () => {
-    if (!reportData || !selectedShop) return;
-    setIsAiAnalyzing(true);
-    setAiAnalysis(null);
-    try {
-      const response = await client.api["dead-stocks"]["ai-analysis"].$post({
-        json: {
-          shopUuid: selectedShop,
-          items: reportData.salesData.map(item => ({
-            name: item.name,
-            quantity: item.quantity,
-          })),
-        },
-      } as any);
-      if (!response.ok) throw new Error(`Ошибка: ${response.status}`);
-      const result = await response.json();
-      setAiAnalysis(result);
-    } catch (err) {
-      console.error("AI analysis error:", err);
-    } finally {
-      setIsAiAnalyzing(false);
+  // 🔹 Авто-отправка при изменении фильтров (кроме ручного возврата)
+  useEffect(() => {
+    if (manualReturnToFilters.current) {
+      manualReturnToFilters.current = false;
+      return;
     }
-  };
+    if (!reportData && isFormValid) {
+      submitForecast();
+    }
+  }, [isFormValid, reportData, submitForecast]);
 
   // 🔹 Инициализация Telegram Mini App
   useEffect(() => {
     if (!isMiniApp) return;
 
-    // Настройка главной кнопки
     telegram.WebApp.MainButton.setText("Сгенерировать отчёт");
     telegram.WebApp.MainButton.setParams({
       color: "#0088cc",
@@ -171,7 +259,6 @@ export default function DeadSt() {
     telegram.WebApp.MainButton.onClick(handleGenerate);
 
     return () => {
-      // Очистка при размонтировании
       telegram.WebApp.MainButton.offClick(handleGenerate);
     };
   }, [isMiniApp, submitForecast]);
@@ -212,11 +299,9 @@ export default function DeadSt() {
         if (!response.ok) throw new Error(`Ошибка: ${response.status}`);
         const data = await response.json();
         setShopOptions(data.shopOptions);
-        if (Object.keys(data.shopOptions).length > 0) {
-          const defaultShopUuid = Object.keys(data.shopOptions)[0];
-          setSelectedShop(defaultShopUuid);
-          await fetchGroups(defaultShopUuid);
-        }
+        // По умолчанию — все магазины. Грузим группы от первого магазина.
+        const firstUuid = Object.keys(data.shopOptions)[0] ?? null;
+        if (firstUuid) await fetchGroups(firstUuid);
       } catch (err) {
         console.error(err);
         setError("Не удалось загрузить магазины");
@@ -228,11 +313,18 @@ export default function DeadSt() {
   }, [userId]);
 
   // 🔹 Загрузка групп
-  const fetchGroups = async (shopUuid: string) => {
+  const fetchGroups = async (shopUuid: string | null) => {
+    // Для «Все магазины» — грузим группы от первого магазина
+    const targetUuid = shopUuid ?? Object.keys(shopOptions)[0] ?? null;
+    if (!targetUuid) {
+      setGroupOptions([]);
+      setSelectedGroups([]);
+      return;
+    }
     setIsLoadingGroups(true);
     try {
       const response = await client.api.evotor["groups-by-shop"].$post({
-        json: { shopUuid },
+        json: { shopUuid: targetUuid },
       });
 
       if (!response.ok)
@@ -288,12 +380,23 @@ export default function DeadSt() {
   // 🔹 Отчёт готов
   if (reportData) {
     const { salesData, startDate, endDate, shopName } = reportData;
-    const tableData = salesData.map((item) => ({
-      name: item.name, // ← исправлено
+    const gridData: DeadStockTileItem[] = salesData.map((item) => ({
+      itemId: item.itemId,
+      name: item.name,
+      article: item.article,
       quantity: item.quantity,
       sold: item.sold,
       lastSaleDate: item.lastSaleDate,
+      daysWithoutSales: item.daysWithoutSales,
+      shopId: item.shopId,
+      shopName: item.shopName,
     }));
+
+    const totalItems = gridData.length;
+    const avgDays = totalItems > 0
+      ? Math.round(gridData.reduce((s, i) => s + (i.daysWithoutSales >= 999 ? 0 : i.daysWithoutSales), 0) / totalItems)
+      : 0;
+    const critical = gridData.filter(i => i.daysWithoutSales >= 180).length;
 
     return (
       <motion.div
@@ -302,79 +405,63 @@ export default function DeadSt() {
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="app-page w-full bg-background text-foreground flex flex-col items-center"
       >
-        <motion.div
-          className="bg-card border border-border rounded-none shadow-lg p-4 w-full"
-          initial={{ opacity: 0, scale: 0.97 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3 }}
-          style={{
-            height: "100%",
-            maxWidth: "100%", // 🟦 РАСТЯГИВАЕМ НА ВСЮ ШИРИНУ
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <h1 className="text-lg sm:text-xl font-semibold mb-2 px-2">
-            {formatPeriod(shopName, startDate, endDate)}
-          </h1>
-
-          {/* <p className="text-muted-foreground mb-4 px-2">
-            Общая сумма продаж:{" "}
-            <span className="font-semibold text-blue-600 dark:text-blue-400">
-              {Object.values(salesData)
-                .reduce((acc, item) => acc + item.sum, 0)
-                .toLocaleString("ru-RU")}{" "}
-              ₽
-            </span>
-          </p> */}
-
-          {/* 🟦 Таблица во всю ширину */}
-          <div className="flex-1 min-h-0 w-full">
-            <DynamicTableDeadStocks
-              data={tableData}
-              shopUuid={selectedShop ?? ""}
-              aiAnalysis={aiAnalysis}
-            />
-          </div>
-
-          {/* 🔮 AI-анализ */}
-          <div className="mt-4 px-2 space-y-3">
-            {!aiAnalysis && (
+        <div className="w-full max-w-4xl px-3 sm:px-4 pt-2 pb-6 space-y-3">
+          {/* Header */}
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h1 className="text-base sm:text-lg font-semibold">
+                {formatPeriod(shopName, startDate, endDate)}
+              </h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {totalItems} товаров без продаж
+                {avgDays > 0 && ` · в среднем ${avgDays} дн.`}
+                {critical > 0 && ` · ${critical} критичных`}
+                {plannedActions.length > 0 && ` · ${plannedActions.length} запланировано`}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {plannedActions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => downloadActionsCsv(plannedActions)}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition"
+                >
+                  <FileDown className="w-3.5 h-3.5" />
+                  Документ ({plannedActions.length})
+                </button>
+              )}
               <button
-                onClick={runAiAnalysis}
-                disabled={isAiAnalyzing}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                type="button"
+                onClick={() => {
+                  manualReturnToFilters.current = true;
+                  setReportData(null);
+                  setPlannedActions([]);
+                }}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 transition"
               >
-                {isAiAnalyzing ? (
-                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Анализирую...</>
-                ) : (
-                  <>🔮 AI-анализ мёртвых остатков</>
-                )}
+                Фильтры
               </button>
-            )}
-
-            {aiAnalysis?.summary && (
-              <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-3 border border-violet-200 dark:border-violet-800">
-                <div className="text-xs font-medium text-violet-700 dark:text-violet-300 mb-1">📋 Вывод AI</div>
-                <div className="text-xs text-violet-600 dark:text-violet-400">{aiAnalysis.summary}</div>
-              </div>
-            )}
-
-            {aiAnalysis && (
-              <div className="text-xs text-muted-foreground flex gap-3 flex-wrap">
-                <span>🟢 оставить: {aiAnalysis.analysis.filter(a => a.category === 'keep').length}</span>
-                <span>🔵 переместить: {aiAnalysis.analysis.filter(a => a.category === 'move').length}</span>
-                <span>🟡 распродать: {aiAnalysis.analysis.filter(a => a.category === 'sellout').length}</span>
-                <span>🔴 списать: {aiAnalysis.analysis.filter(a => a.category === 'writeoff').length}</span>
-              </div>
-            )}
+            </div>
           </div>
-        </motion.div>
+
+          {/* Grid tiles */}
+          <DeadStockGrid
+            data={gridData}
+            shopUuid={selectedShops[0] ?? ""}
+            onAction={(action) => setPlannedActions(prev => {
+              // Replace if same item+shop already planned
+              const key = `${action.itemId}|${action.shopId}`;
+              const filtered = prev.filter(a => `${a.itemId}|${a.shopId}` !== key);
+              return [...filtered, action];
+            })}
+            plannedActions={plannedActions}
+          />
+        </div>
       </motion.div>
     );
   }
 
-  // 🔹 Основной экран
+  // 🔹 Основной экран — фильтры
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -383,31 +470,132 @@ export default function DeadSt() {
       className="app-page w-full px-4 sm:px-6 py-6 bg-background text-foreground flex flex-col items-center"
     >
       <motion.h1
-        className="text-xl sm:text-2xl font-semibold mb-6"
+        className="text-xl sm:text-2xl font-semibold mb-2"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        Запрос товара без продаж
+        Мёртвые остатки
       </motion.h1>
+      <p className="text-sm text-muted-foreground mb-6">
+        Выберите период, магазин и группы товаров
+      </p>
       <motion.div
-        className="bg-card border border-border rounded-2xl shadow-lg p-4 sm:p-6 w-full max-w-3xl space-y-5"
+        className="bg-card rounded-2xl shadow-sm p-4 sm:p-6 w-full max-w-3xl space-y-4 border border-border"
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
       >
-        <DateRangePicker
-          onDateChange={(start, end) => {
-            setStartDate(start);
-            setEndDate(end);
+        {/* Выбор периода: две кнопки в стиле Сегодня/Вчера */}
+        <div className="grid grid-cols-2 gap-2">
+          {/* Кнопка 1: Выбрать период (календарь) */}
+          <Popover
+            open={showPeriodPicker}
+            onOpenChange={(open) => {
+              setShowPeriodPicker(open);
+              setIsDatePickerOpen(open);
+              if (!open) setTempPeriod(undefined);
+            }}
+          >
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                onClick={() => {
+                  setTempPeriod(period);
+                  setShowPeriodPicker(true);
+                  setIsDatePickerOpen(true);
+                  setActivePreset(null);
+                }}
+                className={`rounded-lg border px-3 py-2 text-sm transition ${
+                  period?.from && period?.to
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : startDate && endDate && !activePreset
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-foreground"
+                }`}
+              >
+                {period?.from && period?.to
+                  ? `${formatDate(period.from)} → ${formatDate(period.to)}`
+                  : startDate && endDate && !activePreset
+                  ? `${formatDate(new Date(startDate))} → ${formatDate(new Date(endDate))}`
+                  : "Выбрать период"}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-auto p-0">
+              <Calendar
+                mode="range"
+                selected={tempPeriod?.from ? tempPeriod : undefined}
+                onSelect={setTempPeriod}
+                numberOfMonths={1}
+                disabled={(date) => date > new Date()}
+                initialFocus
+              />
+              <div className="flex justify-end p-2">
+                <button
+                  className="px-3 py-1 rounded bg-primary text-primary-foreground text-sm"
+                  disabled={!(tempPeriod?.from && tempPeriod?.to)}
+                  onClick={() => {
+                    setPeriod(tempPeriod);
+                    setShowPeriodPicker(false);
+                    setIsDatePickerOpen(false);
+                    setActivePreset(null);
+                  }}
+                >
+                  Применить
+                </button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Кнопка 2: По месяцам (dropdown) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => { setShowPresetDropdown(!showPresetDropdown); setShowPeriodPicker(false); }}
+              className={`w-full rounded-lg border px-3 py-2 text-sm transition ${
+                activePreset
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-foreground"
+              }`}
+            >
+              {activePreset
+                ? PRESETS.find(p => p.key === activePreset)?.label
+                : "По месяцам"}
+            </button>
+            {showPresetDropdown && (
+              <div
+                className="absolute top-full mt-1 left-0 right-0 z-20 bg-card border border-border rounded-xl shadow-lg overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {PRESETS.map(p => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); applyPreset(p.key); }}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition ${
+                      activePreset === p.key
+                        ? "bg-primary/10 text-primary font-semibold"
+                        : "text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        {/* Закрыть dropdown при клике вне */}
+        {showPresetDropdown && (
+          <div className="fixed inset-0 z-10" onClick={() => setShowPresetDropdown(false)} />
+        )}
+
+        <ShopFilter
+          shops={shopOptions}
+          selectedIds={selectedShops}
+          onChange={(ids) => {
+            setSelectedShops(ids);
+            void fetchGroups(ids.length === 0 ? null : ids[0]);
           }}
-          onOpenChange={setIsDatePickerOpen}
-        />
-        <ShopSelector
-          shopOptions={shopOptions}
-          isLoadingShops={isLoadingShops}
-          fetchGroups={fetchGroups}
-          selectedShop={selectedShop}
-          setSelectedShop={setSelectedShop}
-          onOpenChange={setIsShopSelectorOpen}
+          isLoading={isLoadingShops}
         />
         <GroupSelector
           groupOptions={groupOptions}
@@ -421,8 +609,8 @@ export default function DeadSt() {
             onClick={submitForecast}
             className={`w-full py-3 rounded-xl font-medium text-white transition ${
               isFormValid
-                ? "bg-primary hover:bg-primary/90 dark:bg-blue-500 dark:hover:bg-primary"
-                : "bg-muted cursor-not-allowed"
+                ? "bg-primary hover:bg-primary/90"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
             }`}
             disabled={!isFormValid}
             whileHover={{ scale: isFormValid ? 1.03 : 1 }}

@@ -1020,3 +1020,170 @@ function formatDateWithTimeLocal(date: Date, isEndOfDay: boolean): string {
 	const time = isEndOfDay ? "23:59:59" : "00:00:00";
 	return `${y}-${m}-${d}T${time}.000+0300`;
 }
+
+// ============================================================================
+// Новые D1-методы для dead-stock (добавлены 2026-07-16)
+// Все методы — только SELECT, не меняют данные.
+// ============================================================================
+
+/**
+ * Возвращает дату последней продажи по каждому имени товара (за всё время).
+ * Один SQL-запрос с агрегацией, без ручного парсинга JSON.
+ *
+ * @param db D1
+ * @param shopId UUID магазина
+ * @param productNames массив имён товаров для фильтрации (для скорости)
+ * @returns Map<имя товара, дата последней продажи YYYY-MM-DD>
+ */
+export async function getAllTimeLastSale(
+	db: D1Database,
+	shopId: string,
+	productNames: string[],
+): Promise<Map<string, string>> {
+	const result = new Map<string, string>();
+	if (productNames.length === 0) return result;
+
+	const namePlaceholders = productNames.map(() => "?").join(",");
+	const docs = await db.prepare(
+		`SELECT close_date, transactions FROM index_documents
+		 WHERE shop_id = ? AND type IN ('SELL', 'PAYBACK')`
+	).bind(shopId).all<{ close_date: string; transactions: string }>();
+
+	for (const doc of (docs.results ?? [])) {
+		const day = doc.close_date.slice(0, 10);
+		let txs: any[];
+		try { txs = JSON.parse(doc.transactions); } catch { continue; }
+		if (!Array.isArray(txs)) continue;
+
+		for (const tx of txs) {
+			if (tx.type !== "REGISTER_POSITION") continue;
+			const name = (tx.commodityName || "").trim();
+			if (!name) continue;
+			if (!result.has(name) || day > result.get(name)!) {
+				result.set(name, day);
+			}
+		}
+	}
+	return result;
+}
+
+/**
+ * Продажи конкретного товара по ВСЕМ магазинам за период.
+ * Возвращает массив {shopName, qty} для каждого магазина (включая нули).
+ *
+ * @param db D1
+ * @param productName точное имя товара (как в shopProduct и transactions)
+ * @param since дата начала YYYY-MM-DD
+ * @returns [{shopName, qty}, ...] — один объект на магазин
+ */
+export async function getPerShopSales(
+	db: D1Database,
+	productName: string,
+	since: string,
+): Promise<{ shopName: string; qty: number }[]> {
+	const shops = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+	const results: { shopName: string; qty: number }[] = [];
+
+	for (const shop of (shops.results ?? [])) {
+		// Проверяем наличие товара в магазине
+		const product = await db.prepare(
+			"SELECT uuid FROM shopProduct WHERE shopId = ? AND name = ? LIMIT 1"
+		).bind(shop.uuid, productName).first<{ uuid: string }>();
+
+		let qty = 0;
+		if (product?.uuid) {
+			const docs = await db.prepare(
+				`SELECT transactions FROM index_documents
+				 WHERE shop_id = ? AND close_date >= ? AND type IN ('SELL', 'PAYBACK')`
+			).bind(shop.uuid, since + "T00:00:00").all<{ transactions: string }>();
+
+			for (const doc of (docs.results ?? [])) {
+				let txs: any[];
+				try { txs = JSON.parse(doc.transactions); } catch { continue; }
+				if (!Array.isArray(txs)) continue;
+				for (const tx of txs) {
+					if (tx.type !== "REGISTER_POSITION") continue;
+					if ((tx.commodityName || "").trim() !== productName) continue;
+					qty += tx.quantity ?? 0;
+				}
+			}
+		}
+		results.push({ shopName: shop.name, qty });
+	}
+
+	// Сортируем: магазины с продажами — вверх
+	results.sort((a, b) => b.qty - a.qty);
+	return results;
+}
+
+/**
+ * Мета-информация о товаре: артикул.
+ * Быстрый lookup по имени + shopId.
+ *
+ * @param db D1
+ * @param shopId UUID магазина
+ * @param productName точное имя товара
+ * @returns {article} или null если товар не найден
+ */
+export async function getProductMeta(
+	db: D1Database,
+	shopId: string,
+	productName: string,
+): Promise<{ article: string } | null> {
+	const row = await db.prepare(
+		"SELECT article FROM shopProduct WHERE shopId = ? AND name = ? LIMIT 1"
+	).bind(shopId, productName).first<{ article: string | null }>();
+
+	if (!row) return null;
+	return { article: row.article || "" };
+}
+
+/**
+ * Остатки товаров из D1 (shopProduct.quantity).
+ * Данные попадают в shopProduct через syncStock (Evotor API v2 stock → D1).
+ *
+ * Используется ТОЛЬКО в dead-stock (на тестировании).
+ * После подтверждения — заменит прямые вызовы Evotor API в других отчётах.
+ *
+ * @param db D1
+ * @param shopId UUID магазина
+ * @param productNames список имён товаров (если пустой — вернёт все остатки магазина)
+ * @returns Map<имя товара, quantity>
+ */
+export async function getProductStockFromD1(
+	db: D1Database,
+	shopId: string,
+	productNames: string[],
+): Promise<Map<string, number>> {
+	const result = new Map<string, number>();
+
+	if (productNames.length === 0) {
+		// Все товары магазина с ненулевым остатком
+		const rows = await db.prepare(
+			"SELECT name, quantity FROM shopProduct WHERE shopId = ? AND quantity > 0"
+		).bind(shopId).all<{ name: string; quantity: number }>();
+
+		for (const row of (rows.results ?? [])) {
+			result.set(row.name, row.quantity);
+		}
+	} else {
+		// Конкретные товары по именам
+		const placeholders = productNames.map(() => "?").join(",");
+		const rows = await db.prepare(
+			`SELECT name, quantity FROM shopProduct WHERE shopId = ? AND name IN (${placeholders})`
+		).bind(shopId, ...productNames).all<{ name: string; quantity: number }>();
+
+		for (const row of (rows.results ?? [])) {
+			result.set(row.name, row.quantity ?? 0);
+		}
+
+		// Товары, не найденные в shopProduct — остаток 0
+		for (const name of productNames) {
+			if (!result.has(name)) result.set(name, 0);
+		}
+	}
+
+	return result;
+}
+
+
