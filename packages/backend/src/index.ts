@@ -17,6 +17,7 @@ import {
   refreshDeadStockTask,
 } from "./sync/cron";
 import { runMigrations } from "./db/migrations";
+import { errorHandler } from "./middleware/error-handler";
 import type { IEnv } from "./types";
 
 const app = new Hono<IEnv>()
@@ -24,7 +25,8 @@ const app = new Hono<IEnv>()
   .use("/*", initialize)
   .get("/", (c) => c.json({ message: "Welcome to Evo backend" }))
   .use("/*", authenticate)
-  .route("/", api);
+  .route("/", api)
+  .onError(errorHandler);
 
 export default {
   fetch: app.fetch,

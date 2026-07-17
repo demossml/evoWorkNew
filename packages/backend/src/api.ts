@@ -3642,10 +3642,6 @@ ${otherShopsInfo}
 		return c.json({ items: [] });
 	})
 
-	// --- /api/evotor/groups-by-shop (missing stub) ---
-	.post("/api/evotor/groups-by-shop", async (c) => {
-		return c.json({ groups: [] });
-	})
 	// --- /api/evotor/order-v2 ---
 	.post("/api/evotor/order-v2", async (c) => {
 		try {
