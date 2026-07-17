@@ -108,6 +108,7 @@ import { sendPhotoToTelegram } from "../utils/sendPhotoToTelegram";
 import {
   getDataForCurrentDate,
   syncDocuments,
+  syncStock,
   updateProducts,
   updateProductsShope,
   refreshDeadStockTask,
@@ -1943,6 +1944,7 @@ export const api = new Hono<IEnv>()
 			documents: { label: "синхронизация документов", run: syncDocuments },
 			shops: { label: "синхронизация магазинов", run: updateProductsShope },
 			products: { label: "синхронизация товаров", run: updateProducts },
+			stock: { label: "синхронизация остатков", run: syncStock },
 			salary: { label: "расчёт ЗП", run: getDataForCurrentDate },
 			"dead-stock": { label: "кэш мёртвых остатков", run: refreshDeadStockTask },
 		};
