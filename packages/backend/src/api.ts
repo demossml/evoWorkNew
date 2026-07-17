@@ -1204,6 +1204,8 @@ export const api = new Hono<IEnv>()
 		}
 	})
 
+	// @deprecated — использует Evotor API напрямую. Заменён на /api/dead-stocks/data (D1).
+	// Удалить после полного перехода на D1-only.
 	.post("/api/evotor/dead-stock", async (c) => {
 		try {
 			const data = await c.req.json(); // Разбор JSON тела
@@ -1521,6 +1523,7 @@ export const api = new Hono<IEnv>()
 		}
 	})
 
+	// @deprecated — use /api/stores/is-open-store instead. Удалить через 2 релиза.
 	.post("/api/is-open-store", async (c) => {
 		try {
 			const data = await c.req.json();
@@ -1537,6 +1540,7 @@ export const api = new Hono<IEnv>()
 			return c.json({ exists: false, error: "Ошибка сервера" }, 500);
 		}
 	})
+	// @deprecated — use /api/stores/open-store instead. Удалить через 2 релиза.
 	.post("/api/open-store", async (c) => {
 		const data = await c.req.json();
 		const { userId, timestamp } = data;
@@ -1907,6 +1911,7 @@ export const api = new Hono<IEnv>()
 
 		return c.json({ success: true });
 	})
+	// @deprecated — use /api/stores/finish-opening instead. Удалить через 2 релиза.
 	.post("/api/finish-opening", async (c) => {
 		const db = c.env.DB;
 
@@ -2248,7 +2253,7 @@ export const api = new Hono<IEnv>()
 		}
 	})
 
-	// --- /api/deadStocks/update (camelCase alias) ---
+	// --- /api/deadStocks/update (camelCase, @deprecated — use /api/dead-stocks/update) ---
 	.post("/api/deadStocks/update", async (c) => {
 		const db = c.get("drizzle");
 		const { shopUuid, items } = await c.req.json<SaveDeadStocksRequest>();
