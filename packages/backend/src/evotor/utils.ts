@@ -517,6 +517,25 @@ export async function getTopProductsFromD1(
 		// convention as the dashboard revenue sparkline, so a product's
 		// trend line and the dashboard's revenue trend line read the same way.
 		const untilDate = new Date(until.slice(0, 10) + "T00:00:00+03:00");
+
+		// Обогащение: загруженная себестоимость из 1С — авторитетный источник.
+		// Используем цену, актуальную на начало периода (since).
+		const allNames = Object.keys(agg);
+		if (allNames.length > 0) {
+			const uploadedCosts = await getCostPricesForPeriod(db, allNames, since);
+			if (uploadedCosts.size > 0) {
+				for (const [name, d] of Object.entries(agg)) {
+					const uploadedPrice = uploadedCosts.get(name);
+					if (uploadedPrice) {
+						d.cost = uploadedPrice * d.quantity;
+						if (d.refundQuantity > 0) {
+							d.refundCost = uploadedPrice * d.refundQuantity;
+						}
+					}
+				}
+			}
+		}
+
 		const last7Days: string[] = [];
 		for (let i = 6; i >= 0; i--) {
 			const d = new Date(untilDate.getTime() - i * 86_400_000);
@@ -1199,6 +1218,238 @@ export async function getProductStockFromD1(
 	}
 
 	return result;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Себестоимость — загрузка и получение
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Загружает себестоимости с историей (SCD Type 2).
+ *
+ * Для каждого товара:
+ * 1. Находит текущую активную запись (effectiveTo IS NULL)
+ * 2. Если цена не изменилась — пропускает
+ * 3. Закрывает старую запись (effectiveTo = effectiveFrom - 1 сек)
+ * 4. Создаёт новую запись с переданной effectiveFrom
+ *
+ * @param effectiveFrom — дата начала действия (строка ISO, по умолчанию now)
+ * @returns { inserted, updated, skipped }
+ */
+export async function upsertCostPricesWithHistory(
+	db: D1Database,
+	rows: { productName: string; costPrice: number }[],
+	effectiveFrom?: string,
+): Promise<{ inserted: number; updated: number; skipped: number }> {
+	if (rows.length === 0) return { inserted: 0, updated: 0, skipped: 0 };
+
+	const effFrom = effectiveFrom || new Date().toISOString().slice(0, 19).replace("T", " ");
+	let inserted = 0, updated = 0, skipped = 0;
+
+	// Дедупликация внутри батча: последнее значение для каждого товара
+	const unique = new Map<string, number>();
+	for (const row of rows) {
+		unique.set(row.productName, row.costPrice);
+	}
+
+	for (const [productName, costPrice] of unique) {
+		// Текущая активная запись
+		const current = await db
+			.prepare("SELECT id, costPrice, effectiveFrom FROM product_cost_prices WHERE productName = ? AND effectiveTo IS NULL")
+			.bind(productName)
+			.first<{ id: number; costPrice: number; effectiveFrom: string }>();
+
+		// Цена не изменилась — пропускаем
+		if (current && Math.abs(current.costPrice - costPrice) < 0.01) {
+			skipped++;
+			continue;
+		}
+
+		// Закрываем старую запись
+		if (current) {
+			const effTo = new Date(new Date(effFrom + "Z").getTime() - 1000).toISOString().slice(0, 19).replace("T", " ");
+			await db
+				.prepare("UPDATE product_cost_prices SET effectiveTo = ? WHERE id = ?")
+				.bind(effTo, current.id)
+				.run();
+			updated++;
+		}
+
+		// Новая запись
+		await db
+			.prepare(`INSERT INTO product_cost_prices (productName, costPrice, effectiveFrom)
+			           VALUES (?, ?, ?)`)
+			.bind(productName, costPrice, effFrom)
+			.run();
+		inserted++;
+	}
+
+	return { inserted, updated, skipped };
+}
+
+/**
+ * Получает себестоимость товара на конкретную дату.
+ * Возвращает цену, действовавшую на date (последняя effectiveFrom <= date).
+ */
+export async function getCostPriceForDate(
+	db: D1Database,
+	productName: string,
+	date: string,
+): Promise<number | null> {
+	const dateNorm = date.length <= 10 ? date + " 00:00:00" : date;
+	const row = await db
+		.prepare(`
+			SELECT costPrice FROM product_cost_prices
+			WHERE productName = ? AND effectiveFrom <= ?
+			  AND (effectiveTo IS NULL OR effectiveTo > ?)
+			ORDER BY effectiveFrom DESC
+			LIMIT 1
+		`)
+		.bind(productName, dateNorm, dateNorm)
+		.first<{ costPrice: number }>();
+
+	return row?.costPrice ?? null;
+}
+
+/**
+ * Получает себестоимости для списка товаров, актуальные на дату since.
+ * Используется для расчёта маржи за период: цена, действовавшая на начало периода.
+ *
+ * @returns Map<productName, costPrice>
+ */
+export async function getCostPricesForPeriod(
+	db: D1Database,
+	productNames: string[],
+	since: string,
+): Promise<Map<string, number>> {
+	const result = new Map<string, number>();
+	if (productNames.length === 0) return result;
+
+	// Нормализуем since: добавляем время, если его нет (стринговое сравнение)
+	const sinceNorm = since.length <= 10 ? since + " 00:00:00" : since;
+
+	const placeholders = productNames.map(() => "?").join(", ");
+	const rows = await db
+		.prepare(`
+			SELECT productName, costPrice FROM product_cost_prices
+			WHERE productName IN (${placeholders})
+			  AND effectiveFrom <= ?2
+			  AND (effectiveTo IS NULL OR effectiveTo > ?2)
+			ORDER BY productName, effectiveFrom DESC
+		`)
+		.bind(...productNames, sinceNorm)
+		.all<{ productName: string; costPrice: number }>();
+
+	// D1 может вернуть несколько записей на один товар — берём первую (самую свежую)
+	if (rows.results) {
+		for (const row of rows.results) {
+			if (!result.has(row.productName)) {
+				result.set(row.productName, row.costPrice);
+			}
+		}
+	}
+
+	return result;
+}
+
+// ════════════════════════════════════════════════════════════════
+// Старые методы (оставлены для обратной совместимости)
+// ════════════════════════════════════════════════════════════════
+
+/** @deprecated Используйте upsertCostPricesWithHistory */
+export async function upsertCostPrices(
+	db: D1Database,
+	rows: { productName: string; costPrice: number }[],
+): Promise<number> {
+	const result = await upsertCostPricesWithHistory(db, rows);
+	return result.inserted;
+}
+
+/** @deprecated Используйте getCostPricesForPeriod */
+export async function getCostPricesByNames(
+	db: D1Database,
+	productNames: string[],
+): Promise<Map<string, number>> {
+	// Возвращаем текущие цены (эффективные на сейчас)
+	const result = new Map<string, number>();
+	if (productNames.length === 0) return result;
+
+	const placeholders = productNames.map(() => "?").join(", ");
+	const rows = await db
+		.prepare(`SELECT productName, costPrice FROM product_cost_prices WHERE productName IN (${placeholders}) AND effectiveTo IS NULL`)
+		.bind(...productNames)
+		.all<{ productName: string; costPrice: number }>();
+
+	if (rows.results) {
+		for (const row of rows.results) {
+			result.set(row.productName, row.costPrice);
+		}
+	}
+
+	return result;
+}
+
+/**
+ * Получает всю таблицу себестоимостей (для админки).
+ */
+export async function getAllCostPrices(
+	db: D1Database,
+): Promise<{ productName: string; costPrice: number; updatedAt: string; effectiveFrom: string; effectiveTo: string | null }[]> {
+	const rows = await db
+		.prepare("SELECT productName, costPrice, updatedAt, effectiveFrom, effectiveTo FROM product_cost_prices ORDER BY productName ASC, effectiveFrom DESC")
+		.all<{ productName: string; costPrice: number; updatedAt: string; effectiveFrom: string; effectiveTo: string | null }>();
+
+	return rows.results ?? [];
+}
+
+/**
+ * Удаляет себестоимость по имени товара.
+ */
+export async function deleteCostPrice(
+	db: D1Database,
+	productName: string,
+): Promise<boolean> {
+	const result = await db
+		.prepare("DELETE FROM product_cost_prices WHERE productName = ?")
+		.bind(productName)
+		.run();
+
+	return result.meta?.changes > 0;
+}
+
+/**
+ * Создаёт таблицу product_cost_prices, если её ещё нет.
+ * Вызывается при старте локального сервера (server.ts).
+ * В production (Cloudflare Workers) таблица создаётся через миграции D1.
+ */
+export async function createCostPricesTableIfNotExists(db: D1Database): Promise<void> {
+	await db.prepare(`
+		CREATE TABLE IF NOT EXISTS product_cost_prices (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			productName TEXT NOT NULL,
+			costPrice REAL NOT NULL DEFAULT 0,
+			source TEXT NOT NULL DEFAULT 'upload',
+			uploadedAt TEXT NOT NULL DEFAULT (datetime('now')),
+			updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+			effectiveFrom TEXT NOT NULL DEFAULT (datetime('now')),
+			effectiveTo TEXT
+		)
+	`).run();
+
+	// Колонки v2 для существующих БД
+	try { await db.prepare(`ALTER TABLE product_cost_prices ADD COLUMN effectiveFrom TEXT NOT NULL DEFAULT (datetime('now'))`).run(); } catch {}
+	try { await db.prepare(`ALTER TABLE product_cost_prices ADD COLUMN effectiveTo TEXT`).run(); } catch {}
+	// Бэкофил для старых записей
+	await db.prepare(`UPDATE product_cost_prices SET effectiveFrom = uploadedAt WHERE effectiveFrom IS NULL OR effectiveFrom = ''`).run();
+
+	await db.prepare(`
+		CREATE INDEX IF NOT EXISTS idx_pcp_name ON product_cost_prices (productName)
+	`).run();
+	await db.prepare(`
+		CREATE INDEX IF NOT EXISTS idx_pcp_name_eff ON product_cost_prices (productName, effectiveFrom DESC)
+	`).run();
+
+	console.log("[migration] product_cost_prices v2 (SCD Type 2) — таблица готова");
 }
 
 

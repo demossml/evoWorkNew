@@ -8,7 +8,8 @@ export type QuickActionModel = {
     | "trending_up"
     | "store"
     | "calculator"
-    | "sparkles";
+    | "sparkles"
+    | "upload";
   path: string;
   color: string;
   roles: string[];
@@ -64,6 +65,14 @@ export const QUICK_ACTIONS: QuickActionModel[] = [
     iconKey: "calculator",
     path: "/evotor/profit",
     color: "from-emerald-500 to-teal-600",
+    roles: ["ADMIN", "SUPERADMIN"],
+  },
+  {
+    title: "Себестоимость",
+    description: "Загрузить цены",
+    iconKey: "upload",
+    path: "/evotor/admin/cost-prices",
+    color: "from-amber-500 to-orange-600",
     roles: ["ADMIN", "SUPERADMIN"],
   },
 ];

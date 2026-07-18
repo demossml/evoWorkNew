@@ -75,6 +75,7 @@ export async function runMigrations(db: D1Database): Promise<void> {
 	await addColumnIfMissing(db, "shopProduct", "price", "REAL DEFAULT 0");
 	await addColumnIfMissing(db, "shopProduct", "measureName", "TEXT");
 	await addColumnIfMissing(db, "shopProduct", "code", "TEXT");
+	await addColumnIfMissing(db, "shopProduct", "costPrice", "REAL DEFAULT 0");
 
 	await createIndexIfMissing(db, "shopProduct", "idx_shopProduct_shopId", "shopId");
 	await createIndexIfMissing(db, "shopProduct", "idx_shopProduct_parentUuid", "parentUuid");
@@ -157,6 +158,34 @@ export async function runMigrations(db: D1Database): Promise<void> {
 			PRIMARY KEY (shop_id, product_uuid)
 		)
 	`).run();
+
+	// ══════════════════════════════════════════════════════════
+	// product_cost_prices — загруженные себестоимости (v2: исторические)
+	// ══════════════════════════════════════════════════════════
+	await db.prepare(`
+		CREATE TABLE IF NOT EXISTS product_cost_prices (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			productName TEXT NOT NULL,
+			costPrice REAL NOT NULL DEFAULT 0,
+			source TEXT NOT NULL DEFAULT 'upload',
+			uploadedAt TEXT NOT NULL DEFAULT (datetime('now')),
+			updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+			effectiveFrom TEXT NOT NULL DEFAULT (datetime('now')),
+			effectiveTo TEXT
+		)
+	`).run();
+
+	// Колонки v2 (SCD Type 2 — исторические периоды)
+	await addColumnIfMissing(db, "product_cost_prices", "effectiveFrom", "TEXT NOT NULL DEFAULT (datetime('now'))");
+	await addColumnIfMissing(db, "product_cost_prices", "effectiveTo", "TEXT");
+
+	// Для существующих записей: effectiveFrom = uploadedAt
+	await db.prepare(`
+		UPDATE product_cost_prices SET effectiveFrom = uploadedAt WHERE effectiveFrom IS NULL OR effectiveFrom = ''
+	`).run();
+
+	await createIndexIfMissing(db, "product_cost_prices", "idx_pcp_name", "productName");
+	await createIndexIfMissing(db, "product_cost_prices", "idx_pcp_name_eff", "productName, effectiveFrom DESC");
 
 	console.log("[migration] Миграции завершены.");
 }

@@ -25,6 +25,7 @@ import { assert, isValidSign } from "./src/utils";
 import { createSettingsTable } from "./src/db/repositories/settings";
 import { createIndexDocumentsTable, createOpeningPhotosTable, createOpenStorsTable, createSalaryBonusTable } from "./src/utils";
 import { createProductsTableIfNotExists } from "./src/sync/db";
+import { createCostPricesTableIfNotExists } from "./src/evotor/utils";
 
 import { syncDocuments, syncShops, syncEmployees, updateProductsShope, updatePlan_, getDataForCurrentDate, updateDataSaleByPlan, checkAndSendCriticalAlerts } from "./src/sync/cron";
 
@@ -78,6 +79,7 @@ async function ensureTables(): Promise<void> {
 	await createOpenStorsTable(db as any);
 	await createSalaryBonusTable(db as any);
 	await createProductsTableIfNotExists(db as any);
+	await createCostPricesTableIfNotExists(db as any);
 	const { createShopsTable, createEmployeesTable } = await import("./src/sync/db");
 	await createShopsTable(db as any);
 	await createEmployeesTable(db as any);

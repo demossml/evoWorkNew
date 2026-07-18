@@ -7,6 +7,7 @@ import {
   Store,
   Calculator,
   Sparkles,
+  Upload,
 } from "lucide-react";
 import {
   getAvailableQuickActions,
@@ -55,6 +56,8 @@ export function QuickActionsWidget({ employeeRole }: QuickActionsWidgetProps) {
         return <Calculator className="w-6 h-6" />;
       case "sparkles":
         return <Sparkles className="w-6 h-6" />;
+      case "upload":
+        return <Upload className="w-6 h-6" />;
       default:
         return <Store className="w-6 h-6" />;
     }

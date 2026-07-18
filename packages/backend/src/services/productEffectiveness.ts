@@ -14,6 +14,7 @@ import {
   formatDateLocal,
   resolveStoreParam,
 } from "./sharedStats";
+import { getCostPricesForPeriod } from "../evotor/utils";
 
 const MIN_DAYS_FOR_TREND = 5;
 const LOW_MARGIN_THRESHOLD = 15; // %
@@ -166,6 +167,24 @@ export async function computeProductEffectiveness(
     }
 
     if (basketUuids.size > 1) baskets.push([...basketUuids]);
+  }
+
+  // Обогащение: загруженная себестоимость из 1С — авторитетный источник.
+  // Используем цену, актуальную на начало периода (since).
+  const allNames = [...new Set([...agg.values()].map(a => a.name))];
+  if (allNames.length > 0) {
+    const uploadedCosts = await getCostPricesForPeriod(db, allNames, since);
+    if (uploadedCosts.size > 0) {
+      for (const [uuid, a] of agg) {
+        const uploadedPrice = uploadedCosts.get(a.name);
+        if (uploadedPrice) {
+          a.cost = uploadedPrice * a.quantity;
+          if (a.refundQuantity > 0) {
+            a.refundCost = uploadedPrice * a.refundQuantity;
+          }
+        }
+      }
+    }
   }
 
   // Co-purchase counts (сколько раз пара товаров встретилась в одном чеке)

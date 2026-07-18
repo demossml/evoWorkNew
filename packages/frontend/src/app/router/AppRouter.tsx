@@ -27,6 +27,7 @@ const AnalyticsPage = lazy(() => import("@/pages/Analytics"));
 const SellerDnaPage = lazy(() => import("@/pages/SellerDna"));
 const ProductAnalysisPage = lazy(() => import("@/pages/ProductAnalysis"));
 const StoreAnalysisPage = lazy(() => import("@/pages/StoreAnalysis"));
+const CostPriceUploadPage = lazy(() => import("@/pages/admin/CostPriceUploadPage"));
 
 export function AppRouter() {
   return (
@@ -64,6 +65,7 @@ export function AppRouter() {
         <Route path="/evotor/product-analysis" element={<ProductAnalysisPage />} />
         <Route path="/evotor/store-analysis" element={<StoreAnalysisPage />} />
         <Route path="/evotor/analytics" element={<AnalyticsPage />} />
+        <Route path="/evotor/admin/cost-prices" element={<CostPriceUploadPage />} />
       </Routes>
     </Suspense>
   );

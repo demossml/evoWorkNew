@@ -78,6 +78,11 @@ import {
 	getCashByShopsFromD1,
 	getOpenSessionsFromD1,
 	getProductStockFromD1,
+	upsertCostPricesWithHistory,
+	getAllCostPrices,
+	deleteCostPrice,
+	getCostPricesByNames,
+	getCostPricesForPeriod,
 } from "./evotor/utils";
 import {
 	getShopUuidsFromDB,
@@ -103,6 +108,7 @@ import {
 	type DeadStockCacheRow,
 } from "./sync/db";
 import { saveDeadStocks } from "./db/repositories/saveDeadStocks";
+import { parseCostPriceFile } from "./services/costPriceParser";
 import { sendDeadStocksToTelegram } from "../utils/sendDeadStocksToTelegram";
 import { sendPhotoToTelegram } from "../utils/sendPhotoToTelegram";
 import {
@@ -2374,6 +2380,93 @@ export const api = new Hono<IEnv>()
 		return c.json({ ok: true, mode: mode || "DB", meta: { source: (mode || "DB") as "DB" | "ELVATOR", aiAvailable: true } });
 	})
 
+	// --- /api/admin/cost-prices ---
+	// Загрузка себестоимости из CSV
+	.post("/api/admin/cost-prices/upload", requireAdmin, async (c) => {
+		try {
+			const db = c.get("db");
+			const body = await c.req.parseBody();
+			const file = body.file;
+			const effectiveDateRaw = body.effectiveDate as string | undefined;
+
+			if (!file || typeof file === "string") {
+				return c.json({ error: "Файл не найден. Отправьте файл в поле 'file' (multipart/form-data)." }, 400);
+			}
+
+			// Валидация effectiveDate
+			let effectiveFrom: string | undefined;
+			if (effectiveDateRaw) {
+				const d = new Date(effectiveDateRaw + "T00:00:00+03:00");
+				if (Number.isNaN(d.getTime())) {
+					return c.json({ error: "effectiveDate: неверный формат даты (ожидается YYYY-MM-DD)" }, 400);
+				}
+				if (d > new Date()) {
+					return c.json({ error: "effectiveDate: нельзя установить будущую дату" }, 400);
+				}
+				effectiveFrom = effectiveDateRaw + " 00:00:00";
+			}
+
+			const content = await file.text();
+			if (!content || content.trim().length === 0) {
+				return c.json({ error: "Файл пуст" }, 400);
+			}
+
+			const parseResult = parseCostPriceFile(content);
+
+			if (parseResult.rows.length === 0) {
+				return c.json({
+					error: "Не удалось распарсить данные",
+					details: parseResult.errors,
+					meta: parseResult.meta,
+				}, 400);
+			}
+
+			// Сохраняем с историей (SCD Type 2)
+			const upsertResult = await upsertCostPricesWithHistory(db, parseResult.rows, effectiveFrom);
+
+			return c.json({
+				ok: true,
+				...upsertResult,
+				meta: parseResult.meta,
+				effectiveDate: effectiveDateRaw || new Date().toISOString().slice(0, 10),
+				warnings: parseResult.errors.length > 0 ? parseResult.errors.slice(0, 20) : undefined,
+			});
+		} catch (err) {
+			console.error("[cost-prices/upload] error:", err);
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+
+	// Получить все загруженные себестоимости
+	.get("/api/admin/cost-prices", requireAdmin, async (c) => {
+		try {
+			const db = c.get("db");
+			const rows = await getAllCostPrices(db);
+			return c.json({ rows, total: rows.length });
+		} catch (err) {
+			console.error("[cost-prices] error:", err);
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+
+	// Удалить себестоимость по имени товара
+	.delete("/api/admin/cost-prices/:productName", requireAdmin, async (c) => {
+		try {
+			const db = c.get("db");
+			const productName = decodeURIComponent(c.req.param("productName"));
+			const deleted = await deleteCostPrice(db, productName);
+
+			if (!deleted) {
+				return c.json({ error: "Товар не найден" }, 404);
+			}
+
+			return c.json({ ok: true, productName });
+		} catch (err) {
+			console.error("[cost-prices/delete] error:", err);
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+
 	// --- /api/analytics/dead-stock/actions ---
 	// Принимает массив действий, возвращает CSV-файл
 	.post("/api/analytics/dead-stock/actions", async (c) => {
@@ -2631,10 +2724,11 @@ export const api = new Hono<IEnv>()
 				return c.json({ error: "DEEPSEEK_API_KEY не настроен" }, 500);
 			}
 
-			// 3. Маржа (из transaction costPrice)
+			// 3. Маржа (из transaction costPrice + фолбэк на загруженную себестоимость)
 			let marginPct = 0;
 			let totalCost = 0;
 			let totalRevenue = 0;
+			let totalQty = 0;
 			for (const doc of docs.results ?? []) {
 				let txs: any[];
 				try { txs = JSON.parse(doc.transactions); } catch { continue; }
@@ -2648,8 +2742,17 @@ export const api = new Hono<IEnv>()
 					if (doc.type !== "PAYBACK") {
 						totalCost += cost;
 						totalRevenue += rev;
+						totalQty += qty;
 					}
 				}
+			}
+			// Если есть загруженная себестоимость из 1С — используем её
+			// (авторитетнее, чем costPrice из транзакций Эвотора).
+			// Ищем цену, актуальную на начало периода (sinceStr).
+			const uploadedCosts = await getCostPricesForPeriod(db, [productName], sinceStr + "T00:00:00");
+			const uploadedPrice = uploadedCosts.get(productName);
+			if (uploadedPrice) {
+				totalCost = uploadedPrice * totalQty;
 			}
 			if (totalRevenue > 0) {
 				marginPct = Math.round(((totalRevenue - totalCost) / totalRevenue) * 100);
