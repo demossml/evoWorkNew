@@ -5,6 +5,7 @@ import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { client } from "../../helpers/api";
 import { LoadingState, ErrorState } from "@shared/ui/states";
 import { Trash2, Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, X, Calendar, Info } from "lucide-react";
+import { telegram } from "../../helpers/telegram";
 
 interface CostPriceRecord {
 	productName: string;
@@ -94,11 +95,17 @@ export default function CostPriceUploadPage() {
 			formData.append("file", file);
 			formData.append("effectiveDate", effectiveDate);
 
+			// Авторизация: в Telegram Mini App — реальный initData (криптоподпись),
+			// в браузере — guest + telegram-id из localStorage
+			const tgInitData = telegram?.WebApp?.initData || "";
+			const storedId = localStorage.getItem("telegramId") || "";
+			const initDataHeader = tgInitData || (storedId ? "guest" : "");
+
 			const res = await fetch("/api/admin/cost-prices/upload", {
 				method: "POST",
 				headers: {
-					initData: localStorage.getItem("telegramId") ? "guest" : "",
-					"telegram-id": localStorage.getItem("telegramId") || "",
+					initData: initDataHeader || "guest",
+					"telegram-id": storedId,
 				},
 				body: formData,
 			});
