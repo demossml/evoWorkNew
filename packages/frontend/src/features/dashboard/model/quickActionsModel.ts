@@ -52,14 +52,6 @@ export const QUICK_ACTIONS: QuickActionModel[] = [
     roles: ["ADMIN", "SUPERADMIN"],
   },
   {
-    title: "Seller DNA",
-    description: "Маржа и рейтинг",
-    iconKey: "sparkles",
-    path: "/evotor/seller-dna",
-    color: "from-pink-500 to-rose-600",
-    roles: ["ADMIN", "SUPERADMIN"],
-  },
-  {
     title: "Открытия ТТ",
     description: "Сводка по открытиям",
     iconKey: "store",
