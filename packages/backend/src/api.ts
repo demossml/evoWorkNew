@@ -1211,14 +1211,29 @@ export const api = new Hono<IEnv>()
 		}
 	})
 
-	// Валовая прибыль за сегодня (или указанную дату).
-	// Считает: выручка − себестоимость (из транзакций + загруженная из 1С).
+	// Валовая прибыль за период (по умолчанию — сегодня).
+	// Параметры: since, until (опционально) или date (один день).
 	.get("/api/evotor/gross-profit-today", async (c) => {
 		try {
 			const db = c.get("db");
-			const date = c.req.query("date") || new Date().toISOString().slice(0, 10);
-			const since = date + "T00:00:00";
-			const until = date + "T23:59:59";
+			const dateParam = c.req.query("date");
+			const sinceParam = c.req.query("since");
+			const untilParam = c.req.query("until");
+
+			let since: string;
+			let until: string;
+
+			if (sinceParam && untilParam) {
+				since = sinceParam.length <= 10 ? sinceParam + "T00:00:00" : sinceParam;
+				until = untilParam.length <= 10 ? untilParam + "T23:59:59" : untilParam;
+			} else if (dateParam) {
+				since = dateParam + "T00:00:00";
+				until = dateParam + "T23:59:59";
+			} else {
+				const today = new Date().toISOString().slice(0, 10);
+				since = today + "T00:00:00";
+				until = today + "T23:59:59";
+			}
 
 			const docs = await db
 				.prepare(`SELECT shop_id, type, transactions FROM index_documents
@@ -1295,7 +1310,8 @@ export const api = new Hono<IEnv>()
 			}
 
 			return c.json({
-				date,
+				since: since.slice(0, 10),
+				until: until.slice(0, 10),
 				shops,
 				total: {
 					revenue: Math.round(totalRevenue * 100) / 100,

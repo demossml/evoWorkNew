@@ -7,7 +7,8 @@ export interface GrossProfitShop {
 }
 
 export interface GrossProfitResponse {
-	date: string;
+	since: string;
+	until: string;
 	shops: Record<string, GrossProfitShop>;
 	total: {
 		revenue: number;
@@ -17,15 +18,21 @@ export interface GrossProfitResponse {
 }
 
 /**
- * Валовая прибыль за дату (по умолчанию — сегодня).
- * Обновляется каждые 2 минуты.
+ * Валовая прибыль за период.
+ * По умолчанию — сегодня.
  */
-export function useGrossProfit(date?: string) {
+export function useGrossProfit(params?: { since?: string; until?: string }) {
+	const since = params?.since;
+	const until = params?.until;
+
 	return useQuery<GrossProfitResponse>({
-		queryKey: ["gross-profit", date],
+		queryKey: ["gross-profit", since, until],
 		queryFn: async () => {
-			const params = date ? `?date=${date}` : "";
-			const res = await fetch(`/api/evotor/gross-profit-today${params}`);
+			const search = new URLSearchParams();
+			if (since) search.set("since", since);
+			if (until) search.set("until", until);
+			const qs = search.toString();
+			const res = await fetch(`/api/evotor/gross-profit-today${qs ? "?" + qs : ""}`);
 			if (!res.ok) throw new Error(`Ошибка ${res.status}`);
 			return res.json();
 		},
