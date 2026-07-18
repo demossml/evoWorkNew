@@ -3420,19 +3420,21 @@ ${otherShopsInfo}
 		const weekdayQ = c.req.query("weekday");
 		const benchmarkWeekday = benchmarkWeekdayQ !== undefined ? parseInt(benchmarkWeekdayQ) : undefined;
 		const weekday = weekdayQ !== undefined ? parseInt(weekdayQ) : undefined;
+		const scoreModeQ = c.req.query("scoreMode");
+		const scoreMode = scoreModeQ === "margin" ? "margin" as const : "classic" as const;
 
 		if (!since || !until) {
 			return c.json({ sellers: [] });
 		}
 
-		const cacheKey = `advanced-stats:${since}:${until}:${shopId ?? "all"}:${sellerIdsRaw ?? "all"}:${benchmarkWeekday ?? ""}:${weekday ?? ""}`;
+		const cacheKey = `advanced-stats:${since}:${until}:${shopId ?? "all"}:${sellerIdsRaw ?? "all"}:${benchmarkWeekday ?? ""}:${weekday ?? ""}:${scoreMode}`;
 		const cached = statsCache.get(cacheKey);
 		if (cached && cached.expiresAt > Date.now()) {
 			return c.json(cached.data);
 		}
 
 		try {
-			const result = await computeSellerAdvancedStats(db, { since, until, shopId, sellerIds, benchmarkWeekday, weekday });
+			const result = await computeSellerAdvancedStats(db, { since, until, shopId, sellerIds, benchmarkWeekday, weekday, scoreMode });
 			statsCache.set(cacheKey, { data: result, expiresAt: Date.now() + 300_000 });
 			return c.json(result);
 		} catch (err: any) {

@@ -59,6 +59,16 @@ export interface SellerDNAProfile {
   totalRevenue: number;
   avgCheck: number;
   accShare: number;        // % аксессуаров в выручке
+  /** Суммарная маржа (выручка − себестоимость) за период, ₽ */
+  totalMargin: number;
+  /** Маржа как % от выручки этого продавца за период */
+  marginPercent: number;
+  /** Место в рейтинге по марже (1 = наибольший вклад в прибыль) */
+  marginRank: number;
+  /** overallScore, пересчитанный с учётом маржи (weight на marginScore) */
+  overallScoreWithMargin: number;
+  /** rank (по overallScore) минус rank (по overallScoreWithMargin) */
+  rankShiftWithMargin: number;
   rubPerHour: number | null;
   avgHours: number | null;
   trend: 'up' | 'down' | 'stable';

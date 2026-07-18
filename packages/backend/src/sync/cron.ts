@@ -747,6 +747,7 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
         vapeRevenue: number;
         discountChecks: number;
         discountAmount: number;
+        marginRub: number;
         firstCheckTs: string | null;
         checkTimestamps: string[];  // для absent-slots
       }
@@ -765,6 +766,7 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
           vapeRevenue: 0,
           discountChecks: 0,
           discountAmount: 0,
+          marginRub: 0,
           firstCheckTs: null,
           checkTimestamps: [],
         });
@@ -783,11 +785,16 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
       let checkRevenue = 0;
       let hasDiscount = false;
       let discAmount = 0;
+      let checkMargin = 0;
 
       for (const tx of txs) {
         if (tx.type === "REGISTER_POSITION" && tx.commodityUuid) {
           const cat = categoryMap.get(tx.commodityUuid) ?? "other";
           const amt = tx.resultSum ?? tx.sum ?? 0;
+          const lineQuantity = tx.quantity ?? 0;
+          const lineCost = (tx.costPrice ?? 0) * lineQuantity;
+          const lineMargin = amt - lineCost;
+          checkMargin += lineMargin;
           if (cat === "vape") entry.vapeRevenue += amt;
           if (cat === "accessory") entry.accRevenue += amt;
           const d = tx.discount ?? tx.discountSum ?? 0;
@@ -809,6 +816,7 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
 
       entry.revenue += checkRevenue;
       entry.checks += 1;
+      entry.marginRub += checkMargin;
       if (hasDiscount) {
         entry.discountChecks += 1;
         entry.discountAmount += discAmount;
@@ -941,6 +949,7 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
       vape_revenue: number;
       discount_checks: number;
       discount_amount: number;
+      margin_rub: number;
       shift_hours: number;
       first_check_ts: string | null;
       first_check_delay: number;
@@ -982,6 +991,7 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
         vape_revenue: Math.round(entry.vapeRevenue),
         discount_checks: entry.discountChecks,
         discount_amount: Math.round(entry.discountAmount),
+        margin_rub: Math.round(entry.marginRub),
         shift_hours: parseFloat((shiftHoursMap.get(uuid) ?? 8).toFixed(1)),
         first_check_ts: entry.firstCheckTs,
         first_check_delay: firstCheckDelay,

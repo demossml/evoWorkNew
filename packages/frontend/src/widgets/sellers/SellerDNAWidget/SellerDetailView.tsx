@@ -436,6 +436,47 @@ export function SellerDetailView({ seller, onBack, onCompare, insights = [], use
             <span>{seller.daysWorked} смен</span>
             <span>{formatMoney(seller.totalRevenue)}₽</span>
           </div>
+
+          {/* Выручка vs Маржа */}
+          {seller.totalMargin != null && (
+            <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-border">
+              <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5 mb-2">
+                <Target className="w-3.5 h-3.5 text-primary" />
+                Выручка vs Маржа
+              </h4>
+              <div className="flex gap-4 text-xs">
+                <div>
+                  <span className="text-muted-foreground">Место по выручке</span>
+                  <p className="font-bold text-foreground">#{seller.rank}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Место по марже</span>
+                  <p className="font-bold text-foreground">#{seller.marginRank}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Вклад в прибыль</span>
+                  <p className="font-bold text-foreground">
+                    {formatMoney(seller.totalMargin)}₽ ({seller.marginPercent}%)
+                  </p>
+                </div>
+              </div>
+              {seller.rankShiftWithMargin >= 5 ? (
+                <p className="text-xs text-success mt-2">
+                  С учётом маржи этот продавец поднялся бы в общем рейтинге на {seller.rankShiftWithMargin} мест — 
+                  он приносит больше прибыли, чем видно по одной выручке.
+                </p>
+              ) : seller.rankShiftWithMargin <= -5 ? (
+                <p className="text-xs text-warning mt-2">
+                  С учётом маржи этот продавец опустился бы в общем рейтинге на {Math.abs(seller.rankShiftWithMargin)} мест —
+                  высокая выручка здесь не полностью конвертируется в прибыль.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Место в рейтинге почти не меняется с учётом маржи — вклад в прибыль соответствует объёму продаж.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

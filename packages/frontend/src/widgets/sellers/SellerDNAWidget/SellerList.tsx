@@ -14,7 +14,7 @@ import type { SellerDNAProfile, DNALabel } from "./types";
 
 // ===================== Types =====================
 
-type SortField = "name" | "overallScore" | "rubPerHour" | "avgCheck" | "accShare";
+type SortField = "name" | "overallScore" | "rubPerHour" | "avgCheck" | "accShare" | "totalMargin";
 type SortDir = "asc" | "desc";
 
 interface SellerListProps {
@@ -31,6 +31,7 @@ const SORT_FIELDS: { key: SortField; label: string }[] = [
   { key: "name", label: "Имя" },
   { key: "overallScore", label: "Score" },
   { key: "rubPerHour", label: "Выручка/ч" },
+  { key: "totalMargin", label: "Маржа" },
   { key: "avgCheck", label: "Средний чек" },
   { key: "accShare", label: "% Аксессуары" },
 ];
@@ -202,7 +203,7 @@ function SellerCard({
       </div>
 
       {/* Metrics row */}
-      <div className="mt-2.5 grid grid-cols-4 gap-1 text-center">
+      <div className="mt-2.5 grid grid-cols-5 gap-1 text-center">
         <MetricCell
           label="₽/час"
           value={seller.rubPerHour != null ? `${formatMoney(seller.rubPerHour)}` : "—"}
@@ -210,6 +211,11 @@ function SellerCard({
         <MetricCell
           label="Средний чек"
           value={`${seller.avgCheck}₽`}
+        />
+        <MetricCell
+          label="Маржа"
+          value={`${formatMoney(seller.totalMargin)}₽`}
+          sub={`${seller.marginPercent}%`}
         />
         <MetricCell
           label="% Аксесс."
@@ -228,10 +234,12 @@ function SellerCard({
 function MetricCell({
   label,
   value,
+  sub,
   warn,
 }: {
   label: string;
   value: string;
+  sub?: string;
   warn?: boolean;
 }) {
   return (
@@ -244,6 +252,7 @@ function MetricCell({
       >
         {value}
       </span>
+      {sub && <span className="text-[9px] text-muted-foreground leading-tight">{sub}</span>}
     </div>
   );
 }

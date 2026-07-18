@@ -105,6 +105,16 @@ interface SellerDNAProfile {
   daysWorked: number;
   totalRevenue: number;
   avgCheck: number;
+  /** Суммарная маржа (выручка − себестоимость) за период, ₽ */
+  totalMargin: number;
+  /** Маржа как % от выручки этого продавца за период */
+  marginPercent: number;
+  /** Место продавца в рейтинге ПО МАРЖЕ за этот же период (1 = наибольший вклад в прибыль) */
+  marginRank: number;
+  /** overallScore, пересчитанный с учётом маржи (см. computeDNA) */
+  overallScoreWithMargin: number;
+  /** Насколько сильно изменилось бы место продавца в рейтинге, если бы скор учитывал маржу */
+  rankShiftWithMargin: number;
   accShare: number;
   rubPerHour: number | null;
   avgHours: number | null;
@@ -201,6 +211,7 @@ interface CheckResult {
   revenue: number;
   vapeRevenue: number;
   accRevenue: number;
+  margin: number;
   hasDiscount: boolean;
   discountAmount: number;
 }
@@ -213,6 +224,7 @@ function parseCheck(
     revenue: 0,
     vapeRevenue: 0,
     accRevenue: 0,
+    margin: 0,
     hasDiscount: false,
     discountAmount: 0,
   };
@@ -230,6 +242,9 @@ function parseCheck(
     if (tx.type === "REGISTER_POSITION" && tx.commodityUuid) {
       const category = categoryMap.get(tx.commodityUuid) ?? "other";
       const amount = tx.resultSum ?? tx.sum ?? 0;
+      const lineQuantity = tx.quantity ?? 0;
+      const lineCost = (tx.costPrice ?? 0) * lineQuantity;
+      result.margin += amount - lineCost;
       if (category === "vape") result.vapeRevenue += amount;
       if (category === "accessory") result.accRevenue += amount;
 
@@ -339,6 +354,8 @@ interface DayAgg {
   discountAmount: number;
   /** Total accessory (non-vape) revenue */
   accRevenue: number;
+  /** Маржа (выручка − себестоимость) за этот день у этого продавца, ₽ */
+  margin: number;
   /** Минуты от открытия смены до первого чека (из кеша) */
   firstCheckDelay: number;
   /** 0..1 — вероятность длительного отсутствия (из кеша) */
@@ -522,6 +539,8 @@ function computeDNA(
   const maxRev = Math.max(...allRevs, 1);
   const allAcc = allSellers.map((s) => s.accShare);
   const maxAcc = Math.max(...allAcc, 1);
+  const allMargins = allSellers.map((s) => s.totalMargin);
+  const maxMargin = Math.max(...allMargins, 1);
   const maxDaysWorked = Math.max(...allSellers.map((s) => s.daysWorked), 1);
 
   const revenueScore = Math.min(100, (m.totalRevenue / maxRev) * 100);
@@ -536,6 +555,7 @@ function computeDNA(
     : 0;
   const attendanceScore = Math.min(100, relativeAttendance);
   const disciplineScore = Math.max(0, 100 - m.lateRate * 3); // штраф 3 балла за каждый % опозданий
+  const marginScore = Math.min(100, (m.totalMargin / maxMargin) * 100);
 
   m.overallScore = Math.round(
     revenueScore   * 0.15 +
@@ -547,6 +567,20 @@ function computeDNA(
     stabilityScore * 0.10 +
     attendanceScore * 0.08 +
     disciplineScore * 0.10,
+  );
+
+  // Параллельный скор с учётом маржи (те же факторы, marginScore занимает 10% веса)
+  m.overallScoreWithMargin = Math.round(
+    revenueScore   * 0.10 +
+    checkScore     * 0.15 +
+    accScore       * 0.12 +
+    deadTimeScore  * 0.08 +
+    peakScore      * 0.10 +
+    trendScore     * 0.07 +
+    stabilityScore * 0.10 +
+    attendanceScore * 0.08 +
+    disciplineScore * 0.10 +
+    marginScore    * 0.10,
   );
 
   m.serviceQuality = {
@@ -578,6 +612,14 @@ function computeDNA(
   if (m.avgLateMinutes > 15) weaknesses.push(`Среднее опоздание ${m.avgLateMinutes} мин`);
   if (m.onTimeRate >= 95) strengths.push("Отличная пунктуальность");
   if (m.firstCheckDelay != null && m.firstCheckDelay < 15) strengths.push("Быстрый старт смены");
+  if (m.marginPercent > 0 && m.totalRevenue > 0) {
+    if (m.marginRank <= 3 && m.rank > allSellers.length / 2) {
+      strengths.push("Высокий вклад в прибыль при скромном месте по выручке");
+    }
+    if (m.rank <= 3 && m.marginRank > allSellers.length / 2) {
+      weaknesses.push("Высокая выручка, но слабый вклад в прибыль — возможно, продаёт через частые скидки");
+    }
+  }
   if (strengths.length === 0) strengths.push("Стабильные показатели");
   m.strengths = strengths;
   m.weaknesses = weaknesses;
@@ -602,9 +644,9 @@ function filterBySellerIds(
 
 export async function computeSellerAdvancedStats(
   db: D1Database,
-  params: { since: string; until: string; shopId?: string; benchmarkWeekday?: number; weekday?: number; sellerIds?: string[] },
+  params: { since: string; until: string; shopId?: string; benchmarkWeekday?: number; weekday?: number; sellerIds?: string[]; scoreMode?: "classic" | "margin" },
 ): Promise<{ sellers: SellerDNAProfile[] }> {
-  const { since, until, shopId: rawShopId, benchmarkWeekday, weekday, sellerIds } = params;
+  const { since, until, shopId: rawShopId, benchmarkWeekday, weekday, sellerIds, scoreMode } = params;
 
   // Resolve store name → UUID (same fix as sellerEffectiveness.ts)
   const shopNames = await getShopNames(db);
@@ -635,6 +677,13 @@ export async function computeSellerAdvancedStats(
   } else {
     console.log("[advanced-stats] Cache miss — querying index_documents live");
     result = await buildFromLive(db, since, until, shopId, benchmarkHourly, weekday);
+  }
+
+  if (scoreMode === "margin") {
+    result.sellers = [...result.sellers].sort(
+      (a, b) => b.overallScoreWithMargin - a.overallScoreWithMargin,
+    );
+    result.sellers.forEach((s, i) => { s.rank = i + 1; });
   }
 
   return filterBySellerIds(result, sellerIds);
@@ -940,11 +989,15 @@ export async function computeWeekdayComparison(
     let discountAmount = 0;
     let hasDiscount = false;
     let accRevenue = 0;
+    let margin = 0;
     try {
       const tx = JSON.parse(doc.transactions || "[]");
       for (const t of (Array.isArray(tx) ? tx : [tx])) {
-        const lineRev = (t.price ?? 0) * (t.quantity ?? 1);
+        const lineQty = t.quantity ?? 1;
+        const lineRev = (t.price ?? 0) * lineQty;
         revenue += lineRev;
+        const lineCost = (t.costPrice ?? 0) * lineQty;
+        margin += lineRev - lineCost;
         if (t.discountForDocument && t.discountForDocument > 0) {
           hasDiscount = true;
           discountAmount += t.discountForDocument;
@@ -966,6 +1019,7 @@ export async function computeWeekdayComparison(
         discountChecks: 0,
         discountAmount: 0,
         accRevenue: 0,
+        margin: 0,
         firstCheckDelay: 0,
         absentProbability: 0,
       };
@@ -974,6 +1028,7 @@ export async function computeWeekdayComparison(
     dayEntry.revenue += revenue;
     dayEntry.checks += 1;
     dayEntry.accRevenue += accRevenue;
+    dayEntry.margin += margin;
     if (hasDiscount) {
       dayEntry.discountChecks += 1;
       dayEntry.discountAmount += discountAmount;
@@ -1227,6 +1282,7 @@ async function buildFromCache(
         discountChecks: 0,
         discountAmount: 0,
         accRevenue: 0,
+        margin: 0,
         firstCheckDelay: 0,
         absentProbability: 0,
       };
@@ -1238,6 +1294,7 @@ async function buildFromCache(
     dayEntry.discountChecks += row.discount_checks;
     dayEntry.discountAmount += row.discount_amount;
     dayEntry.accRevenue += row.acc_revenue;
+    dayEntry.margin += row.margin_rub;
     dayEntry.firstCheckDelay = Math.max(dayEntry.firstCheckDelay, row.first_check_delay ?? 0);
     dayEntry.absentProbability = Math.max(dayEntry.absentProbability, row.absent_probability ?? 0);
 
@@ -1392,6 +1449,7 @@ async function buildFromLive(
         discountChecks: 0,
         discountAmount: 0,
         accRevenue: 0,
+        margin: 0,
         firstCheckDelay: 0,
         absentProbability: 0,
       };
@@ -1400,6 +1458,7 @@ async function buildFromLive(
     dayEntry.revenue += check.revenue;
     dayEntry.checks += 1;
     dayEntry.accRevenue += check.accRevenue;
+    dayEntry.margin += check.margin;
     if (check.hasDiscount) {
       dayEntry.discountChecks += 1;
       dayEntry.discountAmount += check.discountAmount;
@@ -1541,6 +1600,7 @@ async function finishBuilding(
     let totalDiscountChecks = 0;
     let totalDiscountAmount = 0;
     let totalAccRevenue = 0;
+    let totalMargin = 0;
     let totalHours = 0;
     const daySessionMap = sellerDaySessions.get(uuid) ?? new Map();
     const dayShopMap = sellerDayShop.get(uuid) ?? new Map();
@@ -1558,6 +1618,7 @@ async function finishBuilding(
       totalDiscountChecks += day.discountChecks;
       totalDiscountAmount += day.discountAmount;
       totalAccRevenue += day.accRevenue;
+      totalMargin += day.margin;
 
       const ds = daySessionMap.get(day.date);
       if (ds) {
@@ -1679,6 +1740,11 @@ async function finishBuilding(
       daysWorked,
       totalRevenue: Math.round(totalRevenue),
       avgCheck,
+      totalMargin: Math.round(totalMargin),
+      marginPercent: totalRevenue > 0 ? Math.round((totalMargin / totalRevenue) * 100) : 0,
+      marginRank: 0, // проставляется ниже, после сортировки всех продавцов
+      overallScoreWithMargin: 0, // заполняется в computeDNA
+      rankShiftWithMargin: 0,
       accShare,
       rubPerHour,
       avgHours,
@@ -1718,10 +1784,21 @@ async function finishBuilding(
     profiles.push(profile);
   }
 
+  // Отдельный рейтинг по марже — используется для сопоставления "выручка vs маржа"
+  const byMargin = [...profiles].sort((a, b) => b.totalMargin - a.totalMargin);
+  byMargin.forEach((p, i) => { p.marginRank = i + 1; });
+
   // Compute DNA and rank
   for (const p of profiles) computeDNA(p, profiles);
   profiles.sort((a, b) => b.overallScore - a.overallScore);
   profiles.forEach((p, i) => { p.rank = i + 1; });
+
+  // Ранговый сдвиг с учётом маржи
+  const byMarginScore = [...profiles].sort((a, b) => b.overallScoreWithMargin - a.overallScoreWithMargin);
+  byMarginScore.forEach((p, i) => {
+    const rankWithMargin = i + 1;
+    p.rankShiftWithMargin = p.rank - rankWithMargin;
+  });
 
   return { sellers: profiles };
 }

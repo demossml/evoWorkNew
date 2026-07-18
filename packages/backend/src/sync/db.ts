@@ -558,6 +558,7 @@ export async function createSellerDailyMetricsTable(db: D1Database): Promise<voi
         vape_revenue REAL NOT NULL DEFAULT 0,
         discount_checks INTEGER NOT NULL DEFAULT 0,
         discount_amount REAL NOT NULL DEFAULT 0,
+        margin_rub REAL NOT NULL DEFAULT 0,
         shift_hours REAL NOT NULL DEFAULT 0,
         first_check_ts TEXT,
         first_check_delay INTEGER NOT NULL DEFAULT 0,
@@ -567,6 +568,16 @@ export async function createSellerDailyMetricsTable(db: D1Database): Promise<voi
       )`,
     )
     .run();
+
+  // Идемпотентная миграция для существующих таблиц (ALTER TABLE ADD COLUMN)
+  try {
+    await db.prepare(`ALTER TABLE seller_daily_metrics ADD COLUMN margin_rub REAL NOT NULL DEFAULT 0`).run();
+    console.log("[migration] Колонка margin_rub добавлена в seller_daily_metrics.");
+  } catch (err: any) {
+    if (!String(err?.message ?? err).toLowerCase().includes("duplicate column")) {
+      console.error("[migration] Неожиданная ошибка при ALTER TABLE margin_rub:", err);
+    }
+  }
   await db
     .prepare(`CREATE INDEX IF NOT EXISTS idx_sdm_seller_date ON seller_daily_metrics (seller_uuid, date)`)
     .run();
@@ -587,6 +598,10 @@ export interface SellerDailyMetric {
   vape_revenue: number;
   discount_checks: number;
   discount_amount: number;
+  /** Маржа (выручка − себестоимость) за день, ₽. Может быть занижена, если у части
+      позиций в Эвоторе не указана себестоимость (costPrice) — в этом случае такие
+      позиции считаются с нулевой себестоимостью, см. aggregateSellerDailyMetrics. */
+  margin_rub: number;
   shift_hours: number;
   first_check_ts: string | null;
   /** Минуты от открытия смены до первого чека */
@@ -605,9 +620,9 @@ export async function upsertSellerDailyMetrics(
   const stmt = db.prepare(
     `INSERT INTO seller_daily_metrics
        (date, seller_uuid, seller_name, shop_id, revenue, checks,
-        acc_revenue, vape_revenue, discount_checks, discount_amount,
+        acc_revenue, vape_revenue, discount_checks, discount_amount, margin_rub,
         shift_hours, first_check_ts, first_check_delay, absent_slots, absent_probability)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(seller_uuid, date, shop_id) DO UPDATE SET
        seller_name = excluded.seller_name,
        revenue = excluded.revenue,
@@ -616,6 +631,7 @@ export async function upsertSellerDailyMetrics(
        vape_revenue = excluded.vape_revenue,
        discount_checks = excluded.discount_checks,
        discount_amount = excluded.discount_amount,
+       margin_rub = excluded.margin_rub,
        shift_hours = excluded.shift_hours,
        first_check_ts = excluded.first_check_ts,
        first_check_delay = excluded.first_check_delay,
@@ -634,6 +650,7 @@ export async function upsertSellerDailyMetrics(
       r.vape_revenue,
       r.discount_checks,
       r.discount_amount,
+      r.margin_rub,
       r.shift_hours,
       r.first_check_ts,
       r.first_check_delay,
