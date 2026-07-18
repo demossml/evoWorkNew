@@ -2,6 +2,7 @@ import { useSalesData } from "@/hooks/dashboard/useSalesData";
 import { useFilteredSalesData } from "@/hooks/dashboard/useFilteredSalesData";
 import { useEmployeeRole } from "@/hooks/useApi";
 import { useCurrentWorkShop } from "@/hooks/useCurrentWorkShop";
+import { useGrossProfit } from "@/hooks/dashboard/useGrossProfit";
 import { ExpensesCard } from "@/widgets/dashboard/cards/ExpensesCard";
 import { FinancialReportDetails } from "@/widgets/dashboard/cards/FinancialReportDetails";
 import { SkeletonCard } from "./widgetUtils";
@@ -17,6 +18,7 @@ export function FinanceWidget({ since, until, expanded, onToggle }: Props) {
 
   const { data, loading, error } = useSalesData({ since, until, shopUuid, enabled: true });
   const filtered = useFilteredSalesData(data, isSuperAdmin, ws ?? null);
+  const { data: grossProfit } = useGrossProfit();
 
   if (loading || !filtered) return <SkeletonCard tone="orange" />;
   if (error) return <div className="text-red-500 text-sm p-2">Ошибка: {error}</div>;
@@ -30,6 +32,8 @@ export function FinanceWidget({ since, until, expanded, onToggle }: Props) {
       grandTotalRefund={filtered.grandTotalRefund}
       grandTotalCashOutcome={filtered.grandTotalCashOutcome}
       totalCashBalance={filtered.totalCashBalance}
+      grossProfitByShop={grossProfit?.shops}
+      totalGrossProfit={grossProfit?.total.profit}
     />
   );
 

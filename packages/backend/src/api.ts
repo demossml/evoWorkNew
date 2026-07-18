@@ -1211,6 +1211,104 @@ export const api = new Hono<IEnv>()
 		}
 	})
 
+	// Валовая прибыль за сегодня (или указанную дату).
+	// Считает: выручка − себестоимость (из транзакций + загруженная из 1С).
+	.get("/api/evotor/gross-profit-today", async (c) => {
+		try {
+			const db = c.get("db");
+			const date = c.req.query("date") || new Date().toISOString().slice(0, 10);
+			const since = date + "T00:00:00";
+			const until = date + "T23:59:59";
+
+			const docs = await db
+				.prepare(`SELECT shop_id, type, transactions FROM index_documents
+				          WHERE close_date >= ? AND close_date <= ?
+				            AND type IN ('SELL', 'PAYBACK')`)
+				.bind(since, until)
+				.all<{ shop_id: string; type: string; transactions: string }>();
+
+			// Агрегация: shopId → productName → { revenue, qty, cost }
+			const byShop = new Map<string, Map<string, { revenue: number; qty: number; cost: number }>>();
+			const allNames = new Set<string>();
+
+			for (const doc of docs.results ?? []) {
+				const isRefund = doc.type === "PAYBACK";
+				let txs: any[];
+				try { txs = JSON.parse(doc.transactions); } catch { continue; }
+				if (!Array.isArray(txs)) continue;
+
+				if (!byShop.has(doc.shop_id)) byShop.set(doc.shop_id, new Map());
+				const shopMap = byShop.get(doc.shop_id)!;
+
+				for (const tx of txs) {
+					if (tx.type !== "REGISTER_POSITION") continue;
+					const name = (tx.commodityName || "").trim();
+					if (!name) continue;
+					const qty = tx.quantity ?? 0;
+					const sum = tx.sum ?? 0;
+					const sign = isRefund ? -1 : 1;
+
+					if (!shopMap.has(name)) shopMap.set(name, { revenue: 0, qty: 0, cost: 0 });
+					const p = shopMap.get(name)!;
+					p.revenue += sum * sign;
+					p.qty += qty * sign;
+					p.cost += (tx.costPrice ?? 0) * qty * sign;
+					allNames.add(name);
+				}
+			}
+
+			// Обогащение загруженной себестоимостью (приоритет над costPrice)
+			const uploadedCosts = await getCostPricesForPeriod(db, [...allNames], since);
+			if (uploadedCosts.size > 0) {
+				for (const [, shopMap] of byShop) {
+					for (const [name, p] of shopMap) {
+						const uploadedPrice = uploadedCosts.get(name);
+						if (uploadedPrice) {
+							p.cost = uploadedPrice * p.qty;
+						}
+					}
+				}
+			}
+
+			// Имена магазинов
+			const shopNames = new Map<string, string>();
+			const shopRows = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+			for (const r of shopRows.results ?? []) shopNames.set(r.uuid, r.name);
+
+			// Собираем ответ
+			const shops: Record<string, { revenue: number; cost: number; profit: number }> = {};
+			let totalRevenue = 0, totalCost = 0, totalProfit = 0;
+
+			for (const [shopId, shopMap] of byShop) {
+				let rev = 0, cost = 0;
+				for (const [, p] of shopMap) { rev += p.revenue; cost += p.cost; }
+				const profit = rev - cost;
+				const name = shopNames.get(shopId) || shopId;
+				shops[name] = {
+					revenue: Math.round(rev * 100) / 100,
+					cost: Math.round(cost * 100) / 100,
+					profit: Math.round(profit * 100) / 100,
+				};
+				totalRevenue += rev;
+				totalCost += cost;
+				totalProfit += profit;
+			}
+
+			return c.json({
+				date,
+				shops,
+				total: {
+					revenue: Math.round(totalRevenue * 100) / 100,
+					cost: Math.round(totalCost * 100) / 100,
+					profit: Math.round(totalProfit * 100) / 100,
+				},
+			});
+		} catch (err) {
+			console.error("[gross-profit-today] error:", err);
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+
 	// @deprecated — использует Evotor API напрямую. Заменён на /api/dead-stocks/data (D1).
 	// Удалить после полного перехода на D1-only.
 	.post("/api/evotor/dead-stock", async (c) => {

@@ -5,6 +5,12 @@ interface ShopSalesData {
   refund: Record<string, number>;
 }
 
+interface GrossProfitShop {
+  revenue: number;
+  cost: number;
+  profit: number;
+}
+
 interface FinancialReportDetailsProps {
   salesDataByShopName: Record<string, ShopSalesData>;
   cashOutcomeData: Record<string, Record<string, number>>;
@@ -13,6 +19,8 @@ interface FinancialReportDetailsProps {
   grandTotalRefund: number;
   grandTotalCashOutcome: number;
   totalCashBalance: number;
+  grossProfitByShop?: Record<string, GrossProfitShop>;
+  totalGrossProfit?: number;
 }
 
 const fmt = (value: number) =>
@@ -29,6 +37,8 @@ export const FinancialReportDetails: React.FC<FinancialReportDetailsProps> = ({
   grandTotalRefund,
   grandTotalCashOutcome,
   totalCashBalance,
+  grossProfitByShop,
+  totalGrossProfit,
 }) => {
   const shopNames = Array.from(
     new Set([
@@ -62,6 +72,7 @@ export const FinancialReportDetails: React.FC<FinancialReportDetailsProps> = ({
           );
           const cash = Number(cashBalanceByShop?.[shopName] || 0);
           const net = sell - refund - expenses;
+          const gp = grossProfitByShop?.[shopName];
 
           return (
             <div
@@ -81,6 +92,14 @@ export const FinancialReportDetails: React.FC<FinancialReportDetailsProps> = ({
                 <div>Возвраты: {fmt(refund)} ₽</div>
                 <div>Расходы: {fmt(expenses)} ₽</div>
                 <div>Наличные в кассе: {fmt(cash)} ₽</div>
+                {gp && (
+                  <div className="col-span-2 text-success font-medium">
+                    Валовая прибыль: {fmt(gp.profit)} ₽
+                    <span className="text-muted-foreground font-normal ml-2 text-[10px]">
+                      (выручка {fmt(gp.revenue)} − себест. {fmt(gp.cost)})
+                    </span>
+                  </div>
+                )}
               </div>
               {expenseCategories.length > 0 && (
                 <div className="mt-2 rounded-md bg-card/60 p-2">
@@ -122,6 +141,12 @@ export const FinancialReportDetails: React.FC<FinancialReportDetailsProps> = ({
           <span>Наличные по всем магазинам:</span>
           <span className="font-semibold">{fmt(totalCashBalance)} ₽</span>
         </div>
+        {totalGrossProfit != null && (
+          <div className="flex justify-between text-success">
+            <span>Валовая прибыль:</span>
+            <span className="font-semibold">{fmt(totalGrossProfit)} ₽</span>
+          </div>
+        )}
       </div>
     </div>
   );
