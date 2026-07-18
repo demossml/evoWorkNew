@@ -17,6 +17,7 @@
 
 import type { D1Database } from "@cloudflare/workers-types";
 import { getSellerDailyMetrics, getShopSchedules, createShopSchedulesTable, type ShopScheduleRow } from "../sync/db";
+import { getCostPriceMapByUuid } from "../evotor/utils";
 import {
   avg,
   stddev,
@@ -219,6 +220,7 @@ interface CheckResult {
 function parseCheck(
   transactionsJson: string,
   categoryMap: Map<string, string>,
+  costPriceByUuid?: Map<string, number>,
 ): CheckResult {
   const result: CheckResult = {
     revenue: 0,
@@ -243,7 +245,9 @@ function parseCheck(
       const category = categoryMap.get(tx.commodityUuid) ?? "other";
       const amount = tx.resultSum ?? tx.sum ?? 0;
       const lineQuantity = tx.quantity ?? 0;
-      const lineCost = (tx.costPrice ?? 0) * lineQuantity;
+      const uploadedUnitCost = costPriceByUuid?.get(tx.commodityUuid);
+      const unitCost = uploadedUnitCost ?? (tx.costPrice ?? 0);
+      const lineCost = unitCost * lineQuantity;
       result.margin += amount - lineCost;
       if (category === "vape") result.vapeRevenue += amount;
       if (category === "accessory") result.accRevenue += amount;
@@ -1414,11 +1418,12 @@ async function buildFromLive(
   benchmarkHourly: HourlyPoint[] | null,
   weekday: number | undefined,
 ): Promise<{ sellers: SellerDNAProfile[] }> {
-  const [docs, sessions, employeeNames, categoryMap] = await Promise.all([
+  const [docs, sessions, employeeNames, categoryMap, costPriceByUuid] = await Promise.all([
     fetchDocs(db, since, until, shopId),
     fetchSessions(db, since, until, shopId),
     fetchEmployeeNames(db),
     buildCategoryMap(db),
+    getCostPriceMapByUuid(db, since),
   ]);
 
   if (docs.length === 0) {
@@ -1433,7 +1438,7 @@ async function buildFromLive(
     const uuid = doc.open_user_uuid || "unknown";
     const date = parseDate(doc.close_date);
     const hour = parseHour(doc.close_date);
-    const check = parseCheck(doc.transactions, categoryMap);
+    const check = parseCheck(doc.transactions, categoryMap, costPriceByUuid);
 
     if (!sellerDays.has(uuid)) sellerDays.set(uuid, []);
     const daysList = sellerDays.get(uuid)!;
@@ -1485,7 +1490,7 @@ async function buildFromLive(
   const storeHourTotals = new Map<number, { revenue: number; checks: number }>();
   for (const doc of docs) {
     const hour = parseHour(doc.close_date);
-    const check = parseCheck(doc.transactions, categoryMap);
+    const check = parseCheck(doc.transactions, categoryMap, costPriceByUuid);
     const cur = storeHourTotals.get(hour) ?? { revenue: 0, checks: 0 };
     cur.revenue += check.revenue;
     cur.checks += 1;

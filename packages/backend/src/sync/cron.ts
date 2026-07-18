@@ -28,6 +28,7 @@ import {
   createDeadStockCacheTable,
   refreshDeadStockCache,
 } from "./db";
+import { getCostPriceMapByUuid } from "../evotor/utils";
 
 // ============================================================================
 // Vape group UUIDs (shared across tasks)
@@ -737,6 +738,14 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
       // accessories table may not exist
     }
 
+    // 6.5. Загруженная себестоимость из 1С — авторитетный источник (см. f0eb2ad).
+    // Используется как приоритетный источник маржи; если для товара нет
+    // загруженной цены, используем costPrice из документа Эвотора как fallback.
+    const uploadedCostByUuid = await getCostPriceMapByUuid(env.DB, since);
+    console.log(
+      `[aggregateSellerDailyMetrics] Загруженная себестоимость из 1С: ${uploadedCostByUuid.size} товаров`,
+    );
+
     // 7. Aggregate per (seller_uuid, shop_id)
     const agg = new Map<
       string,
@@ -792,7 +801,9 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
           const cat = categoryMap.get(tx.commodityUuid) ?? "other";
           const amt = tx.resultSum ?? tx.sum ?? 0;
           const lineQuantity = tx.quantity ?? 0;
-          const lineCost = (tx.costPrice ?? 0) * lineQuantity;
+          const uploadedUnitCost = uploadedCostByUuid.get(tx.commodityUuid);
+          const unitCost = uploadedUnitCost ?? (tx.costPrice ?? 0);
+          const lineCost = unitCost * lineQuantity;
           const lineMargin = amt - lineCost;
           checkMargin += lineMargin;
           if (cat === "vape") entry.vapeRevenue += amt;

@@ -1352,6 +1352,51 @@ export async function getCostPricesForPeriod(
 	return result;
 }
 
+/**
+ * Строит карту UUID товара → загруженная из 1С себестоимость, актуальная на
+ * дату `since`. Совмещает shopProduct (uuid → name) с product_cost_prices
+ * (name → costPrice, период-зависимо). Используется там, где расчёт идёт по
+ * commodityUuid из транзакций Эвотора (а не по имени напрямую), например —
+ * в агрегации метрик продавцов (маржа).
+ *
+ * Если для товара нет загруженной из 1С цены, он просто отсутствует в
+ * возвращённой карте — вызывающий код должен сам предусмотреть fallback
+ * (обычно — на costPrice из самого документа Эвотора).
+ */
+export async function getCostPriceMapByUuid(
+	db: D1Database,
+	since: string,
+): Promise<Map<string, number>> {
+	const result = new Map<string, number>();
+
+	// 1. uuid → name (может быть несколько записей на uuid из-за разных shopId —
+	//    берём любое непустое имя, для целей матчинга себестоимости этого достаточно)
+	const nameRows = await db
+		.prepare(`SELECT DISTINCT uuid, name FROM shopProduct WHERE name IS NOT NULL AND name != ''`)
+		.all<{ uuid: string; name: string }>();
+
+	const uuidToName = new Map<string, string>();
+	for (const r of nameRows.results ?? []) {
+		if (!uuidToName.has(r.uuid)) uuidToName.set(r.uuid, r.name);
+	}
+
+	if (uuidToName.size === 0) return result;
+
+	// 2. name → costPrice (период-зависимо, переиспользуем существующую функцию)
+	const allNames = [...new Set(uuidToName.values())];
+	const priceByName = await getCostPricesForPeriod(db, allNames, since);
+
+	if (priceByName.size === 0) return result;
+
+	// 3. uuid → costPrice, через join по имени
+	for (const [uuid, name] of uuidToName) {
+		const price = priceByName.get(name);
+		if (price !== undefined) result.set(uuid, price);
+	}
+
+	return result;
+}
+
 // ════════════════════════════════════════════════════════════════
 // Старые методы (оставлены для обратной совместимости)
 // ════════════════════════════════════════════════════════════════
