@@ -1204,7 +1204,20 @@ export const api = new Hono<IEnv>()
 				productNames,
 			);
 
-			return c.json({ salesData, shopName, startDate, endDate });
+			// Обогащаем себестоимостью из 1С (для расчёта валовой прибыли)
+			const names = Object.keys(salesData);
+			const costPrices = await getCostPricesForPeriod(c.get("db"), names, since);
+			const salesDataWithCost: Record<string, { quantitySale: number; sum: number; costTotal: number }> = {};
+			for (const [name, d] of Object.entries(salesData)) {
+				const unitCost = costPrices.get(name) ?? 0;
+				salesDataWithCost[name] = {
+					quantitySale: d.quantitySale,
+					sum: d.sum,
+					costTotal: unitCost * d.quantitySale,
+				};
+			}
+
+			return c.json({ salesData: salesDataWithCost, shopName, startDate, endDate });
 		} catch (error) {
 			console.error("Ошибка при обработке sales-result:", error);
 			return c.json({ message: "Ошибка обработки данных" }, 400);

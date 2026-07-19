@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useMe } from "../../hooks/useApi";
+import { useMe, useEmployeeRole } from "../../hooks/useApi";
 import { motion } from "framer-motion";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { telegram, isTelegramMiniApp } from "../../helpers/telegram";
@@ -17,6 +17,7 @@ import {
   ShopSelector,
 } from "@widgets/reports";
 import { ReportHeader, ReportKPIBar, ReportShareButton } from "@shared/ui";
+import { TrendingUp } from "lucide-react";
 
 interface GroupOption {
   name: string;
@@ -24,7 +25,7 @@ interface GroupOption {
 }
 
 interface ReportData {
-  salesData: Record<string, { quantitySale: number; sum: number }>;
+  salesData: Record<string, { quantitySale: number; sum: number; costTotal?: number }>;
   shopName: string;
   startDate: string;
   endDate: string;
@@ -108,6 +109,9 @@ export default function SalesReport() {
   }, [dateMode, period]);
 
   const { data } = useMe();
+  const { data: roleData } = useEmployeeRole();
+  const isAdmin = roleData?.employeeRole === "ADMIN" || roleData?.employeeRole === "SUPERADMIN";
+  const [showProfit, setShowProfit] = useState(false);
   const userId = data?.id?.toString() || "";
   const storageKey = userId ? `salesReportFilters:${userId}` : "";
 
@@ -403,22 +407,29 @@ export default function SalesReport() {
   if (reportData) {
     const { salesData, startDate, endDate, shopName } = reportData;
     const tableData = Object.entries(salesData).map(
-      ([productName, { quantitySale, sum }]) => ({
+      ([productName, { quantitySale, sum, costTotal }]) => ({
         productName,
         quantitySale,
         sum,
+        costTotal: costTotal ?? 0,
+        profit: sum - (costTotal ?? 0),
       })
     );
     const totalRevenue = Object.values(salesData).reduce(
       (acc, item) => acc + item.sum,
       0
     );
+    const totalCost = Object.values(salesData).reduce(
+      (acc, item) => acc + (item.costTotal ?? 0),
+      0
+    );
+    const totalProfit = totalRevenue - totalCost;
     const totalQuantity = Object.values(salesData).reduce(
       (acc, item) => acc + item.quantitySale,
       0
     );
     const skuCount = tableData.length;
-    const avgPerSku = skuCount > 0 ? totalRevenue / skuCount : 0;
+    const avgPerSku = skuCount > 0 ? (showProfit ? totalProfit : totalRevenue) / skuCount : 0;
 
     return (
       <motion.div
@@ -438,34 +449,60 @@ export default function SalesReport() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="rounded-2xl bg-card p-3 sm:p-4 shadow-sm border border-border space-y-3">
-            <div className="flex items-start justify-between gap-3">
+          <div className="rounded-2xl bg-card p-3 sm:p-4 shadow-sm border border-border space-y-2">
+            <div className="flex items-start justify-between gap-2">
               <ReportHeader
                 title="Отчёт по продажам"
                 subtitle={formatPeriod(shopName, startDate, endDate)}
               />
-              <button
-                type="button"
-                onClick={() => {
-                  setReportData(null);
-                  setShowAiInsights(false);
-                }}
-                className="rounded-lg px-3 py-2 text-sm bg-secondary text-secondary-foreground hover:bg-secondary/80 transition"
-              >
-                Изменить фильтры
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowProfit(!showProfit)}
+                    className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                      showProfit
+                        ? "bg-success text-success-foreground"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    {showProfit ? "Прибыль" : "Выручка"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReportData(null);
+                    setShowAiInsights(false);
+                  }}
+                  className="rounded-lg px-3 py-2 text-sm bg-secondary text-secondary-foreground hover:bg-secondary/80 transition"
+                >
+                  Изменить
+                </button>
+              </div>
             </div>
 
-            <ReportKPIBar items={[
-              { label: "Выручка", value: `${formatMoney(totalRevenue)} ₽`, emphasis: "primary" },
+            <ReportKPIBar compact items={[
+              {
+                label: showProfit ? "Валовая прибыль" : "Выручка",
+                value: `${formatMoney(showProfit ? totalProfit : totalRevenue)} ₽`,
+                emphasis: "primary",
+              },
               { label: "Продано, шт", value: formatMoney(totalQuantity) },
               { label: "SKU в отчете", value: formatMoney(skuCount) },
-              { label: "Среднее на SKU", value: `${formatMoney(avgPerSku)} ₽` },
+              {
+                label: showProfit ? "Прибыль на SKU" : "Среднее на SKU",
+                value: `${formatMoney(avgPerSku)} ₽`,
+              },
             ]} />
           </div>
 
           <div className="flex-1 min-h-0 w-full">
-            <DynamicTableSalesReport data={tableData} />
+            <DynamicTableSalesReport
+              data={tableData}
+              showProfit={showProfit && isAdmin}
+            />
           </div>
 
           {/* AI Insights Section */}

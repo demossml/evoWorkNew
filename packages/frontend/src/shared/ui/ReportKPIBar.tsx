@@ -19,13 +19,14 @@ export interface KPIItem {
 
 interface ReportKPIBarProps {
   items: KPIItem[];
+  compact?: boolean;
 }
 
-export function ReportKPIBar({ items }: ReportKPIBarProps) {
+export function ReportKPIBar({ items, compact }: ReportKPIBarProps) {
   if (!items.length) return null;
 
   return (
-    <div className={`grid gap-3 ${items.length <= 2 ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4"}`}>
+    <div className={`grid ${compact ? "gap-1.5" : "gap-3"} ${items.length <= 2 ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4"}`}>
       {items.map((item, idx) => {
         const isPrimary = item.emphasis === "primary";
         return (
@@ -34,16 +35,16 @@ export function ReportKPIBar({ items }: ReportKPIBarProps) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: idx * 0.05 }}
-            className={`rounded-xl p-4 ${
+            className={`rounded-lg ${compact ? "p-2" : "rounded-xl p-4"} ${
               isPrimary
                 ? "bg-primary text-primary-foreground"
                 : "bg-card border border-border text-foreground"
             }`}
           >
-            <div className={`text-xs mb-1 ${isPrimary ? "opacity-85" : "text-muted-foreground"}`}>
+            <div className={`${compact ? "text-[10px]" : "text-xs"} mb-0.5 ${isPrimary ? "opacity-85" : "text-muted-foreground"}`}>
               {item.label}
             </div>
-            <div className="text-lg sm:text-xl font-bold">{item.value}</div>
+            <div className={`${compact ? "text-sm" : "text-lg sm:text-xl"} font-bold`}>{item.value}</div>
           </motion.div>
         );
       })}

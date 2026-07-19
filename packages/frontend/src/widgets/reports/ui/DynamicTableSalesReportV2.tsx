@@ -5,23 +5,33 @@ type SalesReportRow = {
   productName: string;
   quantitySale: number;
   sum: number;
+  costTotal?: number;
+  profit?: number;
 };
 
-type SortKey = "productName" | "quantitySale" | "sum";
+type SortKey = "productName" | "quantitySale" | "sum" | "profit";
 type SortDirection = "asc" | "desc";
 
 interface DynamicTableSalesReportV2Props {
   data: SalesReportRow[];
+  showProfit?: boolean;
 }
 
 const formatNumber = (value: number) => value.toLocaleString("ru-RU");
 
 export const DynamicTableSalesReportV2: React.FC<
   DynamicTableSalesReportV2Props
-> = ({ data }) => {
-  const [sortKey, setSortKey] = React.useState<SortKey>("sum");
+> = ({ data, showProfit }) => {
+  const defaultSort = showProfit ? "profit" as SortKey : "sum" as SortKey;
+  const [sortKey, setSortKey] = React.useState<SortKey>(defaultSort);
   const [sortDirection, setSortDirection] =
     React.useState<SortDirection>("desc");
+
+  // Reset sort when switching between revenue/profit
+  React.useEffect(() => {
+    setSortKey(defaultSort);
+    setSortDirection("desc");
+  }, [showProfit]);
 
   const sortedData = React.useMemo(() => {
     const next = [...data];
@@ -30,8 +40,8 @@ export const DynamicTableSalesReportV2: React.FC<
         const cmp = a.productName.localeCompare(b.productName, "ru");
         return sortDirection === "asc" ? cmp : -cmp;
       }
-      const left = a[sortKey];
-      const right = b[sortKey];
+      const left = sortKey === "profit" ? (a.profit ?? 0) : (a[sortKey as "quantitySale" | "sum"] ?? 0);
+      const right = sortKey === "profit" ? (b.profit ?? 0) : (b[sortKey as "quantitySale" | "sum"] ?? 0);
       return sortDirection === "asc" ? left - right : right - left;
     });
     return next;
@@ -80,10 +90,10 @@ export const DynamicTableSalesReportV2: React.FC<
           </button>
           <button
             type="button"
-            onClick={() => handleSort("sum")}
+            onClick={() => handleSort(showProfit ? "profit" : "sum")}
             className="w-[90px] shrink-0 text-right pr-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
           >
-            ₽ {sortArrow("sum")}
+            {showProfit ? "₽ приб." : "₽"} {sortArrow(showProfit ? "profit" : "sum")}
           </button>
         </div>
       </div>
@@ -114,9 +124,9 @@ export const DynamicTableSalesReportV2: React.FC<
                 <div className="w-[60px] shrink-0 text-right pr-3 text-[13px] font-semibold tabular-nums text-foreground">
                   {formatNumber(row.quantitySale)}
                 </div>
-                {/* Sum column */}
-                <div className="w-[90px] shrink-0 text-right pr-3 text-[13px] font-bold tabular-nums text-foreground">
-                  {formatNumber(row.sum)}
+                {/* Sum / Profit column */}
+                <div className={`w-[90px] shrink-0 text-right pr-3 text-[13px] font-bold tabular-nums ${showProfit ? (row.profit && row.profit >= 0 ? "text-success" : "text-destructive") : "text-foreground"}`}>
+                  {formatNumber(showProfit ? (row.profit ?? 0) : row.sum)}
                 </div>
               </div>
             </motion.div>
