@@ -1206,7 +1206,7 @@ export const api = new Hono<IEnv>()
 
 			// Обогащаем себестоимостью из 1С (для расчёта валовой прибыли)
 			const names = Object.keys(salesData);
-			const costPrices = await getCostPricesForPeriod(c.get("db"), names, since);
+			const costPrices = await getCostPricesForPeriod(c.env.DB as D1Database, names, since);
 			const salesDataWithCost: Record<string, { quantitySale: number; sum: number; costTotal: number }> = {};
 			for (const [name, d] of Object.entries(salesData)) {
 				const unitCost = costPrices.get(name) ?? 0;
