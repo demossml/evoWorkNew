@@ -16,7 +16,7 @@ import {
   GroupSelector,
   ShopSelector,
 } from "@widgets/reports";
-import { ReportHeader, ReportKPIBar, ReportShareButton } from "@shared/ui";
+import { ReportHeader, ReportKPIBar, ReportShareButton, ShareReportButton } from "@shared/ui";
 import { TrendingUp } from "lucide-react";
 
 interface GroupOption {
@@ -480,6 +480,7 @@ export default function SalesReport() {
                 >
                   Изменить
                 </button>
+                <ShareReportButton since={startDate} until={endDate} reportType="revenue" />
               </div>
             </div>
 

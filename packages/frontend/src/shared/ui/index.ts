@@ -28,5 +28,6 @@ export { ReportHeader, type ReportHeaderProps } from "./ReportHeader";
 export { ReportKPIBar, type KPIItem, type KPIEmphasis } from "./ReportKPIBar";
 export { Sparkline } from "./Sparkline";
 export { ReportShareButton } from "./ReportShareButton";
+export { ShareReportButton } from "./ShareReportButton";
 export { AIInsightsPanel } from "./AIInsightsPanel";
 export { AIChatPanel } from "./AIChatPanel";

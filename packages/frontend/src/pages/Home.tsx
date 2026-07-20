@@ -12,6 +12,7 @@ import {
 import { buildHomeAccessModel } from "@features/dashboard/model/homePageModel";
 import { DailyBriefing } from "@widgets/home/DailyBriefing";
 import { DateFilter, type DateFilterValue } from "@widgets/home/DateFilter";
+import { ShareReportButton } from "@shared/ui";
 import { RevenueWidget } from "@widgets/home/RevenueWidget";
 import { SalesTempoWidget } from "@widgets/home/SalesTempoWidget";
 import { FinanceWidget } from "@widgets/home/FinanceWidget";
@@ -82,7 +83,10 @@ export default function Home() {
         <ErrorBoundary variant="widget" name="Ежедневный брифинг">
           <DailyBriefing />
         </ErrorBoundary>
-        <DateFilter value={dateFilter} onChange={setDateFilter} />
+        <div className="flex items-center gap-2">
+          <DateFilter value={dateFilter} onChange={setDateFilter} />
+          <ShareReportButton since={since} until={until} reportType="revenue" />
+        </div>
         <ErrorBoundary variant="widget" name="План по магазинам">
           <PlanStatusWidget date={since} />
         </ErrorBoundary>
