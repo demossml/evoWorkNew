@@ -4410,7 +4410,172 @@ ${storesList}
 		}
 	})
 
+	// --- /api/reports/share — генерация шаримой HTML-версии отчёта ---
+	.post("/api/reports/share", async (c) => {
+		try {
+			const db = c.env.DB as D1Database;
+			const body = await c.req.json<{
+				reportType: string;
+				params: { since: string; until: string; shopId?: string };
+			}>();
+			const { reportType, params } = body;
+
+			if (!reportType || !params?.since || !params?.until) {
+				return c.json({ error: "reportType, params.since, params.until обязательны" }, 400);
+			}
+
+			let html = "";
+
+			if (reportType === "revenue") {
+				html = await generateRevenueShareHtml(db, params);
+			} else {
+				return c.json({ error: `Неизвестный тип отчёта: ${reportType}` }, 400);
+			}
+
+			// Сохраняем в R2
+			const reportId = crypto.randomUUID();
+			const key = `reports/${reportId}.html`;
+			const r2 = c.env.R2 as any;
+			const encoder = new TextEncoder();
+			await r2.put(key, encoder.encode(html), {
+				httpMetadata: { contentType: "text/html; charset=utf-8" },
+			});
+
+			const baseUrl = c.env.R2_PUBLIC_URL || `http://localhost:8787`;
+			const shareUrl = `${baseUrl}/${key}`;
+
+			return c.json({ shareUrl, reportId, expiresIn: "14 дней" });
+		} catch (err) {
+			console.error("[reports/share] error:", err);
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+
 	// --- end compatibility routes ---
 	;
+
+// ============================================================================
+// Helpers for /api/reports/share
+// ============================================================================
+
+async function generateRevenueShareHtml(
+	db: D1Database,
+	params: { since: string; until: string; shopId?: string },
+): Promise<string> {
+	const since = params.since + "T00:00:00";
+	const until = params.until + "T23:59:59";
+	const shopFilter = params.shopId && params.shopId !== "all"
+		? `AND shop_id = '${params.shopId.replace(/'/g, "''")}'`
+		: "";
+
+	const docs = await db
+		.prepare(`SELECT transactions, type, shop_id FROM index_documents
+		          WHERE close_date >= ? AND close_date <= ? ${shopFilter}
+		            AND type IN ('SELL', 'PAYBACK')`)
+		.bind(since, until)
+		.all<{ transactions: string; type: string; shop_id: string }>();
+
+	const byProduct = new Map<string, { qty: number; sum: number }>();
+	for (const doc of docs.results ?? []) {
+		const isRefund = doc.type === "PAYBACK";
+		const sign = isRefund ? -1 : 1;
+		let txs: any[];
+		try { txs = JSON.parse(doc.transactions); } catch { continue; }
+		if (!Array.isArray(txs)) continue;
+		for (const tx of txs) {
+			if (tx.type !== "REGISTER_POSITION") continue;
+			const name = (tx.commodityName || "—").trim();
+			const qty = (tx.quantity ?? 0) * sign;
+			const sum = (tx.sum ?? 0) * sign;
+			if (!byProduct.has(name)) byProduct.set(name, { qty: 0, sum: 0 });
+			const p = byProduct.get(name)!;
+			p.qty += qty;
+			p.sum += sum;
+		}
+	}
+
+	const sorted = [...byProduct.entries()]
+		.filter(([, v]) => v.sum > 0)
+		.sort((a, b) => b[1].sum - a[1].sum);
+
+	const totalRevenue = sorted.reduce((s, [, v]) => s + v.sum, 0);
+	const totalQty = sorted.reduce((s, [, v]) => s + v.qty, 0);
+	const shopName = params.shopId && params.shopId !== "all"
+		? (await db.prepare("SELECT name FROM shops WHERE uuid = ?").bind(params.shopId).first<{ name: string }>())?.name || params.shopId
+		: "Все магазины";
+
+	const fmt = (n: number) => n.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
+	const rows = sorted.map(([name, v], i) => {
+		const share = sorted.length > 0 ? ((v.sum / totalRevenue) * 100).toFixed(1) : "0";
+		return `<tr class="${i % 2 === 0 ? "even" : ""}">
+			<td class="name">${escapeHtml(name)}</td>
+			<td class="num">${fmt(v.qty)}</td>
+			<td class="num">${fmt(v.sum)} ₽</td>
+			<td class="num">${share}%</td>
+		</tr>`;
+	}).join("");
+
+	const generatedAt = new Date().toLocaleString("ru-RU", { timeZone: "Europe/Moscow" });
+
+	return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Отчёт по продажам — ${escapeHtml(shopName)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f7;color:#1d1d1f;padding:20px}
+  .card{max-width:800px;margin:0 auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+  h1{font-size:20px;margin-bottom:4px}
+  .subtitle{color:#86868b;font-size:14px;margin-bottom:20px}
+  .kpi{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+  .kpi-item{flex:1;min-width:120px;background:#f5f5f7;border-radius:12px;padding:12px 16px}
+  .kpi-label{font-size:11px;color:#86868b;text-transform:uppercase;margin-bottom:4px}
+  .kpi-value{font-size:22px;font-weight:700}
+  .kpi-primary{background:#0071e3;color:#fff}
+  .kpi-primary .kpi-label{color:rgba(255,255,255,.7)}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;padding:8px 12px;font-size:11px;color:#86868b;text-transform:uppercase;border-bottom:2px solid #e5e5ea}
+  td{padding:10px 12px;font-size:14px;border-bottom:1px solid #f0f0f5}
+  .name{font-weight:500}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .even{background:#fafafc}
+  tr:hover{background:#f0f0f5}
+  .footer{margin-top:24px;padding-top:16px;border-top:1px solid #e5e5ea;text-align:center;color:#aeaeb2;font-size:12px}
+  @media(max-width:480px){body{padding:8px}.card{padding:16px}.kpi-item{min-width:100px}}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Отчёт по продажам</h1>
+  <p class="subtitle">${escapeHtml(shopName)} · ${params.since} → ${params.until}</p>
+  <div class="kpi">
+    <div class="kpi-item kpi-primary">
+      <div class="kpi-label">Выручка</div>
+      <div class="kpi-value">${fmt(totalRevenue)} ₽</div>
+    </div>
+    <div class="kpi-item">
+      <div class="kpi-label">Продано</div>
+      <div class="kpi-value">${fmt(totalQty)} шт</div>
+    </div>
+    <div class="kpi-item">
+      <div class="kpi-label">SKU</div>
+      <div class="kpi-value">${sorted.length}</div>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>Товар</th><th class="num">Шт</th><th class="num">Сумма</th><th class="num">Доля</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">Сгенерировано ${generatedAt} (МСК) · Evo App</div>
+</div>
+</body>
+</html>`;
+}
+
+function escapeHtml(s: string): string {
+	return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
 export type IAPI = typeof api;
