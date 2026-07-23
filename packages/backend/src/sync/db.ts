@@ -1,4 +1,5 @@
 import type { D1Database } from "@cloudflare/workers-types";
+import { getCostPriceMapByUuid } from "../evotor/utils";
 
 // ============================================================================
 // Helpers
@@ -857,6 +858,10 @@ export interface DeadStockCacheRow {
   shopId: string;
   shopName: string;
   totalRevenueLast90Days: number;
+  /** Закупочная цена за единицу (из 1С или Evotor costPrice) */
+  unitCost: number | null;
+  /** Заморожено: currentStock * unitCost */
+  totalFrozenCost: number | null;
   updatedAt: string;
 }
 
@@ -873,6 +878,8 @@ export async function createDeadStockCacheTable(db: D1Database): Promise<void> {
         lastSaleDate TEXT,
         shopName TEXT NOT NULL DEFAULT '',
         totalRevenueLast90Days REAL NOT NULL DEFAULT 0,
+        unitCost REAL,
+        totalFrozenCost REAL,
         updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
         PRIMARY KEY (itemId, shopId)
       )`,
@@ -881,6 +888,9 @@ export async function createDeadStockCacheTable(db: D1Database): Promise<void> {
   await db
     .prepare(`CREATE INDEX IF NOT EXISTS idx_dsc_shop_days ON dead_stock_cache (shopId, daysWithoutSales)`)
     .run();
+  // Миграция: добавляем колонки себестоимости, если их ещё нет
+  try { await db.prepare(`ALTER TABLE dead_stock_cache ADD COLUMN unitCost REAL`).run(); } catch { /* ok */ }
+  try { await db.prepare(`ALTER TABLE dead_stock_cache ADD COLUMN totalFrozenCost REAL`).run(); } catch { /* ok */ }
   console.log("Таблица 'dead_stock_cache' создана или уже существует.");
 }
 
@@ -914,6 +924,8 @@ export async function refreshDeadStockCache(
   //    Ключ: uuid|shop_id ИЛИ name|shop_id (UUID разный в разных магазинах!)
   const lastSale = new Map<string, string>();
   const revenue90 = new Map<string, number>();
+  const evotorCost = new Map<string, number>(); // Evotor costPrice per unit (fallback)
+  const costDate = new Map<string, string>();   // дата для сравнения свежести costPrice
 
   for (const doc of docs.results ?? []) {
     const isRefund = doc.type === "PAYBACK";
@@ -928,6 +940,15 @@ export async function refreshDeadStockCache(
       const uuid = tx.commodityUuid;
       const name = (tx.commodityName || "").trim();
       if (!uuid && !name) continue;
+
+      // Evotor costPrice — берём последнее значение (самое свежее)
+      if (uuid && tx.costPrice != null && tx.costPrice > 0) {
+        const costKey = `cost:${uuid}|${doc.shop_id}`;
+        if (!evotorCost.has(costKey) || day > (costDate.get(costKey) || "")) {
+          evotorCost.set(costKey, tx.costPrice);
+          costDate.set(costKey, day);
+        }
+      }
 
       // Ключ по UUID (основной)
       if (uuid) {
@@ -948,7 +969,10 @@ export async function refreshDeadStockCache(
     }
   }
 
-  // 5. Формируем строки кэша — матчим по UUID, затем по имени
+  // 5. Загружаем себестоимость из 1С (приоритет) или Evotor
+  const costByUuid = await getCostPriceMapByUuid(db, sinceStr);
+
+  // 6. Формируем строки кэша — матчим по UUID, затем по имени
   const rows: DeadStockCacheRow[] = [];
   for (const p of products.results ?? []) {
     // Сначала ищем по UUID (основной ключ)
@@ -967,6 +991,14 @@ export async function refreshDeadStockCache(
       ? Math.floor((Date.now() - new Date(last + "T12:00:00+03:00").getTime()) / 86400000)
       : 999;
 
+    // Себестоимость из 1С (приоритет), иначе Evotor costPrice (fallback)
+    const costKey = `cost:${p.uuid}|${p.shopId}`;
+    const unitCost = costByUuid.get(p.uuid) ?? evotorCost.get(costKey) ?? null;
+    // totalFrozenCost = цена за единицу (остаток неизвестен локально)
+    const totalFrozenCost = (unitCost != null)
+      ? Math.round(unitCost * 100) / 100
+      : null;
+
     rows.push({
       itemId: p.uuid,
       name: p.name,
@@ -977,19 +1009,21 @@ export async function refreshDeadStockCache(
       shopId: p.shopId,
       shopName: shopNames.get(p.shopId) || p.shopId,
       totalRevenueLast90Days: rev,
+      unitCost,
+      totalFrozenCost,
       updatedAt: today,
     });
   }
 
-  // 6. Очищаем и вставляем
+  // 7. Очищаем и вставляем
   await db.prepare("DELETE FROM dead_stock_cache").run();
   const stmt = db.prepare(
     `INSERT OR REPLACE INTO dead_stock_cache
-       (itemId, shopId, name, article, currentStock, daysWithoutSales, lastSaleDate, shopName, totalRevenueLast90Days, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (itemId, shopId, name, article, currentStock, daysWithoutSales, lastSaleDate, shopName, totalRevenueLast90Days, unitCost, totalFrozenCost, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const batch = rows.map(r =>
-    stmt.bind(r.itemId, r.shopId, r.name, r.article, r.currentStock, r.daysWithoutSales, r.lastSaleDate, r.shopName, r.totalRevenueLast90Days, r.updatedAt)
+    stmt.bind(r.itemId, r.shopId, r.name, r.article, r.currentStock, r.daysWithoutSales, r.lastSaleDate, r.shopName, r.totalRevenueLast90Days, r.unitCost, r.totalFrozenCost, r.updatedAt)
   );
   await db.batch(batch);
 

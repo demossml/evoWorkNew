@@ -2913,9 +2913,16 @@ export const api = new Hono<IEnv>()
 			await createDeadStockCacheTable(db);
 			const rows = await getDeadStockCache(db, daysWithoutSales, shopId, since, until);
 
+			// Суммарный замороженный капитал (по всем товарам с известной себестоимостью)
+			const totalFrozenCost = rows.reduce(
+				(sum, r) => sum + (r.totalFrozenCost ?? 0),
+				0,
+			);
+
 			return c.json({
 				items: rows,
 				total: rows.length,
+				totalFrozenCost: Math.round(totalFrozenCost * 100) / 100,
 				threshold: daysWithoutSales,
 				shopId: shopId || null,
 				since: since || null,
