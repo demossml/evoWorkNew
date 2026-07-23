@@ -157,9 +157,9 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
       {/* 2. Вейп / Аксессуары / Прочие */}
       <div className="grid grid-cols-3 gap-2">
         {[
-          { l: "Вейп", i: Zap, c: "text-violet-500", b: "bg-violet-50 dark:bg-violet-950/30", v: netSales * 0.6 },
-          { l: "Аксессуары", i: Wrench, c: "text-amber-500", b: "bg-amber-50 dark:bg-amber-950/30", v: netSales * 0.25 },
-          { l: "Прочее", i: Package, c: "text-blue-500", b: "bg-blue-50 dark:bg-blue-950/30", v: netSales * 0.15 },
+          { l: "Вейп", i: Zap, c: "text-violet-500", b: "bg-violet-50 dark:bg-violet-950/30", v: filtered.salesByGroup?.vape ?? 0 },
+          { l: "Аксессуары", i: Wrench, c: "text-amber-500", b: "bg-amber-50 dark:bg-amber-950/30", v: filtered.salesByGroup?.accessory ?? 0 },
+          { l: "Прочее", i: Package, c: "text-blue-500", b: "bg-blue-50 dark:bg-blue-950/30", v: filtered.salesByGroup?.other ?? 0 },
         ].map(x => (
           <div key={x.l} className={`rounded-xl p-2.5 text-center ${x.b}`}>
             <x.i className={`w-4 h-4 mx-auto mb-1 ${x.c}`} />

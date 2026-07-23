@@ -32,6 +32,8 @@ export interface SalesData {
   totalCashBalance: number;
   totalChecks: number;
   topProducts: ProductData[];
+  /** Продажи по товарным группам: vape / accessory / other */
+  salesByGroup?: { vape: number; accessory: number; other: number };
   /** YYYY-MM-DD → выручка за день, по всем магазинам. Только для периодных
    * запросов (since+until) — сервер строит его из тех же документов, что и
    * grandTotalSell, просто не схлопывает их в одно число. */

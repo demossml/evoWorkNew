@@ -74,6 +74,7 @@ import {
 	getSalesgardenReportData,
 	getTopProductsFromD1,
 	getAccessoriesSalesFromD1,
+	getSalesByProductGroup,
 	extractSalesInfoFromD1,
 	getCashByShopsFromD1,
 	getOpenSessionsFromD1,
@@ -716,12 +717,17 @@ export const api = new Hono<IEnv>()
 
 	.get("/api/evotor/sales-today", async (c) => {
 		const db = c.get("db");
-		const { getSalesTodayFromD1 } = await import("./evotor/utils.js");
+		const { getSalesTodayFromD1, getSalesByProductGroup: getGroup } = await import("./evotor/utils.js");
 		const salesData = await getSalesTodayFromD1(db);
 
 		assert(salesData, "No sales data found");
 
-		return c.json({ salesData });
+		const now = new Date();
+		const since = formatDateWithTime(now, false);
+		const until = formatDateWithTime(now, true);
+		const salesByGroup = await getGroup(db, since, until);
+
+		return c.json({ salesData, salesByGroup });
 	})
 
 	.get("/api/evotor/sales-today-graf", async (c) => {
@@ -1683,6 +1689,8 @@ export const api = new Hono<IEnv>()
 			const grandTotalCashOutcome = calculateTotalSum(cashOutcomeData);
 			const cash = await getCashByShopsFromD1(db);
 
+			const salesByGroup = await getSalesByProductGroup(db, since, until);
+
 			return c.json({
 				salesDataByShopName,
 				grandTotalSell,
@@ -1691,6 +1699,7 @@ export const api = new Hono<IEnv>()
 				dailySell,
 				cashOutcomeData,
 				cash,
+				salesByGroup,
 			});
 		} catch (error) {
 			console.error("Ошибка при обработке запроса:", error);
@@ -1761,6 +1770,9 @@ export const api = new Hono<IEnv>()
 			const totalCashBalance = Object.values(cashBalanceByShop).reduce((s, v) => s + v, 0);
 
 			const grandTotalCashOutcome = calculateTotalSum(cashOutcomeData);
+
+			const salesByGroup = await getSalesByProductGroup(db, since, until);
+
 			return c.json({
 				salesDataByShopName,
 				grandTotalSell,
@@ -1773,6 +1785,7 @@ export const api = new Hono<IEnv>()
 				cashBalanceByShop,
 				totalCashBalance,
 				topProducts,
+				salesByGroup,
 			});
 		} catch (error) {
 			console.error("Ошибка при разборе JSON:", error);

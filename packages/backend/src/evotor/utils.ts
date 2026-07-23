@@ -3,6 +3,7 @@ import {
 	getDocumentsBySales,
 	getDocumentsBySalesPeriod,
 } from "../utils";
+import { VAPE_GROUP_UUIDS } from "../sync/cron";
 
 import type { D1Database } from "@cloudflare/workers-types";
 
@@ -743,6 +744,110 @@ export async function getAccessoriesSalesFromD1(
 		console.error("getAccessoriesSalesFromD1: ошибка", error);
 		return empty;
 	}
+}
+
+// ============================================================================
+// Sales by product group (vape / accessory / other)
+// ============================================================================
+
+/**
+ * Возвращает сумму продаж (net: SELL − PAYBACK) по товарным группам.
+ *
+ * Группы:
+ * - vape:       товары, чей parentUuid ∈ VAPE_GROUP_UUIDS
+ * - accessory:  товары, чей parentUuid ∈ таблица accessories (не вейпы)
+ * - other:      всё остальное
+ */
+export async function getSalesByProductGroup(
+	db: D1Database,
+	since: string,
+	until: string,
+): Promise<{ vape: number; accessory: number; other: number }> {
+	const result = { vape: 0, accessory: 0, other: 0 };
+
+	try {
+		// 1. Собираем UUID вейп-товаров
+		const vapePlaceholders = VAPE_GROUP_UUIDS.map(() => "?").join(",");
+		const vapeRows = await db
+			.prepare(
+				`SELECT uuid FROM shopProduct WHERE parentUuid IN (${vapePlaceholders})`,
+			)
+			.bind(...VAPE_GROUP_UUIDS)
+			.all<{ uuid: string }>();
+		const vapeUuids = new Set((vapeRows.results ?? []).map(r => r.uuid));
+
+		// 2. Собираем UUID аксессуарных товаров (не вейпы)
+		const accessoryUuids = new Set<string>();
+		try {
+			const accParents = await db
+				.prepare("SELECT uuid FROM accessories")
+				.all<{ uuid: string }>();
+			const parentUuids = (accParents.results ?? []).map(r => r.uuid);
+			if (parentUuids.length > 0) {
+				const accPlaceholders = parentUuids.map(() => "?").join(",");
+				const accRows = await db
+					.prepare(
+						`SELECT uuid FROM shopProduct WHERE parentUuid IN (${accPlaceholders})`,
+					)
+					.bind(...parentUuids)
+					.all<{ uuid: string }>();
+				for (const r of accRows.results ?? []) {
+					if (!vapeUuids.has(r.uuid)) accessoryUuids.add(r.uuid);
+				}
+			}
+		} catch {
+			// accessories table may not exist
+		}
+
+		// 3. Запрашиваем все SELL/PAYBACK
+		const docs = await db
+			.prepare(`
+				SELECT type, transactions
+				FROM index_documents
+				WHERE close_date >= ?1 AND close_date <= ?2
+				  AND type IN ('SELL', 'PAYBACK')
+			`)
+			.bind(since, until)
+			.all();
+
+		if (!docs?.results || docs.results.length === 0) return result;
+
+		for (const row of docs.results as { type: string; transactions: string }[]) {
+			const isRefund = row.type === "PAYBACK";
+			const sign = isRefund ? -1 : 1;
+
+			let transactions: any[];
+			try {
+				transactions = JSON.parse(row.transactions);
+			} catch {
+				continue;
+			}
+			if (!Array.isArray(transactions)) continue;
+
+			for (const tx of transactions) {
+				if (tx.type !== "REGISTER_POSITION") continue;
+				const sum = tx.sum ?? 0;
+				const uuid = tx.commodityUuid as string | undefined;
+
+				if (uuid && vapeUuids.has(uuid)) {
+					result.vape += sum * sign;
+				} else if (uuid && accessoryUuids.has(uuid)) {
+					result.accessory += sum * sign;
+				} else {
+					result.other += sum * sign;
+				}
+			}
+		}
+
+		// Не допускаем отрицательных значений
+		result.vape = Math.max(0, Math.round(result.vape));
+		result.accessory = Math.max(0, Math.round(result.accessory));
+		result.other = Math.max(0, Math.round(result.other));
+	} catch (error) {
+		console.error("getSalesByProductGroup: ошибка", error);
+	}
+
+	return result;
 }
 
 // ============================================================================

@@ -47,6 +47,7 @@ export function useFilteredSalesData(
       totalCashBalance: Number(data.cashBalanceByShop?.[shopName] || 0),
       totalChecks,
       topProducts: data.topProducts ?? [],
+      salesByGroup: data.salesByGroup,
     };
   }, [data, isSuperAdmin, currentWorkShop]);
 }
