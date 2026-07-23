@@ -13,6 +13,7 @@ import { RevenueDetailsUser } from "@/widgets/dashboard/cards/RevenueDetailsUser
 import { SkeletonCard } from "./widgetUtils";
 import {
   DollarSign, TrendingUp, TrendingDown, Brain, Sparkles,
+} from "lucide-react";
 
 interface Props { since: string; until: string; expanded: boolean; onToggle: () => void }
 
