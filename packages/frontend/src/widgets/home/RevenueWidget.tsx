@@ -103,7 +103,7 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
             <span className="text-xs font-medium opacity-90 truncate">Выручка</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0 ml-1">
-            <span className="text-[9px] opacity-50">{cardShare}/{cashShare}</span>
+            <span className="text-[9px] opacity-50">{cardShare}/{cashShare}%</span>
             {delta !== null && (
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20">
                 {delta >= 0 ? "+" : ""}{delta}%
