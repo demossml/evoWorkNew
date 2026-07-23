@@ -84,6 +84,7 @@ import {
 	getCostPricesByNames,
 	getCostPricesForPeriod,
 	getCostPriceMapByUuid,
+	normalizeProductName,
 } from "./evotor/utils";
 import {
 	getShopUuidsFromDB,
@@ -1366,6 +1367,7 @@ export const api = new Hono<IEnv>()
 						profit: Math.round(profit * 100) / 100,
 						quantity: Math.round(prod.qty * 100) / 100,
 						margin: Math.round(margin * 100) / 100,
+						costMissing: prod.revenue > 0 && prod.cost === 0,
 					});
 				}
 
@@ -2752,12 +2754,32 @@ export const api = new Hono<IEnv>()
 			// Сохраняем с историей (SCD Type 2)
 			const upsertResult = await upsertCostPricesWithHistory(db, parseResult.rows, effectiveFrom);
 
+			// Пост-проверка: товары в наличии без цены в файле
+			const filePriceNames = new Set(parseResult.rows.map(r => normalizeProductName(r.productName)));
+			const allStockRows = await db
+				.prepare("SELECT DISTINCT name FROM shopProduct WHERE product_group = 0 AND name IS NOT NULL AND name != ''")
+				.all<{ name: string }>();
+			const missingPrices: string[] = [];
+			for (const r of allStockRows.results ?? []) {
+				const norm = normalizeProductName(r.name);
+				if (!filePriceNames.has(norm)) {
+					missingPrices.push(r.name);
+				}
+			}
+			const missingCount = missingPrices.length;
+			const missingSample = missingPrices.slice(0, 10);
+
 			return c.json({
 				ok: true,
 				...upsertResult,
 				meta: parseResult.meta,
 				effectiveDate: effectiveDateRaw || new Date().toISOString().slice(0, 10),
 				warnings: parseResult.errors.length > 0 ? parseResult.errors.slice(0, 20) : undefined,
+				missingPrices: missingCount > 0 ? {
+					count: missingCount,
+					sample: missingSample,
+					message: `${missingCount} товаров в наличии не имеют цены в загруженном файле`,
+				} : undefined,
 			});
 		} catch (err) {
 			console.error("[cost-prices/upload] error:", err);
