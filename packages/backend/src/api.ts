@@ -83,6 +83,7 @@ import {
 	deleteCostPrice,
 	getCostPricesByNames,
 	getCostPricesForPeriod,
+	getCostPriceMapByUuid,
 } from "./evotor/utils";
 import {
 	getShopUuidsFromDB,
@@ -1228,7 +1229,7 @@ export const api = new Hono<IEnv>()
 	// Валовая прибыль по группам товаров (новый отчёт)
 	// GET /api/reports/gross-profit?since=YYYY-MM-DD&until=YYYY-MM-DD&shopId=...
 	// ═══════════════════════════════════════════════════════════════════════════
-	.get("/api/reports/gross-profit", async (c) => {
+	.get("/api/reports/gross-profit", requireAdmin, async (c) => {
 		try {
 			const db = c.get("db");
 			const sinceParam = c.req.query("since");
@@ -1278,6 +1279,23 @@ export const api = new Hono<IEnv>()
 			}
 
 			// 3. Агрегация: groupUuid → productUuid → { name, revenue, cost, qty }
+			// Сначала собираем все UUID для последующего обогащения 1С-ценами
+			const allUuids = new Set<string>();
+			for (const doc of docs.results ?? []) {
+				let txs: any[];
+				try { txs = JSON.parse(doc.transactions); } catch { continue; }
+				if (!Array.isArray(txs)) continue;
+				for (const tx of txs) {
+					if (tx.type === "REGISTER_POSITION" && tx.commodityUuid) {
+						allUuids.add(tx.commodityUuid.trim());
+					}
+				}
+			}
+
+			// Загруженная себестоимость из 1С — авторитетный источник
+			const costByUuid = await getCostPriceMapByUuid(db, since);
+			const hasUploadedCosts = costByUuid.size > 0;
+
 			const groups = new Map<string, {
 				groupName: string;
 				products: Map<string, { name: string; revenue: number; cost: number; qty: number }>;
@@ -1301,12 +1319,15 @@ export const api = new Hono<IEnv>()
 
 					const qty = tx.quantity ?? 0;
 					const price = tx.price ?? 0;
-					const costPrice = tx.costPrice ?? 0;
 					const sum = tx.sum ?? (price * qty);
 					const sign = isRefund ? -1 : 1;
 
+					// Приоритет: 1С → Evotor costPrice → 0
+					const uploadedCost = costByUuid.get(uuid);
+					const unitCost = uploadedCost ?? (tx.costPrice ?? 0);
+
 					const revenue = sum * sign;
-					const cost = costPrice * qty * sign;
+					const cost = unitCost * qty * sign;
 
 					if (!groups.has(gUuid)) {
 						groups.set(gUuid, { groupName: gName, products: new Map() });
