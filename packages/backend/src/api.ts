@@ -2014,19 +2014,15 @@ export const api = new Hono<IEnv>()
 					});
 				}
 
-				// Получаем остатки. В локальной SQLite колонка quantity может отсутствовать —
-				// в этом случае не фильтруем по остатку (показываем все товары без продаж).
+				// Получаем реальные остатки из D1 (синхронизированы через syncStock).
+				// Только товары с фактическим остатком > 0 попадают в отчёт.
 				const stockMap = deadProductNames.length > 0
 					? await getProductStockFromD1(db, shopUuid, deadProductNames)
 					: new Map<string, number>();
 
-				// Если ВСЕ остатки = 0 — колонка quantity отсутствует локально.
-				// Показываем все товары с quantity = 0 (на фронтенде отобразится "—").
-				const allZeroStock = stockMap.size > 0 && [...stockMap.values()].every(v => v === 0);
-
 				for (const dp of deadProducts) {
 					const qty = stockMap.get(dp.name) ?? 0;
-					if (!allZeroStock && qty <= 0) continue; // только фактические остатки > 0
+					if (qty <= 0) continue; // только фактические остатки > 0
 
 					allSalesData.push({
 						itemId: dp.uuid,

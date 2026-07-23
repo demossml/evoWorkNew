@@ -1209,11 +1209,12 @@ export async function getProductStockFromD1(
 			}
 		}
 	} catch (e: any) {
-		// Колонка quantity может отсутствовать до первой миграции — не фатально
+		// Колонка quantity может отсутствовать до первой миграции — не фатально.
+		// Возвращаем placeholder = 1 («в наличии, точное количество неизвестно»),
+		// чтобы фильтр qty <= 0 не отсекал все товары.
 		console.warn("[getProductStockFromD1] ошибка (возможно нет колонки quantity):", e?.message);
-		// Возвращаем 0 для всех запрошенных имён
 		for (const name of productNames) {
-			result.set(name, 0);
+			result.set(name, 1);
 		}
 	}
 
