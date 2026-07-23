@@ -1927,11 +1927,19 @@ export const api = new Hono<IEnv>()
 				).bind(shopUuid).first<{ name: string }>();
 				const shopName = shopRow?.name || shopUuid;
 
-				// Получаем все товары магазина (shopProduct)
-				let productsQuery = `SELECT uuid, name, article FROM shopProduct WHERE shopId = ? AND product_group = 0`;
-				const products = await db.prepare(productsQuery).bind(shopUuid).all<{
-					uuid: string; name: string; article: string | null;
-				}>();
+				// Получаем все товары магазина (shopProduct).
+				// article может отсутствовать в локальной SQLite — fallback к пустой строке.
+				let products: any;
+				try {
+					products = await db.prepare(
+						`SELECT uuid, name, article FROM shopProduct WHERE shopId = ? AND product_group = 0`
+					).bind(shopUuid).all<{ uuid: string; name: string; article: string | null }>();
+				} catch {
+					const rows = await db.prepare(
+						`SELECT uuid, name FROM shopProduct WHERE shopId = ? AND product_group = 0`
+					).bind(shopUuid).all<{ uuid: string; name: string }>();
+					products = { results: (rows.results ?? []).map(r => ({ ...r, article: null })) };
+				}
 
 				if (!products.results || products.results.length === 0) continue;
 
@@ -2006,14 +2014,19 @@ export const api = new Hono<IEnv>()
 					});
 				}
 
-				// Получаем реальные остатки из D1 (синхронизированы через syncStock)
+				// Получаем остатки. В локальной SQLite колонка quantity может отсутствовать —
+				// в этом случае не фильтруем по остатку (показываем все товары без продаж).
 				const stockMap = deadProductNames.length > 0
 					? await getProductStockFromD1(db, shopUuid, deadProductNames)
 					: new Map<string, number>();
 
+				// Если ВСЕ остатки = 0 — колонка quantity отсутствует локально.
+				// Показываем все товары с quantity = 0 (на фронтенде отобразится "—").
+				const allZeroStock = stockMap.size > 0 && [...stockMap.values()].every(v => v === 0);
+
 				for (const dp of deadProducts) {
 					const qty = stockMap.get(dp.name) ?? 0;
-					if (qty <= 0) continue; // только фактические остатки > 0
+					if (!allZeroStock && qty <= 0) continue; // только фактические остатки > 0
 
 					allSalesData.push({
 						itemId: dp.uuid,
