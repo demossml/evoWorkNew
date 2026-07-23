@@ -52,7 +52,23 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
   const [showWhy, setShowWhy] = useState(false);
 
   // Best shop name from data
-  const bestShop = useMemo(() => {
+  // Cash / Card split from payment data
+  const { cashShare, cardShare } = useMemo(() => {
+    let cash = 0, card = 0;
+    for (const d of Object.values(filtered?.salesDataByShopName || {})) {
+      const sell = (d as any).sell || {};
+      for (const [k, v] of Object.entries(sell) as [string, number][]) {
+        if (k.includes("Нал") || k.includes("CASH")) cash += v;
+        else if (k.includes("карт") || k.includes("CARD") || k.includes("Безнал") || k.includes("ELECTRON")) card += v;
+        else card += v; // default to card
+      }
+    }
+    const total = cash + card;
+    return {
+      cashShare: total > 0 ? Math.round((cash / total) * 100) : 50,
+      cardShare: total > 0 ? Math.round((card / total) * 100) : 50,
+    };
+  }, [filtered]);
     if (!filtered?.salesDataByShopName) return "основной магазин";
     let top: string | null = null; let max = 0;
     for (const [name, d] of Object.entries(filtered.salesDataByShopName)) {
@@ -76,42 +92,61 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
   const deltaColor = getDeltaColor(delta);
 
   // ═══════════════════════════════════════════════════════════════════
-  // Свёрнутая карточка — размер строго как BestShopCard
-  // Структура: header (text-xs) → number (text-lg) → sub (text-sm)
+  // Свёрнутая карточка — двухцветный split «безнал / нал»
   // ═══════════════════════════════════════════════════════════════════
+  const cardRightColor = "hsl(var(--muted-foreground) / 0.3)";
   const card = (
     <motion.div
       whileHover={{ scale: 1.02, y: -1 }}
       whileTap={{ scale: 0.98 }}
-      className="cursor-pointer rounded-xl text-white p-4 shadow-lg relative overflow-hidden w-full"
-      style={{ backgroundColor: bgColor }}
+      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full"
     >
-      {/* Header — как у BestShopCard: text-xs + иконка */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <DollarSign className="w-5 h-5 opacity-80 shrink-0" />
-          <span className="text-xs font-medium opacity-90 truncate">Выручка</span>
+      {/* Split background */}
+      <div className="absolute inset-0 flex rounded-xl overflow-hidden">
+        <div
+          className="h-full flex items-end justify-center pb-1.5 transition-all duration-500"
+          style={{ width: `${cardShare}%`, backgroundColor: bgColor }}
+        >
+          <span className="text-[9px] opacity-60 font-medium">Безнал</span>
         </div>
-        {delta !== null && (
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20 shrink-0 ml-1">
-            {delta >= 0 ? "+" : ""}{delta}%
-          </span>
-        )}
+        <div
+          className="h-full flex items-end justify-center pb-1.5 transition-all duration-500"
+          style={{ width: `${cashShare}%`, backgroundColor: "hsl(var(--muted-foreground) / 0.5)" }}
+        >
+          <span className="text-[9px] opacity-60 font-medium">Нал</span>
+        </div>
       </div>
 
-      {/* Content row — text-lg как у BestShopCard + sparkline справа */}
-      <div className="flex items-end justify-between gap-1.5">
-        <div className="min-w-0 flex-1">
-          <div className="text-lg font-bold truncate leading-tight">
-            {formatRub(netSales)} ₽
+      {/* Content overlay */}
+      <div className="relative p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <DollarSign className="w-5 h-5 opacity-80 shrink-0" />
+            <span className="text-xs font-medium opacity-90 truncate">Выручка</span>
           </div>
-          <div className="text-sm opacity-90 mt-1 truncate">
-            {recText}
+          <div className="flex items-center gap-1.5 shrink-0 ml-1">
+            <span className="text-[9px] opacity-50">{cardShare}/{cashShare}</span>
+            {delta !== null && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20">
+                {delta >= 0 ? "+" : ""}{delta}%
+              </span>
+            )}
           </div>
         </div>
-        {trend7.length >= 2 && (
-          <Sparkline values={trend7} width={48} height={18} className="text-white/60 shrink-0 mb-0.5" />
-        )}
+
+        <div className="flex items-end justify-between gap-1.5">
+          <div className="min-w-0 flex-1">
+            <div className="text-lg font-bold truncate leading-tight">
+              {formatRub(netSales)} ₽
+            </div>
+            <div className="text-sm opacity-90 mt-1 truncate">
+              {recText}
+            </div>
+          </div>
+          {trend7.length >= 2 && (
+            <Sparkline values={trend7} width={48} height={18} className="text-white/60 shrink-0 mb-0.5" />
+          )}
+        </div>
       </div>
     </motion.div>
   );
