@@ -3458,6 +3458,16 @@ ${otherShopsInfo}
 				weekStart.setDate(weekStart.getDate() - 6);
 				weekSince = formatDateWithTime(weekStart, false);
 				weekUntil = formatDateWithTime(weekEnd, true);
+			} else if (dateMode === "yesterday") {
+				const yesterday = new Date();
+				yesterday.setDate(yesterday.getDate() - 1);
+				daySince = formatDateWithTime(yesterday, false);
+				dayUntil = formatDateWithTime(yesterday, true);
+
+				const weekStart = new Date(yesterday);
+				weekStart.setDate(weekStart.getDate() - 6);
+				weekSince = formatDateWithTime(weekStart, false);
+				weekUntil = formatDateWithTime(yesterday, true);
 			} else {
 				const today = new Date();
 				daySince = formatDateWithTime(today, false);
