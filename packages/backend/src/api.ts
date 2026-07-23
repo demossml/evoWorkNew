@@ -1927,11 +1927,22 @@ export const api = new Hono<IEnv>()
 				).bind(shopUuid).first<{ name: string }>();
 				const shopName = shopRow?.name || shopUuid;
 
-				// Получаем все товары магазина (shopProduct)
-				let productsQuery = `SELECT uuid, name, article FROM shopProduct WHERE shopId = ? AND product_group = 0`;
-				const products = await db.prepare(productsQuery).bind(shopUuid).all<{
-					uuid: string; name: string; article: string | null;
-				}>();
+				// Получаем все товары магазина (shopProduct).
+				// article может отсутствовать в локальной SQLite — fallback к пустой строке.
+				let products: D1Result<{ uuid: string; name: string; article: string | null }>;
+				try {
+					products = await db.prepare(
+						`SELECT uuid, name, article FROM shopProduct WHERE shopId = ? AND product_group = 0`
+					).bind(shopUuid).all<{ uuid: string; name: string; article: string | null }>();
+				} catch {
+					// Локальная БД без колонки article
+					const rows = await db.prepare(
+						`SELECT uuid, name FROM shopProduct WHERE shopId = ? AND product_group = 0`
+					).bind(shopUuid).all<{ uuid: string; name: string }>();
+					products = {
+						results: (rows.results ?? []).map(r => ({ ...r, article: null })),
+					} as any;
+				}
 
 				if (!products.results || products.results.length === 0) continue;
 
