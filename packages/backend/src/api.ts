@@ -2826,20 +2826,22 @@ export const api = new Hono<IEnv>()
 				return c.json({ error: "actions is empty" }, 400);
 			}
 
-			// Обогащаем action названиями товаров и магазинов
+			// Обогащаем action названиями товаров, магазинов и себестоимостью
 			const enriched: {
 				name: string;
 				shopName: string;
 				action: string;
 				targetShop: string;
 				quantity: number;
+				unitCost: number | null;
+				totalCostMoved: number | null;
 				reason: string;
 			}[] = [];
 
 			for (const a of actions) {
 				const item = await db.prepare(
-					"SELECT name, shopName FROM dead_stock_cache WHERE itemId = ? AND shopId = ?"
-				).bind(a.itemId, a.shopId).first<{ name: string; shopName: string }>();
+					"SELECT name, shopName, unitCost FROM dead_stock_cache WHERE itemId = ? AND shopId = ?"
+				).bind(a.itemId, a.shopId).first<{ name: string; shopName: string; unitCost: number | null }>();
 
 				let targetShop = "—";
 				if (a.targetShopId) {
@@ -2849,12 +2851,20 @@ export const api = new Hono<IEnv>()
 					targetShop = shop?.name || a.targetShopId;
 				}
 
+				const qty = a.quantity ?? 0;
+				const unitCost = item?.unitCost ?? null;
+				const totalCostMoved = (a.action === "move" && unitCost != null)
+					? Math.round(qty * unitCost * 100) / 100
+					: null;
+
 				enriched.push({
 					name: item?.name || a.itemId,
 					shopName: item?.shopName || a.shopId,
 					action: actionLabels[a.action] || a.action,
 					targetShop,
-					quantity: a.quantity ?? 0,
+					quantity: qty,
+					unitCost,
+					totalCostMoved,
 					reason: a.reason || "",
 				});
 			}
@@ -2862,25 +2872,31 @@ export const api = new Hono<IEnv>()
 			// Статистика
 			const moveCount = enriched.filter(e => e.action === "Переместить").length;
 			const moveQty = enriched.filter(e => e.action === "Переместить").reduce((s, e) => s + e.quantity, 0);
+			const totalCostMovedSum = enriched
+				.filter(e => e.action === "Переместить" && e.totalCostMoved != null)
+				.reduce((s, e) => s + (e.totalCostMoved ?? 0), 0);
 			const writeoffCount = enriched.filter(e => e.action === "Списать").length;
 			const promoCount = enriched.filter(e => e.action === "Промо").length;
 			const keepCount = enriched.filter(e => e.action === "Оставить").length;
 
 			// CSV с BOM для Excel
 			const BOM = "\uFEFF";
-			const header = "Товар;Магазин;Действие;Куда;Количество;Причина";
-			const rows = enriched.map(e =>
-				`"${e.name}";"${e.shopName}";${e.action};"${e.targetShop}";${e.quantity};"${e.reason}"`
-			);
+			const header = "Товар;Магазин;Действие;Куда;Количество;Цена закупки;Сумма по закупке;Причина";
+			const rows = enriched.map(e => {
+				const costStr = e.unitCost != null ? e.unitCost.toFixed(2) : "—";
+				const totalStr = e.totalCostMoved != null ? e.totalCostMoved.toFixed(2) : "—";
+				return `"${e.name}";"${e.shopName}";${e.action};"${e.targetShop}";${e.quantity};${costStr};${totalStr};"${e.reason}"`;
+			});
 			const summary = [
 				"",
 				"ИТОГО",
 				`Переместить: ${moveCount} товаров, ${moveQty} шт`,
+				`Сумма по закупке (перемещение): ${totalCostMovedSum.toFixed(2)} ₽`,
 				`Списать: ${writeoffCount} товаров`,
 				`Промо: ${promoCount} товаров`,
 				`Оставить: ${keepCount} товаров`,
 				`Дата: ${new Date().toISOString().slice(0, 10)}`,
-			].map(s => `${s};;;;;`);
+			].map(s => `${s};;;;;;;`);
 
 			const csv = BOM + [header, ...rows, ...summary].join("\n");
 
