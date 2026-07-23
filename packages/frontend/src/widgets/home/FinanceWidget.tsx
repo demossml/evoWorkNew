@@ -7,10 +7,11 @@ import { useCurrentWorkShop } from "@/hooks/useCurrentWorkShop";
 import { useGrossProfit } from "@/hooks/dashboard/useGrossProfit";
 import { FinancialReportDetails } from "@/widgets/dashboard/cards/FinancialReportDetails";
 import { SkeletonCard } from "./widgetUtils";
-import { ShoppingCart, DollarSign, ArrowDown } from "lucide-react";
+import { ShoppingCart, ArrowDown, TrendingUp } from "lucide-react";
 
 function formatRub(n: number): string {
-  return n.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
+  if (!Number.isFinite(n)) return "0";
+  return Math.round(n).toLocaleString("ru-RU");
 }
 
 interface Props { since: string; until: string; expanded: boolean; onToggle: () => void }
@@ -28,10 +29,11 @@ export function FinanceWidget({ since, until, expanded, onToggle }: Props) {
   if (loading || !filtered) return <SkeletonCard tone="orange" />;
   if (error) return <div className="text-red-500 text-sm p-2">Ошибка: {error}</div>;
 
-  const netRevenue = filtered.grandTotalSell - filtered.grandTotalRefund - filtered.grandTotalCashOutcome;
-  const refundRate = filtered.grandTotalSell > 0
-    ? ((filtered.grandTotalRefund / filtered.grandTotalSell) * 100).toFixed(1)
-    : "0";
+  const sell = filtered.grandTotalSell ?? 0;
+  const refund = filtered.grandTotalRefund ?? 0;
+  const expenses = filtered.grandTotalCashOutcome ?? 0;
+  const netRevenue = sell - refund - expenses;
+  const profit = grossProfit?.total?.profit ?? 0;
 
   // ═══ Свёрнутая карточка ═══
   const card = (
@@ -48,19 +50,22 @@ export function FinanceWidget({ since, until, expanded, onToggle }: Props) {
             <span className="text-xs font-medium opacity-90 truncate">Фин. отчёт</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0 ml-1">
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20">
-              Расходы {formatRub(filtered.grandTotalCashOutcome)} ₽
-            </span>
+            <span className="text-[9px] opacity-50">Продажи {formatRub(sell)}</span>
           </div>
         </div>
         <div className="flex items-end justify-between gap-1.5">
           <div className="min-w-0 flex-1">
-            <div className="text-lg font-bold truncate leading-tight">
-              {formatRub(netRevenue)} ₽
-            </div>
-            <div className="text-sm opacity-90 mt-1 truncate flex items-center gap-1">
-              {grossProfit?.total?.profit != null && (
-                <span className="text-emerald-200">Прибыль {formatRub(grossProfit.total.profit)} ₽</span>
+            <div className="text-lg font-bold truncate leading-tight">{formatRub(netRevenue)} ₽</div>
+            <div className="text-xs opacity-90 mt-1 truncate space-y-0.5">
+              <div className="flex items-center gap-2">
+                <span className="opacity-70">Расходы {formatRub(expenses)}</span>
+                {refund > 0 && <span className="opacity-70">· Возвраты {formatRub(refund)}</span>}
+              </div>
+              {profit > 0 && (
+                <div className="flex items-center gap-1 text-emerald-200">
+                  <TrendingUp className="w-3 h-3" />
+                  Прибыль {formatRub(profit)} ₽
+                </div>
               )}
             </div>
           </div>
@@ -80,12 +85,12 @@ export function FinanceWidget({ since, until, expanded, onToggle }: Props) {
         salesDataByShopName={filtered.salesDataByShopName}
         cashOutcomeData={filtered.cashOutcomeData}
         cashBalanceByShop={filtered.cashBalanceByShop}
-        grandTotalSell={filtered.grandTotalSell}
-        grandTotalRefund={filtered.grandTotalRefund}
-        grandTotalCashOutcome={filtered.grandTotalCashOutcome}
-        totalCashBalance={filtered.totalCashBalance}
+        grandTotalSell={sell}
+        grandTotalRefund={refund}
+        grandTotalCashOutcome={expenses}
+        totalCashBalance={filtered.totalCashBalance ?? 0}
         grossProfitByShop={grossProfit?.shops}
-        totalGrossProfit={grossProfit?.total.profit}
+        totalGrossProfit={profit}
       />
     </motion.div>
   );
