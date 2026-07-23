@@ -47,10 +47,20 @@ interface GrossProfitResponse {
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
-const COLORS = [
-  "#10b981", "#f59e0b", "#ef4444", "#3b82f6",
-  "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16",
-  "#f97316", "#6366f1", "#14b8a6", "#e11d48",
+/** Цвета из CSS-токенов (поддерживают светлую/тёмную тему) */
+const CHART_COLORS = [
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+  "hsl(var(--success))",
+  "hsl(var(--warning))",
+  "hsl(var(--destructive))",
+  "#8b5cf6",
+  "#ec4899",
+  "#06b6d4",
+  "#84cc16",
 ];
 
 function fmtRub(n: number): string {
@@ -69,7 +79,7 @@ function getTodayRange(): DateFilterValue {
   return { since: s, until: s, dateMode: "today" };
 }
 
-// ─── Pie Chart Tooltip ────────────────────────────────────────────────
+// ─── Pie Helpers ───────────────────────────────────────────────────────
 
 const PieTooltip = ({ active, payload }: any) => {
   if (!active || !payload?.length) return null;
@@ -83,6 +93,48 @@ const PieTooltip = ({ active, payload }: any) => {
     </div>
   );
 };
+
+/**
+ * Custom label: снаружи сектора — линия + сумма в ₽.
+ * Внутри сектора — % (через отдельный LabelList).
+ */
+const RADIAN = Math.PI / 180;
+function renderCustomLabel({
+  cx, cy, midAngle, innerRadius, outerRadius, percent, profit,
+}: any) {
+  const radius = outerRadius + 20;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  // Точка на внешней границе сектора (для линии)
+  const ex = cx + (outerRadius + 6) * Math.cos(-midAngle * RADIAN);
+  const ey = cy + (outerRadius + 6) * Math.sin(-midAngle * RADIAN);
+
+  // Не показываем метку для очень маленьких секторов (<3%)
+  if (percent < 0.03) return null;
+
+  const textAnchor = x > cx ? "start" : "end";
+
+  return (
+    <g>
+      <polyline
+        points={`${ex},${ey} ${x},${y}`}
+        stroke="hsl(var(--muted-foreground) / 0.4)"
+        strokeWidth={1}
+        fill="none"
+      />
+      <text
+        x={x + (x > cx ? 4 : -4)}
+        y={y}
+        textAnchor={textAnchor}
+        dominantBaseline="central"
+        className="text-[11px] fill-foreground font-mono"
+      >
+        {fmtRub(profit)}
+      </text>
+    </g>
+  );
+}
 
 // ─── Main Component ───────────────────────────────────────────────────
 
@@ -268,7 +320,7 @@ export default function GrossProfitReport() {
               <CardTitle className="text-sm">Распределение прибыли по группам</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={360}>
                 <PieChart>
                   <Pie
                     data={pieData}
@@ -276,34 +328,39 @@ export default function GrossProfitReport() {
                     nameKey="groupName"
                     cx="50%"
                     cy="50%"
-                    outerRadius={110}
+                    outerRadius={115}
                     innerRadius={55}
                     paddingAngle={2}
+                    label={renderCustomLabel}
+                    labelLine={false}
+                    isAnimationActive={true}
                   >
                     {pieData.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                     ))}
+                    {/* % внутри сектора */}
                     <LabelList
                       dataKey="share"
-                      position="outside"
+                      position="inside"
                       formatter={(v: number) => `${v.toFixed(0)}%`}
-                      className="text-[11px] fill-muted-foreground"
+                      className="text-xs font-bold"
+                      fill="hsl(var(--primary-foreground))"
                     />
                   </Pie>
                   <Tooltip content={<PieTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
 
-              {/* Легенда */}
-              <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
+              {/* Легенда снизу */}
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
                 {pieData.map((g, i) => (
-                  <div key={g.groupName} className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div key={g.groupName} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <span
                       className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                      style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
                     />
-                    <span className="max-w-[120px] truncate">{g.groupName}</span>
-                    <span className="font-mono tabular-nums">{fmtRub(g.profit)}</span>
+                    <span className="truncate max-w-[100px]">{g.groupName}</span>
+                    <span className="font-mono tabular-nums ml-auto">{fmtRub(g.profit)}</span>
                   </div>
                 ))}
               </div>
@@ -351,9 +408,9 @@ export default function GrossProfitReport() {
                       className="w-3 h-3 rounded-full shrink-0"
                       style={{
                         backgroundColor:
-                          COLORS[
+                          CHART_COLORS[
                             data.groups.findIndex((g) => g.groupUuid === group.groupUuid) %
-                              COLORS.length
+                              CHART_COLORS.length
                           ],
                       }}
                     />
