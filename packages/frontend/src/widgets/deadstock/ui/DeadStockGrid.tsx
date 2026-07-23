@@ -19,6 +19,8 @@ export interface DeadStockTileItem {
   unitCost?: number | null;
   /** Заморожено: quantity × unitCost */
   totalFrozenCost?: number | null;
+  /** Название группы товара */
+  groupName?: string | null;
 }
 
 interface DeadStockGridProps {
@@ -170,7 +172,14 @@ export const DeadStockGrid: React.FC<DeadStockGridProps> = ({
                       </div>
                     )}
 
-                    {/* Строка 3: рекомендация */}
+                    {/* Строка 3: категория */}
+                    {item.groupName && (
+                      <div className="mt-0.5 text-[10px] text-muted-foreground">
+                        {item.groupName}
+                      </div>
+                    )}
+
+                    {/* Строка 4: рекомендация */}
                     <div className={`mt-2 text-[11px] font-medium rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 ${rec.color}`}>
                       {rec.isPlanned ? (
                         <>

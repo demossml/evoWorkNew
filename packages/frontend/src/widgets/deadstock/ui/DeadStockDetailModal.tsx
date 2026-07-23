@@ -234,6 +234,9 @@ export const DeadStockDetailModal: React.FC<DeadStockDetailModalProps> = ({
             <div className="min-w-0 flex-1 pr-3">
               <h2 className="text-base font-semibold leading-tight">{item.name}</h2>
               <p className="text-[11px] text-muted-foreground font-mono mt-0.5">{item.article}</p>
+              {item.groupName && (
+                <p className="text-[10px] text-muted-foreground mt-0.5">{item.groupName}</p>
+              )}
             </div>
             <button onClick={onClose} className="shrink-0 p-1.5 rounded-lg hover:bg-secondary"><X className="w-5 h-5" /></button>
           </div>

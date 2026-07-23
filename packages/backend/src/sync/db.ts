@@ -862,6 +862,10 @@ export interface DeadStockCacheRow {
   unitCost: number | null;
   /** Заморожено: currentStock * unitCost */
   totalFrozenCost: number | null;
+  /** UUID группы товара (parentUuid из shopProduct) */
+  parentUuid: string | null;
+  /** Название группы товара */
+  groupName: string | null;
   updatedAt: string;
 }
 
@@ -880,6 +884,8 @@ export async function createDeadStockCacheTable(db: D1Database): Promise<void> {
         totalRevenueLast90Days REAL NOT NULL DEFAULT 0,
         unitCost REAL,
         totalFrozenCost REAL,
+        parentUuid TEXT,
+        groupName TEXT,
         updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
         PRIMARY KEY (itemId, shopId)
       )`,
@@ -891,6 +897,8 @@ export async function createDeadStockCacheTable(db: D1Database): Promise<void> {
   // Миграция: добавляем колонки себестоимости, если их ещё нет
   try { await db.prepare(`ALTER TABLE dead_stock_cache ADD COLUMN unitCost REAL`).run(); } catch { /* ok */ }
   try { await db.prepare(`ALTER TABLE dead_stock_cache ADD COLUMN totalFrozenCost REAL`).run(); } catch { /* ok */ }
+  try { await db.prepare(`ALTER TABLE dead_stock_cache ADD COLUMN parentUuid TEXT`).run(); } catch { /* ok */ }
+  try { await db.prepare(`ALTER TABLE dead_stock_cache ADD COLUMN groupName TEXT`).run(); } catch { /* ok */ }
   console.log("Таблица 'dead_stock_cache' создана или уже существует.");
 }
 
@@ -899,10 +907,19 @@ export async function refreshDeadStockCache(
 ): Promise<number> {
   const today = new Date().toISOString().slice(0, 10);
 
-  // 1. Все товары из shopProduct
+  // 1. Все товары из shopProduct + названия групп
   const products = await db.prepare(
-    "SELECT uuid, name, shopId FROM shopProduct WHERE product_group = 0"
-  ).all<{ uuid: string; name: string; shopId: string }>();
+    "SELECT uuid, name, shopId, parentUuid FROM shopProduct WHERE product_group = 0"
+  ).all<{ uuid: string; name: string; shopId: string; parentUuid: string | null }>();
+
+  // Карта groupUuid → groupName
+  const groupRows = await db.prepare(
+    "SELECT uuid, name FROM shopProduct WHERE product_group = 1"
+  ).all<{ uuid: string; name: string }>();
+  const groupNameMap = new Map<string, string>();
+  for (const g of groupRows.results ?? []) {
+    groupNameMap.set(g.uuid, g.name);
+  }
 
   // 2. Получаем имена магазинов
   const shops = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
@@ -1011,6 +1028,8 @@ export async function refreshDeadStockCache(
       totalRevenueLast90Days: rev,
       unitCost,
       totalFrozenCost,
+      parentUuid: p.parentUuid || null,
+      groupName: (p.parentUuid && groupNameMap.get(p.parentUuid)) || null,
       updatedAt: today,
     });
   }
@@ -1019,11 +1038,11 @@ export async function refreshDeadStockCache(
   await db.prepare("DELETE FROM dead_stock_cache").run();
   const stmt = db.prepare(
     `INSERT OR REPLACE INTO dead_stock_cache
-       (itemId, shopId, name, article, currentStock, daysWithoutSales, lastSaleDate, shopName, totalRevenueLast90Days, unitCost, totalFrozenCost, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (itemId, shopId, name, article, currentStock, daysWithoutSales, lastSaleDate, shopName, totalRevenueLast90Days, unitCost, totalFrozenCost, parentUuid, groupName, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const batch = rows.map(r =>
-    stmt.bind(r.itemId, r.shopId, r.name, r.article, r.currentStock, r.daysWithoutSales, r.lastSaleDate, r.shopName, r.totalRevenueLast90Days, r.unitCost, r.totalFrozenCost, r.updatedAt)
+    stmt.bind(r.itemId, r.shopId, r.name, r.article, r.currentStock, r.daysWithoutSales, r.lastSaleDate, r.shopName, r.totalRevenueLast90Days, r.unitCost, r.totalFrozenCost, r.parentUuid, r.groupName, r.updatedAt)
   );
   await db.batch(batch);
 

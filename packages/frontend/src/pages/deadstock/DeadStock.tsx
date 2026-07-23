@@ -102,8 +102,9 @@ export default function DeadSt() {
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
 
-  // Кэш себестоимостей (itemId|shopId → { unitCost, totalFrozenCost })
-  const [costMap, setCostMap] = useState<Map<string, { unitCost: number | null; totalFrozenCost: number | null }>>(new Map());
+  // Кэш себестоимостей (itemId|shopId → { unitCost, totalFrozenCost, groupName })
+  const [costMap, setCostMap] = useState<Map<string, { unitCost: number | null; totalFrozenCost: number | null; groupName: string | null }>>(new Map());
+  const [categories, setCategories] = useState<{ groupName: string; totalFrozenCost: number; itemCount: number; share: number }[]>([]);
 
   // Date picker state (Calendar for "period" mode)
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
@@ -188,12 +189,17 @@ export default function DeadSt() {
         if (!res.ok) return;
         const json = await res.json();
         const items = json.items ?? [];
-        const map = new Map<string, { unitCost: number | null; totalFrozenCost: number | null }>();
+        const map = new Map<string, { unitCost: number | null; totalFrozenCost: number | null; groupName: string | null }>();
         for (const item of items) {
           const key = `${item.itemId}|${item.shopId}`;
-          map.set(key, { unitCost: item.unitCost ?? null, totalFrozenCost: item.totalFrozenCost ?? null });
+          map.set(key, {
+            unitCost: item.unitCost ?? null,
+            totalFrozenCost: item.totalFrozenCost ?? null,
+            groupName: item.groupName ?? null,
+          });
         }
         setCostMap(map);
+        setCategories(json.categories ?? []);
       } catch { /* не критично */ }
     };
     fetchCosts();
@@ -418,6 +424,7 @@ export default function DeadSt() {
         shopName: item.shopName,
         unitCost: costs?.unitCost ?? null,
         totalFrozenCost: costs?.totalFrozenCost ?? null,
+        groupName: costs?.groupName ?? null,
       };
     });
 
@@ -472,6 +479,27 @@ export default function DeadSt() {
               </button>
             </div>
           </div>
+
+          {/* Categories summary */}
+          {categories.length > 0 && (
+            <div className="bg-card border border-border rounded-xl p-3">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Заморожено по категориям
+              </h3>
+              <div className="space-y-1.5">
+                {categories.slice(0, 8).map(c => (
+                  <div key={c.groupName} className="flex items-center gap-2 text-xs">
+                    <span className="flex-1 truncate text-foreground">{c.groupName}</span>
+                    <span className="text-muted-foreground w-8 text-right">{c.itemCount}</span>
+                    <span className="text-amber-600 dark:text-amber-400 font-medium w-24 text-right tabular-nums">
+                      {c.totalFrozenCost.toLocaleString("ru-RU")} ₽
+                    </span>
+                    <span className="text-muted-foreground w-10 text-right">{c.share.toFixed(0)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Grid tiles */}
           <DeadStockGrid

@@ -2931,10 +2931,33 @@ export const api = new Hono<IEnv>()
 				0,
 			);
 
+			// Группировка по категориям
+			const catMap = new Map<string, { groupName: string; totalFrozenCost: number; itemCount: number }>();
+			for (const r of rows) {
+				const gKey = r.parentUuid || "__none__";
+				const gName = r.groupName || "Без категории";
+				if (!catMap.has(gKey)) {
+					catMap.set(gKey, { groupName: gName, totalFrozenCost: 0, itemCount: 0 });
+				}
+				const c = catMap.get(gKey)!;
+				c.totalFrozenCost += r.totalFrozenCost ?? 0;
+				c.itemCount += 1;
+			}
+			const categories = [...catMap.values()]
+				.map(c => ({
+					...c,
+					totalFrozenCost: Math.round(c.totalFrozenCost * 100) / 100,
+					share: totalFrozenCost > 0
+						? Math.round((c.totalFrozenCost / totalFrozenCost) * 10000) / 100
+						: 0,
+				}))
+				.sort((a, b) => b.totalFrozenCost - a.totalFrozenCost);
+
 			return c.json({
 				items: rows,
 				total: rows.length,
 				totalFrozenCost: Math.round(totalFrozenCost * 100) / 100,
+				categories,
 				threshold: daysWithoutSales,
 				shopId: shopId || null,
 				since: since || null,
