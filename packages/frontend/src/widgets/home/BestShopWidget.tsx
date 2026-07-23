@@ -1,18 +1,19 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDashboardHomeInsights } from "@/hooks/dashboard/useDashboardHomeInsights";
+import { useGrossProfit } from "@/hooks/dashboard/useGrossProfit";
 import { useEmployeeRole } from "@/hooks/useApi";
 import { useCurrentWorkShop } from "@/hooks/useCurrentWorkShop";
 import type { LeaderMode } from "@/widgets/dashboard/cards/BestShopCard";
 import type { ShopKpiRow } from "@/widgets/dashboard/cards/BestShopDetails";
 import { SkeletonCard } from "./widgetUtils";
 import {
-  Award, TrendingUp, TrendingDown, Trophy, Medal, Target,
-  BarChart3, Wallet, Receipt, RotateCcw, Banknote, AlertTriangle,
+  Award, Trophy, Medal, Target, BarChart3, TrendingUp, Percent,
 } from "lucide-react";
 
 function formatRub(n: number): string {
-  return n.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
+  if (!Number.isFinite(n)) return "0";
+  return Math.round(n).toLocaleString("ru-RU");
 }
 
 function pctDiff(val: number, avg: number): string {
@@ -27,18 +28,24 @@ function vsAvgColor(val: number, avg: number, higherIsBetter: boolean): string {
   if (higherIsBetter) {
     return diff >= 0 ? "hsl(var(--success))" : diff >= -0.1 ? "hsl(var(--warning))" : "hsl(var(--destructive))";
   }
-  // For refund rate: lower is better
   return diff <= 0 ? "hsl(var(--success))" : diff <= 0.3 ? "hsl(var(--warning))" : "hsl(var(--destructive))";
 }
 
-function getHints(shop: ShopKpiRow, avgCheck: number, avgRefund: number, avgExpRatio: number): string[] {
+function marginColor(pct: number): string {
+  if (pct >= 30) return "hsl(var(--success))";
+  if (pct >= 15) return "hsl(var(--warning))";
+  return "hsl(var(--destructive))";
+}
+
+function getHints(shop: ShopKpiRow, avgCheck: number, avgRefund: number, avgExpRatio: number, shopMargin: number, avgMargin: number): string[] {
   const hints: string[] = [];
-  if (shop.averageCheck < avgCheck * 0.85) hints.push("↑ средний чек");
-  if (shop.refundRate > Math.max(avgRefund + 2, 4)) hints.push("↓ возвраты");
+  if (shopMargin < avgMargin * 0.8) hints.push("↑ маржа");
+  if (shop.averageCheck < avgCheck * 0.85) hints.push("↑ ср.чек");
+  if (shop.refundRate > Math.max(avgRefund + 2, 4)) hints.push("↓ возвр.");
   const expRatio = shop.revenue > 0 ? shop.expenses / shop.revenue : 0;
-  if (expRatio > Math.max(avgExpRatio + 0.03, 0.08)) hints.push("↓ расходы");
+  if (expRatio > Math.max(avgExpRatio + 0.03, 0.08)) hints.push("↓ расх.");
   if (shop.checks < 5) hints.push("↑ трафик");
-  if (hints.length === 0) hints.push("✓ держать темп");
+  if (hints.length === 0) hints.push("✓ норма");
   return hints;
 }
 
@@ -53,26 +60,50 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
 
   const insights = useDashboardHomeInsights({ since, until, dateMode, shopUuid, enabled: true });
   const { bestShop, loading } = insights;
+  const { data: grossProfit } = useGrossProfit({ since, until });
   const dayLeader = bestShop.dayLeader;
   const weekLeader = bestShop.weekLeader;
   const rows = mode === "week" ? bestShop.weekRows : bestShop.dayRows;
   const currentLeader = mode === "week" ? weekLeader : dayLeader;
-  const sorted = useMemo(() => [...rows].sort((a, b) => b.netRevenue - a.netRevenue), [rows]);
+
+  // Margin map: shopName → { pct, profit }
+  const marginMap = useMemo(() => {
+    const m = new Map<string, { pct: number; profit: number }>();
+    if (!grossProfit?.shops) return m;
+    for (const [name, gp] of Object.entries(grossProfit.shops)) {
+      if (gp.revenue > 0) {
+        m.set(name, { pct: Math.round((gp.profit / gp.revenue) * 100), profit: Math.round(gp.profit) });
+      }
+    }
+    return m;
+  }, [grossProfit]);
+
+  // Composite score = netRevenue × (1 + marginPct/100) — rewards both revenue & margin
+  const score = (shop: ShopKpiRow): number => {
+    const m = marginMap.get(shop.name);
+    const marginPct = m?.pct ?? 0;
+    return shop.netRevenue * (1 + marginPct / 100);
+  };
+
+  const sorted = useMemo(() => [...rows].sort((a, b) => score(b) - score(a)), [rows, marginMap]);
 
   if (loading && !dayLeader && !weekLeader) return <SkeletonCard tone="purple" />;
   if (!sorted.length) return <SkeletonCard tone="purple" />;
   if (!dayLeader && !weekLeader) return <SkeletonCard tone="purple" />;
 
-  // Network averages
+  // Averages
   const avgNet = sorted.reduce((s, r) => s + r.netRevenue, 0) / sorted.length;
   const avgCheck = sorted.reduce((s, r) => s + r.averageCheck, 0) / sorted.length;
   const avgRefund = sorted.reduce((s, r) => s + r.refundRate, 0) / sorted.length;
   const avgExpRatio = sorted.reduce((s, r) => s + (r.revenue > 0 ? r.expenses / r.revenue : 0), 0) / sorted.length;
+  const allMargins = sorted.map(s => marginMap.get(s.name)?.pct ?? 0).filter(v => v > 0);
+  const avgMargin = allMargins.length > 0 ? allMargins.reduce((s, v) => s + v, 0) / allMargins.length : 0;
 
   const leader = sorted[0];
+  const leaderMargin = marginMap.get(leader.name);
   const lagging = sorted.slice(-2).reverse();
-  const leaderReason = currentLeader?.reason === "чек" ? "высокий средний чек" :
-    currentLeader?.reason === "трафик" ? "больше покупателей" : "конверсия";
+  const leaderReason = currentLeader?.reason === "чек" ? "высокий чек" :
+    currentLeader?.reason === "трафик" ? "трафик" : "конверсия";
 
   // ═══ Свёрнутая карточка ═══
   const card = (
@@ -93,16 +124,18 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
               onClick={(e) => { e.stopPropagation(); setMode(mode === "day" ? "week" : "day"); }}
               className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-black/25 hover:bg-black/35 transition"
             >
-              {mode === "day" ? "День" : "Неделя"}
+              {mode === "day" ? "День" : "Нед."}
             </button>
           </div>
         </div>
         <div className="flex items-end justify-between gap-1.5">
           <div className="min-w-0 flex-1">
             <div className="text-lg font-bold truncate leading-tight">#{1} {leader.name}</div>
-            <div className="text-sm opacity-90 mt-1 truncate flex items-center gap-1">
-              {formatRub(leader.netRevenue)} ₽
-              <span className="text-[10px] opacity-60 ml-1">· {leaderReason}</span>
+            <div className="text-sm opacity-90 mt-1 truncate flex items-center gap-1.5">
+              <span>{formatRub(leader.netRevenue)} ₽</span>
+              {leaderMargin && (
+                <span className="text-[10px] opacity-75">· маржа {leaderMargin.pct}%</span>
+              )}
             </div>
           </div>
         </div>
@@ -121,105 +154,106 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-chart-2" />
-          <h3 className="text-sm font-bold text-foreground">Эффективность магазинов</h3>
+          <h3 className="text-sm font-bold text-foreground">Эффективность</h3>
         </div>
         <div className="inline-flex rounded-md border border-border p-0.5 text-[10px]">
-          <button
-            className={`rounded px-2 py-0.5 ${mode === "day" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
-            onClick={() => setMode("day")}
-          >День</button>
-          <button
-            className={`rounded px-2 py-0.5 ${mode === "week" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
-            onClick={() => setMode("week")}
-          >Неделя</button>
+          <button className={`rounded px-2 py-0.5 ${mode === "day" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`} onClick={() => setMode("day")}>День</button>
+          <button className={`rounded px-2 py-0.5 ${mode === "week" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`} onClick={() => setMode("week")}>Нед.</button>
         </div>
       </div>
 
-      {/* Лидер — крупная карточка */}
+      {/* Лидер */}
       <div className="rounded-xl p-4 text-white" style={{ backgroundColor: "hsl(var(--chart-2))" }}>
         <div className="flex items-center gap-2 mb-2">
           <Trophy className="w-5 h-5" />
           <span className="text-sm font-bold">Лидер: {leader.name}</span>
         </div>
-        <div className="grid grid-cols-3 gap-3 text-center">
+        <div className="grid grid-cols-4 gap-3 text-center">
           <div>
             <div className="text-xl font-bold">{formatRub(leader.netRevenue)}</div>
-            <div className="text-[10px] opacity-80">Нетто ₽</div>
-            <div className="text-[9px] opacity-60">{pctDiff(leader.netRevenue, avgNet)} к среднему</div>
+            <div className="text-[10px] opacity-80">Выр. ₽</div>
+            <div className="text-[9px] opacity-60">{pctDiff(leader.netRevenue, avgNet)} к ср.</div>
           </div>
           <div>
             <div className="text-xl font-bold">{leader.checks}</div>
             <div className="text-[10px] opacity-80">Чеков</div>
-            <div className="text-[9px] opacity-60">{pctDiff(leader.checks, sorted.reduce((s, r) => s + r.checks, 0) / sorted.length)} к среднему</div>
+            <div className="text-[9px] opacity-60">{pctDiff(leader.checks, sorted.reduce((s, r) => s + r.checks, 0) / sorted.length)} к ср.</div>
           </div>
           <div>
             <div className="text-xl font-bold">{formatRub(leader.averageCheck)}</div>
-            <div className="text-[10px] opacity-80">Ср. чек ₽</div>
-            <div className="text-[9px] opacity-60">{pctDiff(leader.averageCheck, avgCheck)} к среднему</div>
+            <div className="text-[10px] opacity-80">Ср.чек ₽</div>
+            <div className="text-[9px] opacity-60">{pctDiff(leader.averageCheck, avgCheck)} к ср.</div>
+          </div>
+          <div>
+            <div className="text-xl font-bold" style={{ color: leaderMargin ? marginColor(leaderMargin.pct) : "inherit" }}>
+              {leaderMargin ? `${leaderMargin.pct}%` : "—"}
+            </div>
+            <div className="text-[10px] opacity-80">Маржа</div>
+            <div className="text-[9px] opacity-60">{leaderMargin ? `${formatRub(leaderMargin.profit)} ₽` : ""}</div>
           </div>
         </div>
         {currentLeader && (
           <div className="mt-2 text-[10px] opacity-80 text-center">
-            Отрыв от 2-го: +{formatRub(Math.max(0, currentLeader.gapToSecond))} ₽ · причина: {leaderReason}
+            Рейтинг: выр. × маржа · лидер по {leaderReason}
           </div>
         )}
       </div>
 
-      {/* Сравнительная таблица по метрикам */}
+      {/* Сравнительная таблица */}
       <div>
         <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-          Сравнение ({sorted.length} магазинов)
+          Сравнение ({sorted.length})
         </h4>
 
-        {/* Заголовки колонок */}
-        <div className="flex items-center text-[9px] text-muted-foreground mb-1 px-1">
+        {/* Заголовки */}
+        <div className="flex items-center text-[8px] text-muted-foreground mb-1 px-1 gap-0.5">
           <span className="flex-1 min-w-0" />
-          <span className="w-14 text-right">Нетто</span>
-          <span className="w-10 text-right">Чеки</span>
-          <span className="w-12 text-right">Ср.чек</span>
-          <span className="w-10 text-right">Возврат</span>
-          <span className="w-12 text-right">Расходы</span>
+          <span className="w-11 text-right">Выр.</span>
+          <span className="w-8 text-right">Чек.</span>
+          <span className="w-9 text-right">Ср.чек</span>
+          <span className="w-8 text-right">Возвр</span>
+          <span className="w-7 text-right">Расх.</span>
+          <span className="w-10 text-right">Маржа</span>
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           {sorted.map((shop, i) => {
             const maxNet = sorted[0]?.netRevenue || 1;
             const maxChecks = Math.max(...sorted.map(s => s.checks), 1);
             const maxAvg = Math.max(...sorted.map(s => s.averageCheck), 1);
             const maxRefund = Math.max(...sorted.map(s => s.refundRate), 1);
             const maxExp = Math.max(...sorted.map(s => s.revenue > 0 ? s.expenses / s.revenue : 0), 0.01);
-
+            const sm = marginMap.get(shop.name);
             const expRatio = shop.revenue > 0 ? shop.expenses / shop.revenue : 0;
 
             const metrics = [
-              { val: shop.netRevenue, max: maxNet, color: vsAvgColor(shop.netRevenue, avgNet, true), fmt: formatRub(shop.netRevenue) },
-              { val: shop.checks, max: maxChecks, color: vsAvgColor(shop.checks, sorted.reduce((s, r) => s + r.checks, 0) / sorted.length, true), fmt: String(shop.checks) },
-              { val: shop.averageCheck, max: maxAvg, color: vsAvgColor(shop.averageCheck, avgCheck, true), fmt: formatRub(shop.averageCheck) },
-              { val: shop.refundRate, max: maxRefund, color: vsAvgColor(shop.refundRate, avgRefund, false), fmt: `${shop.refundRate.toFixed(1)}%` },
-              { val: expRatio, max: maxExp, color: vsAvgColor(expRatio, avgExpRatio, false), fmt: `${(expRatio * 100).toFixed(0)}%` },
+              { val: shop.netRevenue, max: maxNet, color: vsAvgColor(shop.netRevenue, avgNet, true), fmt: formatRub(shop.netRevenue), w: 44 },
+              { val: shop.checks, max: maxChecks, color: vsAvgColor(shop.checks, sorted.reduce((s, r) => s + r.checks, 0) / sorted.length, true), fmt: String(shop.checks), w: 32 },
+              { val: shop.averageCheck, max: maxAvg, color: vsAvgColor(shop.averageCheck, avgCheck, true), fmt: formatRub(shop.averageCheck), w: 36 },
+              { val: shop.refundRate, max: maxRefund, color: vsAvgColor(shop.refundRate, avgRefund, false), fmt: `${shop.refundRate.toFixed(1)}%`, w: 32 },
+              { val: expRatio, max: maxExp, color: vsAvgColor(expRatio, avgExpRatio, false), fmt: `${(expRatio * 100).toFixed(0)}%`, w: 28 },
+              { val: sm?.pct ?? 0, max: Math.max(...sorted.map(s => marginMap.get(s.name)?.pct ?? 0), 1), color: sm ? marginColor(sm.pct) : "hsl(var(--muted))", fmt: sm ? `${sm.pct}%` : "—", w: 40 },
             ];
 
             return (
-              <div key={shop.name} className="flex items-center gap-1 text-xs">
-                <span className="flex-1 min-w-0 truncate flex items-center gap-1 text-foreground font-medium">
+              <div key={shop.name} className="flex items-center gap-0.5 text-[10px]">
+                <span className="flex-1 min-w-0 truncate flex items-center gap-1 text-foreground">
                   {i === 0 ? <Trophy className="w-3 h-3 text-yellow-500 shrink-0" /> :
                    i === 1 ? <Medal className="w-3 h-3 text-slate-400 shrink-0" /> :
                    i === 2 ? <Medal className="w-3 h-3 text-orange-400 shrink-0" /> :
-                   <span className="w-3 text-[9px] text-muted-foreground text-center shrink-0">{i + 1}</span>}
-                  {shop.name}
+                   <span className="w-3 text-[8px] text-muted-foreground text-center shrink-0">{i + 1}</span>}
+                  <span className="font-medium truncate">{shop.name}</span>
                 </span>
                 {metrics.map((m, mi) => (
-                  <div key={mi} className="relative" style={{ width: mi === 0 ? 56 : mi === 1 ? 40 : mi === 2 ? 48 : mi === 3 ? 40 : 48 }}>
-                    <div className="h-3.5 rounded-full overflow-hidden bg-muted/40">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${Math.min((m.val / m.max) * 100, 100)}%` }}
-                        transition={{ duration: 0.5, ease: "easeOut" }}
-                        className="h-full rounded-full"
-                        style={{ backgroundColor: m.color, opacity: 0.35 }}
-                      />
-                    </div>
-                    <div className="absolute inset-0 flex items-center justify-end pr-1 text-[8px] text-foreground/70 tabular-nums">
+                  <div key={mi} className="relative rounded-full overflow-hidden bg-muted/40 h-3" style={{ width: m.w }}>
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min((m.val / m.max) * 100, 100)}%` }}
+                      transition={{ duration: 0.5, ease: "easeOut" }}
+                      className="absolute inset-0 rounded-full"
+                      style={{ backgroundColor: m.color, opacity: 0.4 }}
+                    />
+                    <div className="relative z-10 flex items-center justify-end h-full pr-1 text-[7px] text-foreground/80 tabular-nums font-medium">
                       {m.fmt}
                     </div>
                   </div>
@@ -229,18 +263,19 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
           })}
         </div>
 
-        {/* Среднее по сети */}
-        <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1.5 pt-1.5 border-t border-border/50 px-1">
-          <span className="flex-1 font-medium">Среднее</span>
-          <span className="w-14 text-right tabular-nums">{formatRub(avgNet)}</span>
-          <span className="w-10 text-right tabular-nums">{Math.round(sorted.reduce((s, r) => s + r.checks, 0) / sorted.length)}</span>
-          <span className="w-12 text-right tabular-nums">{formatRub(avgCheck)}</span>
-          <span className="w-10 text-right tabular-nums">{avgRefund.toFixed(1)}%</span>
-          <span className="w-12 text-right tabular-nums">{(avgExpRatio * 100).toFixed(0)}%</span>
+        {/* Среднее */}
+        <div className="flex items-center gap-0.5 text-[9px] text-muted-foreground mt-1 pt-1 border-t border-border/50 px-1">
+          <span className="flex-1">Среднее</span>
+          <span className="w-11 text-right tabular-nums">{formatRub(avgNet)}</span>
+          <span className="w-8 text-right tabular-nums">{Math.round(sorted.reduce((s, r) => s + r.checks, 0) / sorted.length)}</span>
+          <span className="w-9 text-right tabular-nums">{formatRub(avgCheck)}</span>
+          <span className="w-8 text-right tabular-nums">{avgRefund.toFixed(1)}%</span>
+          <span className="w-7 text-right tabular-nums">{(avgExpRatio * 100).toFixed(0)}%</span>
+          <span className="w-10 text-right tabular-nums">{avgMargin > 0 ? `${Math.round(avgMargin)}%` : "—"}</span>
         </div>
       </div>
 
-      {/* Отстающие — что подтянуть */}
+      {/* Отстающие */}
       {lagging.length > 0 && (
         <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3">
           <div className="flex items-center gap-1.5 mb-2">
@@ -250,14 +285,17 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
             </span>
           </div>
           <div className="space-y-1.5">
-            {lagging.map((shop) => (
-              <div key={shop.name} className="flex items-start gap-2 text-xs">
-                <span className="font-medium text-foreground shrink-0">{shop.name}:</span>
-                <span className="text-muted-foreground">
-                  {getHints(shop, avgCheck, avgRefund, avgExpRatio).join(" · ")}
-                </span>
-              </div>
-            ))}
+            {lagging.map((shop) => {
+              const sm = marginMap.get(shop.name);
+              return (
+                <div key={shop.name} className="flex items-start gap-2 text-xs">
+                  <span className="font-medium text-foreground shrink-0">{shop.name}:</span>
+                  <span className="text-muted-foreground">
+                    {getHints(shop, avgCheck, avgRefund, avgExpRatio, sm?.pct ?? 0, avgMargin).join(" · ")}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
