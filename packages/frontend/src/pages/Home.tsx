@@ -129,7 +129,7 @@ export default function Home() {
           </div>
 
           <div className={isExpanded("accessories") ? "col-span-2" : ""}>
-            <ErrorBoundary variant="widget" name="Аксессуары">
+            <ErrorBoundary variant="widget" name="Продажи">
               <AccessoriesWidget since={since} until={until} expanded={isExpanded("accessories")} onToggle={() => toggle("accessories")} />
             </ErrorBoundary>
           </div>

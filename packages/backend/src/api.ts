@@ -74,6 +74,7 @@ import {
 	getSalesgardenReportData,
 	getTopProductsFromD1,
 	getAccessoriesSalesFromD1,
+	enrichAccessoriesCost,
 	getSalesByProductGroup,
 	extractSalesInfoFromD1,
 	getCashByShopsFromD1,
@@ -4684,6 +4685,9 @@ ${storesList}
 				until,
 				shopNameMap,
 			);
+
+			// Обогащаем себестоимость из 1С
+			await enrichAccessoriesCost(c.env.DB, since, result);
 
 			return c.json(result);
 		} catch (err) {

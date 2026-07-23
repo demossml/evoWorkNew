@@ -621,16 +621,16 @@ export async function getAccessoriesSalesFromD1(
 	until: string,
 	shopNameMap: Record<string, string>,
 ): Promise<{
-	byShop: Array<{ shopId: string; shopName: string; sales: Array<{ name: string; quantity: number; sum: number }> }>;
-	total: Array<{ name: string; shopName: string; quantity: number; sum: number }>;
-	nonAccessoriesByShop: Array<{ shopId: string; shopName: string; sales: Array<{ name: string; quantity: number; sum: number }> }>;
-	nonAccessoriesTotal: Array<{ name: string; shopName: string; quantity: number; sum: number }>;
+	byShop: Array<{ shopId: string; shopName: string; sales: Array<{ name: string; quantity: number; sum: number; cost: number }> }>;
+	total: Array<{ name: string; shopName: string; quantity: number; sum: number; cost: number }>;
+	nonAccessoriesByShop: Array<{ shopId: string; shopName: string; sales: Array<{ name: string; quantity: number; sum: number; cost: number }> }>;
+	nonAccessoriesTotal: Array<{ name: string; shopName: string; quantity: number; sum: number; cost: number }>;
 }> {
 	const empty = {
-		byShop: [] as Array<{ shopId: string; shopName: string; sales: Array<{ name: string; quantity: number; sum: number }> }>,
-		total: [] as Array<{ name: string; shopName: string; quantity: number; sum: number }>,
-		nonAccessoriesByShop: [] as Array<{ shopId: string; shopName: string; sales: Array<{ name: string; quantity: number; sum: number }> }>,
-		nonAccessoriesTotal: [] as Array<{ name: string; shopName: string; quantity: number; sum: number }>,
+		byShop: [] as Array<{ shopId: string; shopName: string; sales: Array<{ name: string; quantity: number; sum: number; cost: number }> }>,
+		total: [] as Array<{ name: string; shopName: string; quantity: number; sum: number; cost: number }>,
+		nonAccessoriesByShop: [] as Array<{ shopId: string; shopName: string; sales: Array<{ name: string; quantity: number; sum: number; cost: number }> }>,
+		nonAccessoriesTotal: [] as Array<{ name: string; shopName: string; quantity: number; sum: number; cost: number }>,
 	};
 
 	try {
@@ -675,8 +675,8 @@ export async function getAccessoriesSalesFromD1(
 		if (!docs?.results || docs.results.length === 0) return empty;
 
 		// 3. Агрегируем: byShop для акс/не-акс + total для акс/не-акс
-		const accByShop: Record<string, Record<string, { quantity: number; sum: number }>> = {};
-		const nonAccByShop: Record<string, Record<string, { quantity: number; sum: number }>> = {};
+		const accByShop: Record<string, Record<string, { quantity: number; sum: number; cost: number }>> = {};
+		const nonAccByShop: Record<string, Record<string, { quantity: number; sum: number; cost: number }>> = {};
 
 		for (const row of docs.results as { shop_id: string; type: string; transactions: string }[]) {
 			const shopId = row.shop_id;
@@ -700,10 +700,11 @@ export async function getAccessoriesSalesFromD1(
 				const target = isAccessory ? accByShop : nonAccByShop;
 				if (!target[shopId]) target[shopId] = {};
 				if (!target[shopId][name]) {
-					target[shopId][name] = { quantity: 0, sum: 0 };
+					target[shopId][name] = { quantity: 0, sum: 0, cost: 0 };
 				}
 				target[shopId][name].quantity += (tx.quantity || 0) * sign;
 				target[shopId][name].sum += (tx.sum || 0) * sign;
+				target[shopId][name].cost += ((tx.costPrice ?? 0) * (tx.quantity || 0)) * sign;
 			}
 		}
 
@@ -719,10 +720,11 @@ export async function getAccessoriesSalesFromD1(
 				name,
 				quantity: d.quantity,
 				sum: d.sum,
+				cost: d.cost,
 			}));
 			byShop.push({ shopId, shopName, sales });
 			for (const s of sales) {
-				total.push({ name: s.name, shopName, quantity: s.quantity, sum: s.sum });
+				total.push({ name: s.name, shopName, quantity: s.quantity, sum: s.sum, cost: s.cost });
 			}
 		}
 
@@ -732,10 +734,11 @@ export async function getAccessoriesSalesFromD1(
 				name,
 				quantity: d.quantity,
 				sum: d.sum,
+				cost: d.cost,
 			}));
 			nonAccessoriesByShop.push({ shopId, shopName, sales });
 			for (const s of sales) {
-				nonAccessoriesTotal.push({ name: s.name, shopName, quantity: s.quantity, sum: s.sum });
+				nonAccessoriesTotal.push({ name: s.name, shopName, quantity: s.quantity, sum: s.sum, cost: s.cost });
 			}
 		}
 
@@ -744,6 +747,36 @@ export async function getAccessoriesSalesFromD1(
 		console.error("getAccessoriesSalesFromD1: ошибка", error);
 		return empty;
 	}
+}
+
+/**
+ * Обогащает себестоимость в результатах getAccessoriesSalesFromD1
+ * загруженными ценами из 1С (приоритет над Evotor costPrice).
+ */
+export async function enrichAccessoriesCost(
+	db: D1Database,
+	since: string,
+	result: Awaited<ReturnType<typeof getAccessoriesSalesFromD1>>,
+): Promise<void> {
+	const allNames = new Set<string>();
+	for (const item of result.total) allNames.add(item.name);
+	for (const item of result.nonAccessoriesTotal) allNames.add(item.name);
+	if (allNames.size === 0) return;
+
+	const uploadedCosts = await getCostPricesForPeriod(db, [...allNames], since);
+	if (uploadedCosts.size === 0) return;
+
+	const apply = (list: Array<{ name: string; quantity: number; sum: number; cost: number }>) => {
+		for (const item of list) {
+			const price = uploadedCosts.get(item.name);
+			if (price) item.cost = price * item.quantity;
+		}
+	};
+
+	apply(result.total);
+	apply(result.nonAccessoriesTotal);
+	for (const shop of result.byShop) apply(shop.sales);
+	for (const shop of result.nonAccessoriesByShop) apply(shop.sales);
 }
 
 // ============================================================================

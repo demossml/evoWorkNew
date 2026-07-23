@@ -17,6 +17,7 @@ export interface AccessoriesSalesData {
       name: string;
       quantity: number;
       sum: number;
+      cost: number;
     }>;
   }>;
   total: Array<{
@@ -24,6 +25,7 @@ export interface AccessoriesSalesData {
     shopName: string;
     quantity: number;
     sum: number;
+    cost: number;
   }>;
   nonAccessoriesByShop: Array<{
     shopId: string;
@@ -32,6 +34,7 @@ export interface AccessoriesSalesData {
       name: string;
       quantity: number;
       sum: number;
+      cost: number;
     }>;
   }>;
   nonAccessoriesTotal: Array<{
@@ -39,6 +42,7 @@ export interface AccessoriesSalesData {
     shopName: string;
     quantity: number;
     sum: number;
+    cost: number;
   }>;
   error?: string;
 }

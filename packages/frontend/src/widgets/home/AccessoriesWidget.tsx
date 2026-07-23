@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Cherry, Package, BarChart3 } from "lucide-react";
+import { Cherry, Package, BarChart3, Percent } from "lucide-react";
 import { useAccessoriesSales, type AccessoriesSalesData } from "@/hooks/dashboard/useAccessoriesSales";
 import { useEmployeeRole, useMe } from "@/hooks/useApi";
 import { SkeletonCard } from "./widgetUtils";
@@ -8,6 +8,12 @@ import { buildAccessoriesSummaryStats } from "@features/dashboard/model/dashboar
 
 function formatRub(n: number): string {
   return n.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
+}
+
+function marginColor(pct: number): string {
+  if (pct >= 30) return "hsl(var(--success))";
+  if (pct >= 15) return "hsl(var(--warning))";
+  return "hsl(var(--destructive))";
 }
 
 interface Props { since: string; until: string; expanded: boolean; onToggle: () => void }
@@ -26,7 +32,7 @@ export function AccessoriesWidget({ since, until, expanded, onToggle }: Props) {
 
   const shopOptions = useMemo(() => {
     const names = new Set<string>();
-    data?.total?.forEach((i: any) => { if (i.shopName) names.add(i.shopName); });
+    data?.total?.forEach((i) => { if (i.shopName) names.add(i.shopName); });
     return Array.from(names);
   }, [data]);
 
@@ -35,21 +41,22 @@ export function AccessoriesWidget({ since, until, expanded, onToggle }: Props) {
     if (shopFilter === "all") return data;
     return {
       ...data,
-      total: data.total.filter((i: any) => i.shopName === shopFilter),
-      nonAccessoriesTotal: (data.nonAccessoriesTotal || []).filter((i: any) => i.shopName === shopFilter),
+      total: data.total.filter((i) => i.shopName === shopFilter),
+      nonAccessoriesTotal: (data.nonAccessoriesTotal || []).filter((i) => i.shopName === shopFilter),
     };
   }, [data, shopFilter]);
-
-  const tileValue = useMemo(() => {
-    if (!filtered) return 0;
-    const list = scope === "nonAccessories" ? (filtered.nonAccessoriesTotal || []) : filtered.total;
-    return list.reduce((s: number, i: any) => s + i.sum, 0);
-  }, [filtered, scope]);
 
   if (loading || !filtered) return <SkeletonCard tone="blue" />;
   if (error) return <div className="text-red-500 text-sm p-2">Ошибка: {error}</div>;
 
   const stats = buildAccessoriesSummaryStats(data!, scope);
+  const sourceList = scope === "nonAccessories" ? (filtered.nonAccessoriesTotal || []) : filtered.total;
+  const sorted = [...sourceList].sort((a, b) => b.sum - a.sum);
+  const tileValue = sorted.reduce((s, i) => s + i.sum, 0);
+
+  // Overall margin for this scope
+  const totalCost = sorted.reduce((s, i) => s + (i.cost ?? 0), 0);
+  const overallMarginPct = tileValue > 0 ? Math.round(((tileValue - totalCost) / tileValue) * 100) : null;
 
   // ═══ Свёрнутая карточка ═══
   const card = (
@@ -59,14 +66,24 @@ export function AccessoriesWidget({ since, until, expanded, onToggle }: Props) {
       className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full"
       style={{ backgroundColor: "hsl(var(--chart-1))" }}
     >
+      {/* Тонкая полоска маржи */}
+      {overallMarginPct !== null && (
+        <div className="absolute top-0 left-0 right-0 h-[3px] z-10 rounded-t-xl"
+          style={{ backgroundColor: marginColor(overallMarginPct) }} />
+      )}
       <div className="relative p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <Cherry className="w-5 h-5 opacity-80 shrink-0" />
-            <span className="text-xs font-medium opacity-90 truncate">Аксессуары</span>
+            <span className="text-xs font-medium opacity-90 truncate">Продажи</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0 ml-1">
-            <span className="text-[9px] opacity-50">{stats.totalProducts} тов.</span>
+            <span className="text-[9px] opacity-50">{stats.totalProducts} поз.</span>
+            {overallMarginPct !== null && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20">
+                маржа {overallMarginPct}%
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-end justify-between gap-1.5">
@@ -82,9 +99,6 @@ export function AccessoriesWidget({ since, until, expanded, onToggle }: Props) {
   );
 
   // ═══ Развёрнутый вид ═══
-  const sourceList = scope === "nonAccessories" ? (filtered.nonAccessoriesTotal || []) : filtered.total;
-  const sorted = [...sourceList].sort((a: any, b: any) => b.sum - a.sum);
-
   const detail = (
     <motion.div
       initial={{ opacity: 0, y: -8 }}
@@ -95,7 +109,7 @@ export function AccessoriesWidget({ since, until, expanded, onToggle }: Props) {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-chart-1" />
-          <h3 className="text-sm font-bold text-foreground">Продажи аксессуаров</h3>
+          <h3 className="text-sm font-bold text-foreground">Продажи</h3>
         </div>
         <div className="flex items-center gap-2">
           <div className="inline-flex rounded-md border border-border p-0.5 text-[10px]">
@@ -122,39 +136,98 @@ export function AccessoriesWidget({ since, until, expanded, onToggle }: Props) {
       </div>
 
       {/* Сводка */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-2">
         <div className="rounded-xl bg-chart-1/10 p-2.5 text-center">
           <div className="text-sm font-bold text-foreground">{formatRub(tileValue)}</div>
           <div className="text-[10px] text-muted-foreground">Сумма</div>
         </div>
         <div className="rounded-xl bg-muted p-2.5 text-center">
           <div className="text-sm font-bold text-foreground">{stats.totalQty}</div>
-          <div className="text-[10px] text-muted-foreground">Продано шт</div>
+          <div className="text-[10px] text-muted-foreground">Шт</div>
         </div>
         <div className="rounded-xl bg-muted p-2.5 text-center">
           <div className="text-sm font-bold text-foreground">{stats.topShare}%</div>
-          <div className="text-[10px] text-muted-foreground">Доля топ-3</div>
+          <div className="text-[10px] text-muted-foreground">Топ-3</div>
         </div>
+        {overallMarginPct !== null && (
+          <div className="rounded-xl p-2.5 text-center" style={{ backgroundColor: marginColor(overallMarginPct), opacity: 0.15 }}>
+            <div className="text-sm font-bold" style={{ color: marginColor(overallMarginPct) }}>{overallMarginPct}%</div>
+            <div className="text-[10px] text-muted-foreground">Маржа</div>
+          </div>
+        )}
       </div>
 
-      {/* Список товаров */}
+      {/* Список товаров с маржой */}
       <div>
         <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-          Товары ({sorted.length})
+          Позиции ({sorted.length})
         </h4>
-        <div className="space-y-1.5">
-          {sorted.map((sale: any, idx: number) => (
-            <div key={sale.name} className="flex items-center justify-between text-xs py-1 border-b border-border/50 last:border-0">
-              <span className="text-foreground truncate flex-1 flex items-center gap-1.5">
-                <span className="text-[10px] text-muted-foreground w-4 text-right">{idx + 1}.</span>
-                {sale.name}
-              </span>
-              <span className="text-muted-foreground tabular-nums ml-2">
-                {formatRub(sale.sum)} ₽
-                <span className="text-[10px] ml-1">({sale.quantity} шт)</span>
-              </span>
-            </div>
-          ))}
+        <div className="space-y-2">
+          {sorted.map((sale, idx) => {
+            const itemCost = sale.cost ?? 0;
+            const itemMarginPct = sale.sum > 0 ? Math.round(((sale.sum - itemCost) / sale.sum) * 100) : null;
+            const itemMarginRub = sale.sum - itemCost;
+            const maxSum = sorted[0]?.sum || 1;
+            const barW = (sale.sum / maxSum) * 100;
+
+            return (
+              <div key={`${sale.name}-${sale.shopName}`}>
+                <div className="flex items-center justify-between text-xs mb-0.5">
+                  <span className="text-foreground font-medium truncate flex-1 flex items-center gap-1">
+                    <span className="text-[10px] text-muted-foreground w-4 text-right shrink-0">{idx + 1}.</span>
+                    {sale.name}
+                    {itemMarginPct !== null && (
+                      <span className="text-[9px] ml-1 shrink-0" style={{ color: marginColor(itemMarginPct) }}>
+                        {itemMarginPct}%
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-muted-foreground tabular-nums ml-2 text-xs">
+                    {formatRub(sale.sum)} ₽
+                  </span>
+                </div>
+                {/* Полоса выручки */}
+                <div className="h-3 rounded-full overflow-hidden flex bg-muted/30">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(barW, 100)}%` }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: "hsl(var(--chart-1) / 0.3)" }}
+                  />
+                </div>
+                {/* Тонкая полоска маржи */}
+                {itemMarginPct !== null && itemMarginPct > 0 && (
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: "100%" }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                    className="h-3 rounded-full overflow-hidden flex bg-muted/20 mt-0.5"
+                  >
+                    <div
+                      className="h-full flex items-center justify-start pl-2 text-[8px] font-medium whitespace-nowrap min-w-0"
+                      style={{
+                        width: `${Math.max(itemMarginPct, 5)}%`,
+                        backgroundColor: marginColor(itemMarginPct),
+                        opacity: 0.25,
+                      }}
+                    >
+                      {itemMarginPct > 8 && (
+                        <span className="text-foreground/60">маржа {itemMarginPct}%</span>
+                      )}
+                    </div>
+                    <div className="flex-1 flex items-center justify-end pr-2 text-[8px] text-muted-foreground">
+                      {formatRub(itemMarginRub)} ₽
+                    </div>
+                  </motion.div>
+                )}
+                <div className="flex items-center gap-3 text-[9px] text-muted-foreground mt-0.5 pl-5">
+                  <span>{sale.quantity} шт</span>
+                  <span>{sale.shopName}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
