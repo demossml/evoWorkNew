@@ -11,7 +11,7 @@ upload_source_maps = true
 [[d1_databases]]
 binding = "DB" # доступно как env.DB
 database_name = "d1-bot"
-database_id = "17efe5ea-cab5-4ea6-8b12-0bdf77c375fb"
+database_id = "0c434bad-9113-4689-9a49-becf4304330b"
 
 migrations_dir = "./drizzle"
 
@@ -36,10 +36,10 @@ TELEGRAM_STORAGE_BOT_TOKEN = "8727487138:AAHnSTM9tisI2pOmRqooqTSHwsuJVtMmXag"
 TELEGRAM_STORAGE_CHAT_ID = "-5118742446"
 R2_PUBLIC_URL = "c1e9f63e6135bb4fa5600e83bf4a1a4b.r2.cloudflarestorage.com/evotor"
 
-[triggers]
-crons = [
-  "*/3 * * * *",   # Продажи (SELL) — syncDocuments
-  "*/25 * * * *",  # Товары + Сотрудники — updateProducts, updateProductsShope
-  "*/30 * * * *",  # Остатки (stock)
-  "0 3 * * *",     # План-факт — getDataForCurrentDate
-]
+# [triggers]
+# crons = [
+#   "*/3 * * * *",   # Продажи (SELL) — syncDocuments
+#   "*/25 * * * *",  # Товары + Сотрудники — updateProducts, updateProductsShope
+#   "*/30 * * * *",  # Остатки (stock)
+#   "0 3 * * *",     # План-факт — getDataForCurrentDate
+# ]
