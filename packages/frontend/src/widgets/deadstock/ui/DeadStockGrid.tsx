@@ -166,7 +166,7 @@ export const DeadStockGrid: React.FC<DeadStockGridProps> = ({
                     {/* Строка 2.5: заморожено */}
                     {item.totalFrozenCost != null && item.totalFrozenCost > 0 && (
                       <div className="mt-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                        Заморожено: {item.totalFrozenCost.toFixed(0)} ₽ по закупке
+                        Заморожено: {item.totalFrozenCost.toLocaleString("ru-RU")} ₽ по закупке
                       </div>
                     )}
 
