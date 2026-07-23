@@ -3,12 +3,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSalesData } from "@/hooks/dashboard/useSalesData";
 import { useFilteredSalesData } from "@/hooks/dashboard/useFilteredSalesData";
 import { useSalesCalculations } from "@/hooks/dashboard/useSalesCalculations";
+import { useGrossProfit } from "@/hooks/dashboard/useGrossProfit";
 import { Sparkline } from "@shared/ui";
 import { TileWrapper } from "./TileWrapper";
 import { SkeletonCard } from "./widgetUtils";
 import {
   DollarSign, TrendingUp, TrendingDown, Brain, Sparkles,
-  Zap, Wrench, Package, Ticket, RotateCcw, Store,
+  Zap, Wrench, Package, Ticket, RotateCcw, Store, Percent,
 } from "lucide-react";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
@@ -79,6 +80,35 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
     };
   }, [filtered]);
 
+  // Gross profit / margin
+  const { data: grossProfit } = useGrossProfit({ since, until });
+  const overallMarginPct = useMemo(() => {
+    if (!grossProfit?.total?.revenue || grossProfit.total.revenue <= 0) return null;
+    return Math.round((grossProfit.total.profit / grossProfit.total.revenue) * 100);
+  }, [grossProfit]);
+
+  // Margin per shop: name → { pct, profit }
+  const marginByShop = useMemo(() => {
+    const map: Record<string, { pct: number; profit: number }> = {};
+    if (!grossProfit?.shops) return map;
+    for (const [name, gp] of Object.entries(grossProfit.shops)) {
+      if (gp.revenue > 0) {
+        map[name] = {
+          pct: Math.round((gp.profit / gp.revenue) * 100),
+          profit: Math.round(gp.profit),
+        };
+      }
+    }
+    return map;
+  }, [grossProfit]);
+
+  // Margin color: green >= 30%, amber >= 15%, red < 15%
+  function marginColor(pct: number): string {
+    if (pct >= 30) return "hsl(var(--success))";
+    if (pct >= 15) return "hsl(var(--warning))";
+    return "hsl(var(--destructive))";
+  }
+
   // ═══ Свёрнутая карточка ═══
   const card = (
     <motion.div
@@ -96,6 +126,11 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
           <span className="text-[9px] opacity-60 font-medium">Нал</span>
         </div>
       </div>
+      {/* Тонкая полоска маржи — поверх всего */}
+      {overallMarginPct !== null && (
+        <div className="absolute top-0 left-0 right-0 h-[3px] z-10 rounded-t-xl"
+          style={{ backgroundColor: marginColor(overallMarginPct) }} />
+      )}
       <div className="relative p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 min-w-0">
@@ -146,6 +181,12 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
             )}
             <span>· {filtered.totalChecks || 0} чеков</span>
             <span>· ср. чек {formatRub(filtered.averageCheck || 0)} ₽</span>
+            {overallMarginPct !== null && (
+              <span className="flex items-center gap-0.5" style={{ color: marginColor(overallMarginPct) }}>
+                <Percent className="w-3 h-3" />
+                маржа {overallMarginPct}%
+              </span>
+            )}
           </div>
         </div>
         <button onClick={() => setShowWhy(true)}
@@ -216,6 +257,7 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
             }
             const sTotal = sCash + sCard || 1;
             const sCardPct = Math.round((sCard / sTotal) * 100);
+            const sm = marginByShop[name];
 
             return (
               <div key={name}>
@@ -241,6 +283,31 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
                     {sCardPct < 88 && `Нал ${formatRub(sCash)}`}
                   </motion.div>
                 </div>
+                {/* Тонкая полоска маржи магазина */}
+                {sm && (
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: "100%" }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                    className="h-3 rounded-full overflow-hidden flex bg-muted/30 mt-1"
+                  >
+                    <div
+                      className="h-full flex items-center justify-start pl-2 text-[8px] font-medium whitespace-nowrap min-w-0"
+                      style={{
+                        width: `${Math.max(sm.pct, 5)}%`,
+                        backgroundColor: marginColor(sm.pct),
+                        opacity: 0.3,
+                      }}
+                    >
+                      {sm.pct > 8 && (
+                        <span className="text-foreground/70">маржа {sm.pct}%</span>
+                      )}
+                    </div>
+                    <div className="flex-1 flex items-center justify-end pr-2 text-[8px] text-muted-foreground">
+                      {formatRub(sm.profit)} ₽
+                    </div>
+                  </motion.div>
+                )}
               </div>
             );
           })}
