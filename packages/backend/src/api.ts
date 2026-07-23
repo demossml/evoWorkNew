@@ -1224,6 +1224,177 @@ export const api = new Hono<IEnv>()
 		}
 	})
 
+	// ═══════════════════════════════════════════════════════════════════════════
+	// Валовая прибыль по группам товаров (новый отчёт)
+	// GET /api/reports/gross-profit?since=YYYY-MM-DD&until=YYYY-MM-DD&shopId=...
+	// ═══════════════════════════════════════════════════════════════════════════
+	.get("/api/reports/gross-profit", async (c) => {
+		try {
+			const db = c.get("db");
+			const sinceParam = c.req.query("since");
+			const untilParam = c.req.query("until");
+			const shopIdParam = c.req.query("shopId");
+
+			if (!sinceParam || !untilParam) {
+				return c.json({ error: "Параметры since и until обязательны (YYYY-MM-DD)" }, 400);
+			}
+
+			const since = sinceParam.length <= 10 ? sinceParam + "T00:00:00" : sinceParam;
+			const until = untilParam.length <= 10 ? untilParam + "T23:59:59" : untilParam;
+
+			// 1. Загружаем чеки за период
+			let sql = `SELECT shop_id, type, transactions FROM index_documents
+			           WHERE close_date >= ? AND close_date <= ?
+			             AND type IN ('SELL', 'PAYBACK')`;
+			const params: any[] = [since, until];
+
+			if (shopIdParam && shopIdParam !== "all") {
+				sql += " AND shop_id = ?3";
+				params.push(shopIdParam);
+			}
+
+			const docs = await db.prepare(sql).bind(...params)
+				.all<{ shop_id: string; type: string; transactions: string }>();
+
+			// 2. Строим карту категорий: commodityUuid → { groupUuid, groupName }
+			const productRows = await db
+				.prepare("SELECT uuid, product_group, parentUuid, name FROM shopProduct")
+				.all<{ uuid: string; product_group: number; parentUuid: string | null; name: string }>();
+			const prodRows = productRows.results ?? [];
+
+			// UUID группы → название
+			const groupNames = new Map<string, string>();
+			for (const r of prodRows) {
+				if (r.product_group) groupNames.set(r.uuid, r.name || "Без категории");
+			}
+
+			// commodityUuid → { groupUuid, groupName }
+			const productMeta = new Map<string, { groupUuid: string; groupName: string; productName: string }>();
+			for (const r of prodRows) {
+				if (r.product_group) continue;
+				const gUuid = r.parentUuid || "";
+				const gName = groupNames.get(gUuid) || "Без категории";
+				productMeta.set(r.uuid, { groupUuid: gUuid, groupName: gName, productName: r.name || "—" });
+			}
+
+			// 3. Агрегация: groupUuid → productUuid → { name, revenue, cost, qty }
+			const groups = new Map<string, {
+				groupName: string;
+				products: Map<string, { name: string; revenue: number; cost: number; qty: number }>;
+			}>();
+
+			for (const doc of docs.results ?? []) {
+				const isRefund = doc.type === "PAYBACK";
+				let txs: any[];
+				try { txs = JSON.parse(doc.transactions); } catch { continue; }
+				if (!Array.isArray(txs)) continue;
+
+				for (const tx of txs) {
+					if (tx.type !== "REGISTER_POSITION") continue;
+					const uuid = (tx.commodityUuid || "").trim();
+					if (!uuid) continue;
+
+					const meta = productMeta.get(uuid);
+					const gUuid = meta?.groupUuid || "__ungrouped__";
+					const gName = meta?.groupName || "Без категории";
+					const pName = meta?.productName || (tx.commodityName || "—").trim();
+
+					const qty = tx.quantity ?? 0;
+					const price = tx.price ?? 0;
+					const costPrice = tx.costPrice ?? 0;
+					const sum = tx.sum ?? (price * qty);
+					const sign = isRefund ? -1 : 1;
+
+					const revenue = sum * sign;
+					const cost = costPrice * qty * sign;
+
+					if (!groups.has(gUuid)) {
+						groups.set(gUuid, { groupName: gName, products: new Map() });
+					}
+					const grp = groups.get(gUuid)!;
+
+					if (!grp.products.has(uuid)) {
+						grp.products.set(uuid, { name: pName, revenue: 0, cost: 0, qty: 0 });
+					}
+					const prod = grp.products.get(uuid)!;
+					prod.revenue += revenue;
+					prod.cost += cost;
+					prod.qty += qty * sign;
+				}
+			}
+
+			// 4. Считаем итоги и формируем ответ
+			let totalRevenue = 0, totalCost = 0;
+
+			const groupList: any[] = [];
+			for (const [gUuid, grp] of groups) {
+				let gRev = 0, gCost = 0;
+				const items: any[] = [];
+
+				for (const [pUuid, prod] of grp.products) {
+					const profit = prod.revenue - prod.cost;
+					const margin = prod.revenue > 0 ? (profit / prod.revenue) * 100 : 0;
+					gRev += prod.revenue;
+					gCost += prod.cost;
+
+					items.push({
+						name: prod.name,
+						article: pUuid,
+						revenue: Math.round(prod.revenue * 100) / 100,
+						cost: Math.round(prod.cost * 100) / 100,
+						profit: Math.round(profit * 100) / 100,
+						quantity: Math.round(prod.qty * 100) / 100,
+						margin: Math.round(margin * 100) / 100,
+					});
+				}
+
+				// Сортировка товаров внутри группы: по убыванию выручки
+				items.sort((a, b) => b.revenue - a.revenue);
+
+				const gProfit = gRev - gCost;
+				const gMargin = gRev > 0 ? (gProfit / gRev) * 100 : 0;
+				totalRevenue += gRev;
+				totalCost += gCost;
+
+				groupList.push({
+					groupUuid: gUuid,
+					groupName: grp.groupName,
+					revenue: Math.round(gRev * 100) / 100,
+					cost: Math.round(gCost * 100) / 100,
+					profit: Math.round(gProfit * 100) / 100,
+					margin: Math.round(gMargin * 100) / 100,
+					items,
+				});
+			}
+
+			// Сортировка групп: по убыванию прибыли
+			groupList.sort((a, b) => b.profit - a.profit);
+
+			const totalGrossProfit = totalRevenue - totalCost;
+			const totalMargin = totalRevenue > 0 ? (totalGrossProfit / totalRevenue) * 100 : 0;
+
+			// Добавляем share (%) для каждой группы
+			for (const g of groupList) {
+				g.share = totalGrossProfit > 0
+					? Math.round((g.profit / totalGrossProfit) * 10000) / 100
+					: 0;
+			}
+
+			return c.json({
+				since: since.slice(0, 10),
+				until: until.slice(0, 10),
+				totalRevenue: Math.round(totalRevenue * 100) / 100,
+				totalCost: Math.round(totalCost * 100) / 100,
+				totalGrossProfit: Math.round(totalGrossProfit * 100) / 100,
+				totalMargin: Math.round(totalMargin * 100) / 100,
+				groups: groupList,
+			});
+		} catch (err) {
+			console.error("[gross-profit] error:", err);
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+
 	// Валовая прибыль за период (по умолчанию — сегодня).
 	// Параметры: since, until (опционально) или date (один день).
 	.get("/api/evotor/gross-profit-today", async (c) => {
