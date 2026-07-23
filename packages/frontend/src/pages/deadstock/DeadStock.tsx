@@ -102,6 +102,9 @@ export default function DeadSt() {
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
 
+  // Кэш себестоимостей (itemId|shopId → { unitCost, totalFrozenCost })
+  const [costMap, setCostMap] = useState<Map<string, { unitCost: number | null; totalFrozenCost: number | null }>>(new Map());
+
   // Date picker state (Calendar for "period" mode)
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
   const [period, setPeriod] = useState<DateRange | undefined>(undefined);
@@ -175,6 +178,26 @@ export default function DeadSt() {
   // Модальные окна закрыты?
   const areAllModalsClosed =
     !isDatePickerOpen && !isGroupSelectorOpen && !showPeriodPicker;
+
+  // 🔹 Подгрузка себестоимостей после получения отчёта
+  useEffect(() => {
+    if (!reportData || reportData.salesData.length === 0) return;
+    const fetchCosts = async () => {
+      try {
+        const res = await fetch(`/api/analytics/dead-stock?daysWithoutSales=0&shopId=all`);
+        if (!res.ok) return;
+        const json = await res.json();
+        const items = json.items ?? [];
+        const map = new Map<string, { unitCost: number | null; totalFrozenCost: number | null }>();
+        for (const item of items) {
+          const key = `${item.itemId}|${item.shopId}`;
+          map.set(key, { unitCost: item.unitCost ?? null, totalFrozenCost: item.totalFrozenCost ?? null });
+        }
+        setCostMap(map);
+      } catch { /* не критично */ }
+    };
+    fetchCosts();
+  }, [reportData]);
 
   // 🔹 Функция генерации отчёта с useCallback
   const submitForecast = useCallback(async () => {
@@ -380,17 +403,23 @@ export default function DeadSt() {
   // 🔹 Отчёт готов
   if (reportData) {
     const { salesData, startDate, endDate, shopName } = reportData;
-    const gridData: DeadStockTileItem[] = salesData.map((item) => ({
-      itemId: item.itemId,
-      name: item.name,
-      article: item.article,
-      quantity: item.quantity,
-      sold: item.sold,
-      lastSaleDate: item.lastSaleDate,
-      daysWithoutSales: item.daysWithoutSales,
-      shopId: item.shopId,
-      shopName: item.shopName,
-    }));
+    const gridData: DeadStockTileItem[] = salesData.map((item) => {
+      const costKey = `${item.itemId}|${item.shopId}`;
+      const costs = costMap.get(costKey);
+      return {
+        itemId: item.itemId,
+        name: item.name,
+        article: item.article,
+        quantity: item.quantity,
+        sold: item.sold,
+        lastSaleDate: item.lastSaleDate,
+        daysWithoutSales: item.daysWithoutSales,
+        shopId: item.shopId,
+        shopName: item.shopName,
+        unitCost: costs?.unitCost ?? null,
+        totalFrozenCost: costs?.totalFrozenCost ?? null,
+      };
+    });
 
     const totalItems = gridData.length;
     const avgDays = totalItems > 0

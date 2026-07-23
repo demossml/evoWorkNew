@@ -239,10 +239,12 @@ export const DeadStockDetailModal: React.FC<DeadStockDetailModalProps> = ({
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-2 p-4 pb-0">
+          <div className="grid grid-cols-2 gap-2 p-4 pb-0">
             {[{ icon: Hash, val: item.quantity, lbl: "Остаток, шт" },
               { icon: Clock, val: item.daysWithoutSales >= 999 ? "∞" : item.daysWithoutSales, lbl: "Дней без продаж" },
-              { icon: ShoppingCart, val: item.sold, lbl: "Продано за период" }].map((s, i) => (
+              { icon: ShoppingCart, val: item.sold, lbl: "Продано за период" },
+              { icon: TrendingUp, val: item.totalFrozenCost != null ? `${item.totalFrozenCost.toFixed(0)} ₽` : "—", lbl: "Заморожено" },
+            ].map((s, i) => (
               <div key={i} className="bg-secondary/50 rounded-xl p-2.5 text-center">
                 <s.icon className="w-3.5 h-3.5 mx-auto mb-0.5 text-muted-foreground" />
                 <p className="text-base font-bold">{s.val}</p>
@@ -353,6 +355,11 @@ export const DeadStockDetailModal: React.FC<DeadStockDetailModalProps> = ({
                   <p className="text-[10px] text-muted-foreground">
                     Распределено: {Object.values(moveMap).reduce((s, q) => s + q, 0)} / {item.quantity} шт.
                   </p>
+                  {item.unitCost != null && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                      Перемещаем на {(Object.values(moveMap).reduce((s, q) => s + q, 0) * item.unitCost).toFixed(0)} ₽ по закупочной цене
+                    </p>
+                  )}
                   <button type="button" onClick={e => { e.stopPropagation(); handleMultiMove(); }}
                     className="w-full py-2.5 rounded-xl text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition">
                     Переместить

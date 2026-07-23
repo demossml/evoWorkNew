@@ -15,6 +15,10 @@ export interface DeadStockTileItem {
   daysWithoutSales: number;
   shopId: string;
   shopName: string;
+  /** Закупочная цена за единицу (из 1С или Evotor) */
+  unitCost?: number | null;
+  /** Заморожено: quantity × unitCost */
+  totalFrozenCost?: number | null;
 }
 
 interface DeadStockGridProps {
@@ -158,6 +162,13 @@ export const DeadStockGrid: React.FC<DeadStockGridProps> = ({
                         {item.daysWithoutSales >= 999 ? "∞ дн." : `${item.daysWithoutSales} дн.`}
                       </span>
                     </div>
+
+                    {/* Строка 2.5: заморожено */}
+                    {item.totalFrozenCost != null && item.totalFrozenCost > 0 && (
+                      <div className="mt-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                        Заморожено: {item.totalFrozenCost.toFixed(0)} ₽ по закупке
+                      </div>
+                    )}
 
                     {/* Строка 3: рекомендация */}
                     <div className={`mt-2 text-[11px] font-medium rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 ${rec.color}`}>
