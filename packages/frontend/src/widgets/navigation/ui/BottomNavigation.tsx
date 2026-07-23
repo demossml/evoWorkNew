@@ -19,6 +19,7 @@ import {
   ClipboardCheck,
   Users,
   Boxes,
+  PieChart,
 } from "lucide-react";
 import { isTelegramMiniApp, telegram } from "@/helpers/telegram";
 
@@ -95,6 +96,12 @@ const moreGroups: Array<{
         label: "Финансовый отчёт",
         icon: FileBarChart,
         roles: ["SUPERADMIN"],
+      },
+      {
+        to: "/evotor/gross-profit",
+        label: "Валовая прибыль",
+        icon: PieChart,
+        roles: ["ADMIN", "SUPERADMIN"],
       },
     ],
   },

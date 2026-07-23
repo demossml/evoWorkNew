@@ -9,7 +9,8 @@ import {
 import { DateFilter, type DateFilterValue } from "@widgets/home/DateFilter";
 import { Card, CardContent, CardHeader, CardTitle, ReportKPIBar } from "@shared/ui";
 import { LoadingState, ErrorState } from "@shared/ui/states";
-import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
+import { useTelegramBackButton } from "../hooks/useSimpleTelegramBackButton";
+import { useEmployeeRole } from "../hooks/useApi";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -88,6 +89,10 @@ const PieTooltip = ({ active, payload }: any) => {
 export default function GrossProfitReport() {
   useTelegramBackButton();
 
+  // Проверка роли — только ADMIN / SUPERADMIN
+  const { data: roleData, isLoading: roleLoading } = useEmployeeRole();
+  const isAdmin = roleData?.employeeRole === "ADMIN" || roleData?.employeeRole === "SUPERADMIN";
+
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getTodayRange);
   const [shopId, setShopId] = useState<string>("all");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -121,7 +126,7 @@ export default function GrossProfitReport() {
     error,
     refetch,
   } = useQuery<GrossProfitResponse>({
-    queryKey: ["reports", "gross-profit", dateFilter.since, dateFilter.until, shopId],
+    queryKey: ["gross-profit", dateFilter.since, dateFilter.until, shopId],
     queryFn: async () => {
       const params = new URLSearchParams({
         since: dateFilter.since,
@@ -179,6 +184,18 @@ export default function GrossProfitReport() {
   };
 
   // ── Render ──────────────────────────────────────────────────────────
+
+  if (roleLoading) return <LoadingState />;
+  if (!isAdmin) {
+    return (
+      <div className="app-page min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-foreground">Доступ запрещён</h2>
+          <p className="text-sm text-muted-foreground mt-1">Требуется роль ADMIN или SUPERADMIN</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState error={String(error)} onRetry={() => refetch()} />;
