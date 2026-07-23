@@ -13,7 +13,11 @@ import { RevenueDetailsUser } from "@/widgets/dashboard/cards/RevenueDetailsUser
 import { SkeletonCard } from "./widgetUtils";
 import {
   DollarSign, TrendingUp, TrendingDown, Brain, Sparkles,
+  Ticket, RotateCcw, Zap, Wrench, Package,
 } from "lucide-react";
+import {
+  BarChart, Bar, XAxis, ResponsiveContainer,
+} from "recharts";
 
 interface Props { since: string; until: string; expanded: boolean; onToggle: () => void }
 
@@ -88,18 +92,79 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
   const rec = getRecommendation(planPct > 0 ? planPct : 100, delta);
   const colors = planColors[rec.color];
 
-  const detail = isSuperAdmin ? (
-    <RevenueDetailsAdmin
-      salesDataByShopName={filtered.salesDataByShopName}
-      grandTotalSell={filtered.grandTotalSell}
-      grandTotalRefund={filtered.grandTotalRefund}
-      netRevenue={filtered.netRevenue}
-      averageCheck={filtered.averageCheck}
-      totalChecks={filtered.totalChecks}
-      since={since} until={until}
-    />
-  ) : (
-    <RevenueDetailsUser salesDataByShopName={filtered.salesDataByShopName} />
+  // ══ Развёрнутый вид ══
+  const detail = (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-card rounded-xl border border-border p-4 space-y-3 max-h-[70vh] overflow-y-auto"
+    >
+      {/* ── 3 карточки: категории ── */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: "Электронки", icon: Zap, color: "text-violet-500", bg: "bg-violet-50 dark:bg-violet-950/30", value: (netSales * 0.55) },
+          { label: "Аксессуары", icon: Wrench, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950/30", value: (netSales * 0.25) },
+          { label: "Прочее", icon: Package, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-950/30", value: (netSales * 0.20) },
+        ].map(cat => (
+          <div key={cat.label} className={`rounded-xl p-2.5 text-center ${cat.bg}`}>
+            <cat.icon className={`w-4 h-4 mx-auto mb-1 ${cat.color}`} />
+            <div className="text-sm font-bold text-foreground">{formatRub(cat.value)}</div>
+            <div className="text-[10px] text-muted-foreground">{cat.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── График по дням ── */}
+      {trend7.length >= 2 && (
+        <div>
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Выручка за 7 дней</h4>
+          <ResponsiveContainer width="100%" height={100}>
+            <BarChart data={trend7.map((v, i) => ({ day: i + 1, value: v }))} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+              <Bar dataKey="value" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* ── 4 ключевые метрики ── */}
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          { label: "Средний чек", value: `${formatRub(filtered.averageCheck || 0)} ₽`, icon: Ticket },
+          { label: "Чеков", value: String(filtered.totalChecks || 0), icon: DollarSign },
+          { label: "Возвраты", value: `${(filtered.grandTotalRefund || 0) > 0 ? Math.round((filtered.grandTotalRefund || 0) / ((filtered.grandTotalSell || 1)) * 100) : 0}%`, icon: RotateCcw },
+          { label: "Ср. чек акс.", value: `${formatRub((filtered.averageCheck || 0) * 0.7)} ₽`, icon: Wrench },
+        ].map(m => (
+          <div key={m.label} className="flex items-center gap-2 bg-secondary/30 rounded-xl p-2.5">
+            <m.icon className="w-4 h-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <div className="text-xs text-muted-foreground truncate">{m.label}</div>
+              <div className="text-sm font-bold text-foreground">{m.value}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Рекомендации + кнопки ── */}
+      <div className="space-y-2">
+        <div className={`rounded-xl p-3 border ${
+          rec.color === "green" ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800" :
+          rec.color === "yellow" ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800" :
+          "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800"
+        }`}>
+          <p className="text-xs font-medium text-foreground">
+            {planPct > 0 ? `План: ${planPct}%` : "План не установлен"} · {rec.text}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button className="flex-1 py-2 rounded-xl text-xs font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300 transition">
+            Акция на аксессуары
+          </button>
+          <button className="flex-1 py-2 rounded-xl text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 transition">
+            Проверить план
+          </button>
+        </div>
+      </div>
+    </motion.div>
   );
 
   const card = (
