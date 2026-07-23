@@ -76,45 +76,41 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
   const deltaColor = getDeltaColor(delta);
 
   // ═══════════════════════════════════════════════════════════════════
-  // Свёрнутая карточка (тот же размер, что BestShopCard: ~100px)
+  // Свёрнутая карточка — размер строго как BestShopCard
+  // Структура: header (text-xs) → number (text-lg) → sub (text-sm)
   // ═══════════════════════════════════════════════════════════════════
   const card = (
     <motion.div
       whileHover={{ scale: 1.02, y: -1 }}
       whileTap={{ scale: 0.98 }}
-      className="cursor-pointer rounded-xl text-white p-4 shadow-lg relative overflow-hidden"
+      className="cursor-pointer rounded-xl text-white p-4 shadow-lg relative overflow-hidden w-full"
       style={{ backgroundColor: bgColor }}
     >
+      {/* Header — как у BestShopCard: text-xs + иконка */}
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          <DollarSign className="w-4 h-4 opacity-80" />
-          <span className="text-xs font-medium opacity-90">Выручка</span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <DollarSign className="w-5 h-5 opacity-80 shrink-0" />
+          <span className="text-xs font-medium opacity-90 truncate">Выручка</span>
         </div>
         {delta !== null && (
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20">
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20 shrink-0 ml-1">
             {delta >= 0 ? "+" : ""}{delta}%
           </span>
         )}
       </div>
 
-      <div className="flex items-end justify-between gap-2">
-        <div>
-          <div className="text-xl sm:text-2xl font-bold leading-none">
+      {/* Content row — text-lg как у BestShopCard + sparkline справа */}
+      <div className="flex items-end justify-between gap-1.5">
+        <div className="min-w-0 flex-1">
+          <div className="text-lg font-bold truncate leading-tight">
             {formatRub(netSales)} ₽
           </div>
-          <p className="mt-1 text-[11px] opacity-75 truncate max-w-[200px]">
+          <div className="text-sm opacity-90 mt-1 truncate">
             {recText}
-          </p>
+          </div>
         </div>
-        {trend7.length >= 2 ? (
-          <Sparkline values={trend7} width={56} height={20} className="text-white/60 shrink-0 mb-0.5" />
-        ) : (
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowWhy(true); }}
-            className="shrink-0 text-[10px] font-medium bg-white/15 hover:bg-white/25 rounded-full px-2 py-0.5 transition"
-          >
-            <Brain className="w-2.5 h-2.5 inline mr-0.5" />Почему?
-          </button>
+        {trend7.length >= 2 && (
+          <Sparkline values={trend7} width={48} height={18} className="text-white/60 shrink-0 mb-0.5" />
         )}
       </div>
     </motion.div>
