@@ -69,6 +69,9 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
       cardShare: total > 0 ? Math.round((card / total) * 100) : 50,
     };
   }, [filtered]);
+
+  // Best shop name for recommendations
+  const bestShop = useMemo(() => {
     if (!filtered?.salesDataByShopName) return "основной магазин";
     let top: string | null = null; let max = 0;
     for (const [name, d] of Object.entries(filtered.salesDataByShopName)) {
