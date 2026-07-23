@@ -4,12 +4,12 @@ import { useDashboardHomeInsights } from "@/hooks/dashboard/useDashboardHomeInsi
 import { useGrossProfit } from "@/hooks/dashboard/useGrossProfit";
 import { useEmployeeRole } from "@/hooks/useApi";
 import { useCurrentWorkShop } from "@/hooks/useCurrentWorkShop";
-import type { LeaderMode } from "@/widgets/dashboard/cards/BestShopCard";
-import type { ShopKpiRow } from "@/widgets/dashboard/cards/BestShopDetails";
 import { SkeletonCard } from "./widgetUtils";
 import {
-  Award, Trophy, Medal, Target, BarChart3, TrendingUp, Percent,
+  Award, Trophy, Medal, Target, BarChart3, TrendingUp, Banknote,
 } from "lucide-react";
+
+type DateMode = "today" | "yesterday" | "week";
 
 function formatRub(n: number): string {
   if (!Number.isFinite(n)) return "0";
@@ -31,40 +31,39 @@ function vsAvgColor(val: number, avg: number, higherIsBetter: boolean): string {
   return diff <= 0 ? "hsl(var(--success))" : diff <= 0.3 ? "hsl(var(--warning))" : "hsl(var(--destructive))";
 }
 
-function marginColor(pct: number): string {
-  if (pct >= 30) return "hsl(var(--success))";
-  if (pct >= 15) return "hsl(var(--warning))";
-  return "hsl(var(--destructive))";
-}
+function getDateRange(mode: DateMode): { since: string; until: string; dateMode: "today" | "yesterday" | "period" } {
+  const now = new Date();
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
-function getHints(shop: ShopKpiRow, avgCheck: number, avgRefund: number, avgExpRatio: number, shopMargin: number, avgMargin: number): string[] {
-  const hints: string[] = [];
-  if (shopMargin < avgMargin * 0.8) hints.push("↑ маржа");
-  if (shop.averageCheck < avgCheck * 0.85) hints.push("↑ ср.чек");
-  if (shop.refundRate > Math.max(avgRefund + 2, 4)) hints.push("↓ возвр.");
-  const expRatio = shop.revenue > 0 ? shop.expenses / shop.revenue : 0;
-  if (expRatio > Math.max(avgExpRatio + 0.03, 0.08)) hints.push("↓ расх.");
-  if (shop.checks < 5) hints.push("↑ трафик");
-  if (hints.length === 0) hints.push("✓ норма");
-  return hints;
+  if (mode === "today") {
+    const s = fmt(now);
+    return { since: s, until: s, dateMode: "today" };
+  }
+  if (mode === "yesterday") {
+    const y = new Date(now); y.setDate(y.getDate() - 1);
+    const s = fmt(y);
+    return { since: s, until: s, dateMode: "yesterday" };
+  }
+  // week: last 7 days
+  const end = new Date(now);
+  const start = new Date(now); start.setDate(start.getDate() - 6);
+  return { since: fmt(start), until: fmt(end), dateMode: "period" };
 }
 
 interface Props { since: string; until: string; dateMode: "today" | "yesterday" | "period"; expanded: boolean; onToggle: () => void }
 
-export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: Props) {
-  const [mode, setMode] = useState<LeaderMode>("day");
+export function BestShopWidget({ since, until, dateMode: _dm, expanded, onToggle }: Props) {
+  const [mode, setMode] = useState<DateMode>("today");
   const { data: role } = useEmployeeRole();
   const { data: ws } = useCurrentWorkShop();
   const isSuperAdmin = role?.employeeRole === "SUPERADMIN";
   const shopUuid = isSuperAdmin ? undefined : ws?.uuid || undefined;
 
-  const insights = useDashboardHomeInsights({ since, until, dateMode, shopUuid, enabled: true });
+  const range = getDateRange(mode);
+  const insights = useDashboardHomeInsights({ ...range, shopUuid, enabled: true });
   const { bestShop, loading } = insights;
-  const { data: grossProfit } = useGrossProfit({ since, until });
-  const dayLeader = bestShop.dayLeader;
-  const weekLeader = bestShop.weekLeader;
+  const { data: grossProfit } = useGrossProfit({ since: range.since, until: range.until });
   const rows = mode === "week" ? bestShop.weekRows : bestShop.dayRows;
-  const currentLeader = mode === "week" ? weekLeader : dayLeader;
 
   // Margin map: shopName → { pct, profit }
   const marginMap = useMemo(() => {
@@ -78,32 +77,30 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
     return m;
   }, [grossProfit]);
 
-  // Composite score = netRevenue × (1 + marginPct/100) — rewards both revenue & margin
-  const score = (shop: ShopKpiRow): number => {
-    const m = marginMap.get(shop.name);
-    const marginPct = m?.pct ?? 0;
-    return shop.netRevenue * (1 + marginPct / 100);
+  // Rank by profit (₽) — money is what matters
+  const rankScore = (shop: typeof rows[0]): number => {
+    return marginMap.get(shop.name)?.profit ?? 0;
   };
 
-  const sorted = useMemo(() => [...rows].sort((a, b) => score(b) - score(a)), [rows, marginMap]);
+  const sorted = useMemo(() => [...rows].sort((a, b) => rankScore(b) - rankScore(a)), [rows, marginMap]);
 
-  if (loading && !dayLeader && !weekLeader) return <SkeletonCard tone="purple" />;
+  if (loading && !rows.length) return <SkeletonCard tone="purple" />;
   if (!sorted.length) return <SkeletonCard tone="purple" />;
-  if (!dayLeader && !weekLeader) return <SkeletonCard tone="purple" />;
 
   // Averages
   const avgNet = sorted.reduce((s, r) => s + r.netRevenue, 0) / sorted.length;
   const avgCheck = sorted.reduce((s, r) => s + r.averageCheck, 0) / sorted.length;
   const avgRefund = sorted.reduce((s, r) => s + r.refundRate, 0) / sorted.length;
   const avgExpRatio = sorted.reduce((s, r) => s + (r.revenue > 0 ? r.expenses / r.revenue : 0), 0) / sorted.length;
-  const allMargins = sorted.map(s => marginMap.get(s.name)?.pct ?? 0).filter(v => v > 0);
-  const avgMargin = allMargins.length > 0 ? allMargins.reduce((s, v) => s + v, 0) / allMargins.length : 0;
+  const allProfits = sorted.map(s => marginMap.get(s.name)?.profit ?? 0).filter(v => v > 0);
+  const avgProfit = allProfits.length > 0 ? allProfits.reduce((s, v) => s + v, 0) / allProfits.length : 0;
 
   const leader = sorted[0];
   const leaderMargin = marginMap.get(leader.name);
   const lagging = sorted.slice(-2).reverse();
-  const leaderReason = currentLeader?.reason === "чек" ? "высокий чек" :
-    currentLeader?.reason === "трафик" ? "трафик" : "конверсия";
+
+  const modeLabels: Record<DateMode, string> = { today: "Сегодня", yesterday: "Вчера", week: "Нед." };
+  const nextMode = (m: DateMode): DateMode => m === "today" ? "yesterday" : m === "yesterday" ? "week" : "today";
 
   // ═══ Свёрнутая карточка ═══
   const card = (
@@ -121,10 +118,10 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
           </div>
           <div className="flex items-center gap-1 shrink-0 ml-1">
             <button
-              onClick={(e) => { e.stopPropagation(); setMode(mode === "day" ? "week" : "day"); }}
+              onClick={(e) => { e.stopPropagation(); setMode(nextMode(mode)); }}
               className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-black/25 hover:bg-black/35 transition"
             >
-              {mode === "day" ? "День" : "Нед."}
+              {modeLabels[mode]}
             </button>
           </div>
         </div>
@@ -132,9 +129,10 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
           <div className="min-w-0 flex-1">
             <div className="text-lg font-bold truncate leading-tight">#{1} {leader.name}</div>
             <div className="text-sm opacity-90 mt-1 truncate flex items-center gap-1.5">
+              <TrendingUp className="w-3 h-3" />
               <span>{formatRub(leader.netRevenue)} ₽</span>
               {leaderMargin && (
-                <span className="text-[10px] opacity-75">· маржа {leaderMargin.pct}%</span>
+                <span className="text-[10px] opacity-75">· {formatRub(leaderMargin.profit)} ₽ приб.</span>
               )}
             </div>
           </div>
@@ -157,8 +155,13 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
           <h3 className="text-sm font-bold text-foreground">Эффективность</h3>
         </div>
         <div className="inline-flex rounded-md border border-border p-0.5 text-[10px]">
-          <button className={`rounded px-2 py-0.5 ${mode === "day" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`} onClick={() => setMode("day")}>День</button>
-          <button className={`rounded px-2 py-0.5 ${mode === "week" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`} onClick={() => setMode("week")}>Нед.</button>
+          {(["today", "yesterday", "week"] as DateMode[]).map(m => (
+            <button
+              key={m}
+              className={`rounded px-2 py-0.5 ${mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+              onClick={() => setMode(m)}
+            >{modeLabels[m]}</button>
+          ))}
         </div>
       </div>
 
@@ -177,32 +180,23 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
           <div>
             <div className="text-xl font-bold">{leader.checks}</div>
             <div className="text-[10px] opacity-80">Чеков</div>
-            <div className="text-[9px] opacity-60">{pctDiff(leader.checks, sorted.reduce((s, r) => s + r.checks, 0) / sorted.length)} к ср.</div>
           </div>
           <div>
             <div className="text-xl font-bold">{formatRub(leader.averageCheck)}</div>
             <div className="text-[10px] opacity-80">Ср.чек ₽</div>
-            <div className="text-[9px] opacity-60">{pctDiff(leader.averageCheck, avgCheck)} к ср.</div>
           </div>
           <div>
-            <div className="text-xl font-bold" style={{ color: leaderMargin ? marginColor(leaderMargin.pct) : "inherit" }}>
-              {leaderMargin ? `${leaderMargin.pct}%` : "—"}
-            </div>
-            <div className="text-[10px] opacity-80">Маржа</div>
-            <div className="text-[9px] opacity-60">{leaderMargin ? `${formatRub(leaderMargin.profit)} ₽` : ""}</div>
+            <div className="text-xl font-bold">{leaderMargin ? formatRub(leaderMargin.profit) : "—"}</div>
+            <div className="text-[10px] opacity-80">Прибыль ₽</div>
+            <div className="text-[9px] opacity-60">{leaderMargin ? `${leaderMargin.pct}%` : ""}</div>
           </div>
         </div>
-        {currentLeader && (
-          <div className="mt-2 text-[10px] opacity-80 text-center">
-            Рейтинг: выр. × маржа · лидер по {leaderReason}
-          </div>
-        )}
       </div>
 
       {/* Сравнительная таблица */}
       <div>
         <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-          Сравнение ({sorted.length})
+          Рейтинг по прибыли ({sorted.length})
         </h4>
 
         {/* Заголовки */}
@@ -213,7 +207,7 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
           <span className="w-9 text-right">Ср.чек</span>
           <span className="w-8 text-right">Возвр</span>
           <span className="w-7 text-right">Расх.</span>
-          <span className="w-10 text-right">Маржа</span>
+          <span className="w-11 text-right">Прибыль</span>
         </div>
 
         <div className="space-y-1">
@@ -221,18 +215,17 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
             const maxNet = sorted[0]?.netRevenue || 1;
             const maxChecks = Math.max(...sorted.map(s => s.checks), 1);
             const maxAvg = Math.max(...sorted.map(s => s.averageCheck), 1);
-            const maxRefund = Math.max(...sorted.map(s => s.refundRate), 1);
-            const maxExp = Math.max(...sorted.map(s => s.revenue > 0 ? s.expenses / s.revenue : 0), 0.01);
             const sm = marginMap.get(shop.name);
+            const maxProfit = Math.max(...sorted.map(s => marginMap.get(s.name)?.profit ?? 0), 1);
             const expRatio = shop.revenue > 0 ? shop.expenses / shop.revenue : 0;
 
             const metrics = [
-              { val: shop.netRevenue, max: maxNet, color: vsAvgColor(shop.netRevenue, avgNet, true), fmt: formatRub(shop.netRevenue), w: 44 },
-              { val: shop.checks, max: maxChecks, color: vsAvgColor(shop.checks, sorted.reduce((s, r) => s + r.checks, 0) / sorted.length, true), fmt: String(shop.checks), w: 32 },
-              { val: shop.averageCheck, max: maxAvg, color: vsAvgColor(shop.averageCheck, avgCheck, true), fmt: formatRub(shop.averageCheck), w: 36 },
-              { val: shop.refundRate, max: maxRefund, color: vsAvgColor(shop.refundRate, avgRefund, false), fmt: `${shop.refundRate.toFixed(1)}%`, w: 32 },
-              { val: expRatio, max: maxExp, color: vsAvgColor(expRatio, avgExpRatio, false), fmt: `${(expRatio * 100).toFixed(0)}%`, w: 28 },
-              { val: sm?.pct ?? 0, max: Math.max(...sorted.map(s => marginMap.get(s.name)?.pct ?? 0), 1), color: sm ? marginColor(sm.pct) : "hsl(var(--muted))", fmt: sm ? `${sm.pct}%` : "—", w: 40 },
+              { val: shop.netRevenue, max: maxNet, fmt: formatRub(shop.netRevenue), w: 44 },
+              { val: shop.checks, max: maxChecks, fmt: String(shop.checks), w: 32 },
+              { val: shop.averageCheck, max: maxAvg, fmt: formatRub(shop.averageCheck), w: 36 },
+              { val: shop.refundRate, max: Math.max(...sorted.map(s => s.refundRate), 1), fmt: `${shop.refundRate.toFixed(1)}%`, w: 32 },
+              { val: expRatio, max: Math.max(...sorted.map(s => s.revenue > 0 ? s.expenses / s.revenue : 0), 0.01), fmt: `${(expRatio * 100).toFixed(0)}%`, w: 28 },
+              { val: sm?.profit ?? 0, max: maxProfit, fmt: sm ? formatRub(sm.profit) : "—", w: 44 },
             ];
 
             return (
@@ -251,7 +244,7 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
                       animate={{ width: `${Math.min((m.val / m.max) * 100, 100)}%` }}
                       transition={{ duration: 0.5, ease: "easeOut" }}
                       className="absolute inset-0 rounded-full"
-                      style={{ backgroundColor: m.color, opacity: 0.4 }}
+                      style={{ backgroundColor: mi === 5 && sm?.profit ? "hsl(var(--success))" : "hsl(var(--chart-2))", opacity: 0.4 }}
                     />
                     <div className="relative z-10 flex items-center justify-end h-full pr-1 text-[7px] text-foreground/80 tabular-nums font-medium">
                       {m.fmt}
@@ -271,7 +264,7 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
           <span className="w-9 text-right tabular-nums">{formatRub(avgCheck)}</span>
           <span className="w-8 text-right tabular-nums">{avgRefund.toFixed(1)}%</span>
           <span className="w-7 text-right tabular-nums">{(avgExpRatio * 100).toFixed(0)}%</span>
-          <span className="w-10 text-right tabular-nums">{avgMargin > 0 ? `${Math.round(avgMargin)}%` : "—"}</span>
+          <span className="w-11 text-right tabular-nums">{formatRub(avgProfit)}</span>
         </div>
       </div>
 
@@ -287,12 +280,18 @@ export function BestShopWidget({ since, until, dateMode, expanded, onToggle }: P
           <div className="space-y-1.5">
             {lagging.map((shop) => {
               const sm = marginMap.get(shop.name);
+              const hints: string[] = [];
+              const expRatio = shop.revenue > 0 ? shop.expenses / shop.revenue : 0;
+              if (sm && sm.profit < avgProfit * 0.5) hints.push("↑ прибыль");
+              if (shop.averageCheck < avgCheck * 0.85) hints.push("↑ ср.чек");
+              if (shop.refundRate > Math.max(avgRefund + 2, 4)) hints.push("↓ возвр.");
+              if (expRatio > Math.max(avgExpRatio + 0.03, 0.08)) hints.push("↓ расх.");
+              if (hints.length === 0) hints.push("✓ норма");
+
               return (
                 <div key={shop.name} className="flex items-start gap-2 text-xs">
                   <span className="font-medium text-foreground shrink-0">{shop.name}:</span>
-                  <span className="text-muted-foreground">
-                    {getHints(shop, avgCheck, avgRefund, avgExpRatio, sm?.pct ?? 0, avgMargin).join(" · ")}
-                  </span>
+                  <span className="text-muted-foreground">{hints.join(" · ")}</span>
                 </div>
               );
             })}
