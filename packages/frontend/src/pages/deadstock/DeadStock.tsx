@@ -1,44 +1,64 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useMe } from "../../hooks/useApi";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { telegram, isTelegramMiniApp } from "../../helpers/telegram";
 import { client } from "../../helpers/api";
-import type { DateRange } from "react-day-picker";
-import { Popover, PopoverContent, PopoverTrigger, Calendar } from "../../components/ui";
 import { ErrorState, LoadingState } from "@shared/ui/states";
-import { DeadStockGrid, type DeadStockTileItem } from "@widgets/deadstock/ui/DeadStockGrid";
-import type { PlannedAction } from "@widgets/deadstock/ui/DeadStockDetailModal";
-import { GroupSelector } from "@widgets/reports";
+import { DateFilter, type DateFilterValue } from "@widgets/home/DateFilter";
 import { ShopFilter } from "@widgets/filters";
-import { FileDown } from "lucide-react";
+import { GroupSelector } from "@widgets/reports";
+import {
+  FileDown, Package, ChevronDown, ChevronUp,
+} from "lucide-react";
+import { DeadStockDetailModal, type PlannedAction } from "@widgets/deadstock/ui/DeadStockDetailModal";
+import type { DeadStockTileItem } from "@widgets/deadstock/ui/DeadStockGrid";
 
-interface GroupOption {
-  name: string;
-  uuid: string;
-}
+// ─── Types ───────────────────────────────────────────────────────────
+
+interface GroupOption { name: string; uuid: string; }
 
 interface ReportDataItem {
-  itemId: string;
-  name: string;
-  article: string;
-  quantity: number;
-  sold: number;
-  lastSaleDate: string | null;
-  daysWithoutSales: number;
-  shopId: string;
-  shopName: string;
+  itemId: string; name: string; article: string; quantity: number;
+  sold: number; lastSaleDate: string | null; daysWithoutSales: number;
+  shopId: string; shopName: string;
 }
 
 interface ReportData {
   salesData: ReportDataItem[];
-  shopName: string;
-  startDate: string;
-  endDate: string;
+  shopName: string; startDate: string; endDate: string;
 }
 
-/** Генерация Excel-совместимого CSV с запланированными действиями */
-function downloadActionsCsv(actions: PlannedAction[]) {
+// ─── Helpers ──────────────────────────────────────────────────────────
+
+function getTodayRange(): DateFilterValue {
+  const d = new Date();
+  const s = d.toISOString().slice(0, 10);
+  return { since: s, until: s, dateMode: "today" };
+}
+
+function getRecommendation(item: DeadStockTileItem): {
+  action: "move" | "writeoff" | "promo" | "keep";
+  text: string; color: string;
+} {
+  if (item.daysWithoutSales >= 999) return { action: "writeoff", text: "Никогда не продавался", color: "border-l-red-500 bg-red-50 dark:bg-red-950/30" };
+  if (item.daysWithoutSales >= 365) return { action: "writeoff", text: "Год без продаж — списать", color: "border-l-red-500 bg-red-50 dark:bg-red-950/30" };
+  if (item.daysWithoutSales >= 180) return { action: "writeoff", text: "Полгода без продаж", color: "border-l-red-400 bg-red-50/50 dark:bg-red-950/20" };
+  if (item.daysWithoutSales >= 90) return { action: "promo", text: "3 мес. — нужна акция", color: "border-l-amber-500 bg-amber-50 dark:bg-amber-950/30" };
+  if (item.daysWithoutSales >= 30) return { action: "promo", text: "Месяц без продаж", color: "border-l-amber-400 bg-amber-50/50 dark:bg-amber-950/20" };
+  return { action: "keep", text: "Под наблюдением", color: "border-l-blue-400 bg-blue-50/50 dark:bg-blue-950/20" };
+}
+
+function getDaysBadge(days: number): { label: string; cls: string } {
+  if (days >= 999) return { label: "∞", cls: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300" };
+  if (days >= 365) return { label: ">1г", cls: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300" };
+  if (days >= 180) return { label: `${days}д`, cls: "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400" };
+  if (days >= 90) return { label: `${days}д`, cls: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300" };
+  if (days >= 30) return { label: `${days}д`, cls: "bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400" };
+  return { label: `${days}д`, cls: "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400" };
+}
+
+function downloadActionsXlsx(actions: PlannedAction[]) {
   const BOM = "\uFEFF";
   const header = "Товар;Артикул;Действие;Количество;Магазин;Куда;Причина";
   const actionLabels: Record<string, string> = {
@@ -46,30 +66,14 @@ function downloadActionsCsv(actions: PlannedAction[]) {
   };
   const rows = actions.map(a => {
     const targets = a.targetShops?.map(t => `${t.shopName}:${t.qty}`).join(" | ") || "";
-    return [
-      a.name, a.article,
-      actionLabels[a.action] || a.action,
-      String(a.quantity), a.shopName,
-      targets, a.reason || "",
-    ]
-    .map(v => `"${String(v).replace(/"/g, '""')}"`)
-    .join(";");
+    return [a.name, a.article, actionLabels[a.action] || a.action,
+      String(a.quantity), a.shopName, targets, a.reason || ""]
+      .map(v => `"${String(v).replace(/"/g, '""')}"`).join(";");
   });
-  const moveCount = actions.filter(a => a.action === "move").length;
-  const writeoffCount = actions.filter(a => a.action === "writeoff").length;
-  const promoCount = actions.filter(a => a.action === "promo").length;
-  const keepCount = actions.filter(a => a.action === "keep").length;
-  const totalQty = actions.reduce((s, a) => s + a.quantity, 0);
   const summary = [
-    "",
-    `"Дата: ${new Date().toISOString().slice(0, 10)}";;;;;;`,
-    `"Всего: ${actions.length} товаров, ${totalQty} шт.";;;;;;`,
-    `"Переместить: ${moveCount}";;;;;;`,
-    `"Списать: ${writeoffCount}";;;;;;`,
-    `"Промо: ${promoCount}";;;;;;`,
-    `"Оставить: ${keepCount}";;;;;;`,
+    "", `"Дата: ${new Date().toISOString().slice(0, 10)}";;;;;;`,
+    `"Всего: ${actions.length} товаров";;;;;;`,
   ];
-
   const csv = BOM + [header, ...rows, ...summary].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -80,546 +84,341 @@ function downloadActionsCsv(actions: PlannedAction[]) {
   URL.revokeObjectURL(url);
 }
 
-const PRESETS = [
-  { key: "month1", label: "Месяц назад" },
-  { key: "month2", label: "2 месяца назад" },
-  { key: "month3", label: "3 месяца назад" },
-  { key: "month6", label: "6 месяцев назад" },
-  { key: "alltime", label: "Всё время" },
-];
+// ─── Main ─────────────────────────────────────────────────────────────
 
 export default function DeadSt() {
+  useTelegramBackButton();
+
   const [shopOptions, setShopOptions] = useState<Record<string, string>>({});
   const [selectedShops, setSelectedShops] = useState<string[]>([]);
   const [groupOptions, setGroupOptions] = useState<GroupOption[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
   const [plannedActions, setPlannedActions] = useState<PlannedAction[]>([]);
   const [isLoadingShops, setIsLoadingShops] = useState(false);
-  const [startDate, setStartDate] = useState<string | null>(null);
-  const [endDate, setEndDate] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Date picker state (Calendar for "period" mode)
-  const [showPeriodPicker, setShowPeriodPicker] = useState(false);
-  const [period, setPeriod] = useState<DateRange | undefined>(undefined);
-  const [tempPeriod, setTempPeriod] = useState<DateRange | undefined>(undefined);
-  const [showPresetDropdown, setShowPresetDropdown] = useState(false);
-  const [activePreset, setActivePreset] = useState<string | null>(null);
-
-  // Отслеживание открытых модальных окон
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [isGroupSelectorOpen, setIsGroupSelectorOpen] = useState(false);
-
-  // Ref для предотвращения двойной загрузки
-  const autoSubmitLock = useRef(false);
-  // Ref: пользователь вручную вернулся к фильтрам — не авто-отправлять
-  const manualReturnToFilters = useRef(false);
+  const [dateFilter, setDateFilter] = useState<DateFilterValue>(getTodayRange);
+  const [selectedTile, setSelectedTile] = useState<DeadStockTileItem | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    critical: true, warning: true, attention: false,
+  });
 
   const isMiniApp = isTelegramMiniApp();
+  const { data: meData } = useMe();
+  const userId = meData?.id?.toString() || "";
 
-  useTelegramBackButton();
+  // ── Fetch shops ─────────────────────────────────────────────────────
 
-  const { data } = useMe();
-  const userId = data?.id?.toString() || "";
-
-  const formatLocalDate = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
-
-  // Применение календарного периода
   useEffect(() => {
-    if (!period?.from || !period?.to) return;
-    setStartDate(formatLocalDate(period.from));
-    setEndDate(formatLocalDate(period.to));
-  }, [period]);
+    const fetchShops = async () => {
+      setIsLoadingShops(true);
+      try {
+        const res = await client.api.evotor.shops.$post({ json: { userId } });
+        if (!res.ok) throw new Error(`Ошибка ${res.status}`);
+        const data = await res.json() as { shopOptions: Record<string, string> };
+        setShopOptions(data.shopOptions);
+        const firstUuid = Object.keys(data.shopOptions)[0] ?? null;
+        if (firstUuid) fetchGroups(firstUuid);
+      } catch (err) {
+        setError("Не удалось загрузить магазины");
+      } finally { setIsLoadingShops(false); }
+    };
+    if (userId) fetchShops();
+  }, [userId]);
 
-  // Обработчик быстрых пресетов периода
-  const applyPreset = (preset: string) => {
-    const now = new Date();
-    const end = formatLocalDate(now);
-    let start = end;
-    switch (preset) {
-      case "month1":
-        start = formatLocalDate(new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()));
-        break;
-      case "month2":
-        start = formatLocalDate(new Date(now.getFullYear(), now.getMonth() - 2, now.getDate()));
-        break;
-      case "month3":
-        start = formatLocalDate(new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()));
-        break;
-      case "month6":
-        start = formatLocalDate(new Date(now.getFullYear(), now.getMonth() - 6, now.getDate()));
-        break;
-      case "alltime":
-        start = "2020-01-01";
-        break;
-    }
-    setStartDate(start);
-    setEndDate(end);
-    setPeriod(undefined);
-    setActivePreset(preset);
-    setShowPresetDropdown(false);
+  // ── Fetch groups ─────────────────────────────────────────────────────
+
+  const fetchGroups = async (shopUuid: string | null) => {
+    const targetUuid = shopUuid ?? Object.keys(shopOptions)[0] ?? null;
+    if (!targetUuid) { setGroupOptions([]); setSelectedGroups([]); return; }
+    setIsLoadingGroups(true);
+    try {
+      const res = await client.api.evotor["groups-by-shop"].$post({
+        json: { shopUuid: targetUuid },
+      });
+      if (!res.ok) throw new Error(`Ошибка ${res.status}`);
+      const data = await res.json() as { groups: GroupOption[] } | { code: string; message: string };
+      if ("groups" in data) setGroupOptions(data.groups || []);
+      setSelectedGroups([]);
+    } catch { /* silent */ }
+    finally { setIsLoadingGroups(false); }
   };
 
-  const isFormValid =
-    !!startDate && !!endDate &&
-    (selectedGroups.length > 0 || selectedShops.length === 0);
+  // ── Submit ───────────────────────────────────────────────────────────
 
-  // Модальные окна закрыты?
-  const areAllModalsClosed =
-    !isDatePickerOpen && !isGroupSelectorOpen && !showPeriodPicker;
+  const isFormValid = !!dateFilter.since && !!dateFilter.until;
 
-  // 🔹 Функция генерации отчёта с useCallback
   const submitForecast = useCallback(async () => {
     if (!isFormValid) return;
-
-    // Блокировка повторного вызова
-    if (autoSubmitLock.current) return;
-    autoSubmitLock.current = true;
-
     setIsLoadingReport(true);
     setError(null);
-    if (isMiniApp) {
-      telegram.WebApp.MainButton.showProgress(true);
-    }
     try {
-      const response = await client.api["dead-stocks"].data.$post({
+      const res = await client.api["dead-stocks"].data.$post({
         json: {
-          startDate: startDate!,
-          endDate: endDate!,
+          startDate: dateFilter.since,
+          endDate: dateFilter.until,
           shopIds: selectedShops.length === 0 ? null : selectedShops,
           groups: selectedGroups,
         },
       });
-
-      if (!response.ok) throw new Error(`Ошибка: ${response.status}`);
-
-      const result = await response.json();
-
-      if (
-        "salesData" in result &&
-        "shopName" in result &&
-        "startDate" in result &&
-        "endDate" in result
-      ) {
+      if (!res.ok) throw new Error(`Ошибка ${res.status}`);
+      const result = await res.json();
+      if ("salesData" in result) {
         setReportData(result as ReportData);
-        setError(null);
       } else {
-        setReportData(null);
-        setError("Не удалось получить корректные данные отчёта");
+        setError("Не удалось получить данные");
       }
     } catch (err) {
-      console.error(err);
       setError("Не удалось получить отчёт");
-      if (isMiniApp) {
-        telegram.WebApp.HapticFeedback.impactOccurred("light");
-      }
-    } finally {
-      setIsLoadingReport(false);
-      autoSubmitLock.current = false;
-      if (isMiniApp) {
-        telegram.WebApp.MainButton.showProgress(false);
-      }
-    }
-  }, [startDate, endDate, selectedShops, selectedGroups, isFormValid, isMiniApp]);
+    } finally { setIsLoadingReport(false); }
+  }, [dateFilter, selectedShops, selectedGroups, isFormValid]);
 
-  // 🔹 Авто-отправка при изменении фильтров (кроме ручного возврата)
-  useEffect(() => {
-    if (manualReturnToFilters.current) {
-      manualReturnToFilters.current = false;
-      return;
-    }
-    if (!reportData && isFormValid) {
-      submitForecast();
-    }
-  }, [isFormValid, reportData, submitForecast]);
+  // ── Grid data ────────────────────────────────────────────────────────
 
-  // 🔹 Инициализация Telegram Mini App
-  useEffect(() => {
-    if (!isMiniApp) return;
+  const gridData: DeadStockTileItem[] = useMemo(() => {
+    if (!reportData) return [];
+    return reportData.salesData.map(item => ({
+      itemId: item.itemId, name: item.name, article: item.article,
+      quantity: item.quantity, sold: item.sold,
+      lastSaleDate: item.lastSaleDate, daysWithoutSales: item.daysWithoutSales,
+      shopId: item.shopId, shopName: item.shopName,
+    }));
+  }, [reportData]);
 
-    telegram.WebApp.MainButton.setText("Сгенерировать отчёт");
-    telegram.WebApp.MainButton.setParams({
-      color: "#0088cc",
-      text_color: "#ffffff",
-    });
+  const plannedMap = useMemo(
+    () => new Map(plannedActions.map(a => [`${a.itemId}|${a.shopId}`, a])),
+    [plannedActions],
+  );
 
-    const handleGenerate = () => {
-      telegram.WebApp.HapticFeedback.impactOccurred("light");
-      submitForecast();
-    };
+  const sections = useMemo(() => {
+    const critical = gridData.filter(i => i.daysWithoutSales >= 180);
+    const warning = gridData.filter(i => i.daysWithoutSales >= 30 && i.daysWithoutSales < 180);
+    const attention = gridData.filter(i => i.daysWithoutSales < 30);
+    return [
+      { key: "critical", label: "Критичные", items: critical, show: critical.length > 0 },
+      { key: "warning", label: "Внимание", items: warning, show: warning.length > 0 },
+      { key: "attention", label: "Наблюдение", items: attention, show: attention.length > 0 },
+    ].filter(s => s.show);
+  }, [gridData]);
 
-    telegram.WebApp.MainButton.onClick(handleGenerate);
+  // ── Render: loading ──────────────────────────────────────────────────
 
-    return () => {
-      telegram.WebApp.MainButton.offClick(handleGenerate);
-    };
-  }, [isMiniApp, submitForecast]);
-
-  // 🔹 Управление видимостью MainButton с учётом модальных окон
-  useEffect(() => {
-    if (!isMiniApp) return;
-
-    if (
-      isFormValid &&
-      !error &&
-      !isLoadingReport &&
-      !reportData &&
-      areAllModalsClosed
-    ) {
-      telegram.WebApp.MainButton.show();
-    } else {
-      telegram.WebApp.MainButton.hide();
-    }
-  }, [
-    isMiniApp,
-    isFormValid,
-    error,
-    isLoadingReport,
-    reportData,
-    areAllModalsClosed,
-  ]);
-
-  // 🔹 Загрузка магазинов
-  useEffect(() => {
-    const fetchSalesData = async () => {
-      setIsLoadingShops(true);
-      try {
-        const response = await client.api.evotor.shops.$post({
-          json: { userId },
-        });
-
-        if (!response.ok) throw new Error(`Ошибка: ${response.status}`);
-        const data = await response.json();
-        setShopOptions(data.shopOptions);
-        // По умолчанию — все магазины. Грузим группы от первого магазина.
-        const firstUuid = Object.keys(data.shopOptions)[0] ?? null;
-        if (firstUuid) await fetchGroups(firstUuid);
-      } catch (err) {
-        console.error(err);
-        setError("Не удалось загрузить магазины");
-      } finally {
-        setIsLoadingShops(false);
-      }
-    };
-    if (userId) fetchSalesData();
-  }, [userId]);
-
-  // 🔹 Загрузка групп
-  const fetchGroups = async (shopUuid: string | null) => {
-    // Для «Все магазины» — грузим группы от первого магазина
-    const targetUuid = shopUuid ?? Object.keys(shopOptions)[0] ?? null;
-    if (!targetUuid) {
-      setGroupOptions([]);
-      setSelectedGroups([]);
-      return;
-    }
-    setIsLoadingGroups(true);
-    try {
-      const response = await client.api.evotor["groups-by-shop"].$post({
-        json: { shopUuid: targetUuid },
-      });
-
-      if (!response.ok)
-        throw new Error(`Ошибка загрузки групп: ${response.status}`);
-      const data = (await response.json()) as
-        | { groups: GroupOption[] }
-        | { code: string; message: string; details?: unknown };
-      if (!("groups" in data)) {
-        throw new Error(data.message || "Не удалось загрузить группы");
-      }
-      setGroupOptions(data.groups || []);
-      setSelectedGroups([]);
-    } catch (err) {
-      console.error(err);
-      setError("Не удалось загрузить группы для выбранного магазина");
-    } finally {
-      setIsLoadingGroups(false);
-    }
-  };
-
-  // 🔹 Форматирование дат
-  const formatDate = (date: Date) =>
-    `${date.getDate().toString().padStart(2, "0")} ${date.toLocaleString(
-      "default",
-      {
-        month: "short",
-      }
-    )}`;
-
-  const formatPeriod = (
-    shopName: string,
-    startDate: string,
-    endDate: string
-  ): string => {
-    const formattedStartDate = formatDate(new Date(startDate));
-    const formattedEndDate = formatDate(new Date(endDate));
-    return `${shopName}, ${formattedStartDate} → ${formattedEndDate}`;
-  };
-
-  // 🔹 Состояния загрузки / ошибки
   if (isLoadingReport) return <LoadingState />;
-  if (error) return <ErrorState error={error} />;
+  if (error && !reportData) return <ErrorState error={error} onRetry={submitForecast} />;
 
-  // 🔹 Нет магазинов
-  if (!Object.keys(shopOptions).length) {
+  // ── Render: filters ──────────────────────────────────────────────────
+
+  if (!reportData) {
     return (
-      <div className="app-page flex items-center justify-center bg-background">
-        <LoadingState />
+      <div className="app-page min-h-screen bg-background">
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-3 app-safe-top">
+          <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <Package className="w-5 h-5 text-primary" />
+            Мёртвые остатки
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            Товары без продаж за выбранный период
+          </p>
+        </div>
+
+        <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+            <DateFilter value={dateFilter} onChange={setDateFilter} />
+
+            {Object.keys(shopOptions).length > 0 && (
+              <ShopFilter
+                shops={shopOptions}
+                selectedIds={selectedShops}
+                onChange={(ids) => {
+                  setSelectedShops(ids);
+                  fetchGroups(ids.length === 0 ? null : ids[0]);
+                }}
+                isLoading={isLoadingShops}
+              />
+            )}
+
+            {groupOptions.length > 0 && (
+              <GroupSelector
+                groupOptions={groupOptions}
+                selectedGroups={selectedGroups}
+                setSelectedGroups={setSelectedGroups}
+                isLoadingGroups={isLoadingGroups}
+              />
+            )}
+
+            <button
+              onClick={submitForecast}
+              disabled={!isFormValid}
+              className={`w-full py-3 rounded-xl font-medium text-sm transition ${
+                isFormValid
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "bg-muted text-muted-foreground cursor-not-allowed"
+              }`}
+            >
+              Сформировать отчёт
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // 🔹 Отчёт готов
-  if (reportData) {
-    const { salesData, startDate, endDate, shopName } = reportData;
-    const gridData: DeadStockTileItem[] = salesData.map((item) => ({
-      itemId: item.itemId,
-      name: item.name,
-      article: item.article,
-      quantity: item.quantity,
-      sold: item.sold,
-      lastSaleDate: item.lastSaleDate,
-      daysWithoutSales: item.daysWithoutSales,
-      shopId: item.shopId,
-      shopName: item.shopName,
-    }));
+  // ── Render: report ───────────────────────────────────────────────────
 
-    const totalItems = gridData.length;
-    const avgDays = totalItems > 0
-      ? Math.round(gridData.reduce((s, i) => s + (i.daysWithoutSales >= 999 ? 0 : i.daysWithoutSales), 0) / totalItems)
-      : 0;
-    const critical = gridData.filter(i => i.daysWithoutSales >= 180).length;
+  const totalItems = gridData.length;
+  const criticalCount = gridData.filter(i => i.daysWithoutSales >= 180).length;
 
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        className="app-page w-full bg-background text-foreground flex flex-col items-center"
-      >
-        <div className="w-full max-w-4xl px-3 sm:px-4 pt-2 pb-6 space-y-3">
-          {/* Header */}
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h1 className="text-base sm:text-lg font-semibold">
-                {formatPeriod(shopName, startDate, endDate)}
-              </h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {totalItems} товаров без продаж
-                {avgDays > 0 && ` · в среднем ${avgDays} дн.`}
-                {critical > 0 && ` · ${critical} критичных`}
-                {plannedActions.length > 0 && ` · ${plannedActions.length} запланировано`}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {plannedActions.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => downloadActionsCsv(plannedActions)}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition"
-                >
-                  <FileDown className="w-3.5 h-3.5" />
-                  Документ ({plannedActions.length})
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  manualReturnToFilters.current = true;
-                  setReportData(null);
-                  setPlannedActions([]);
-                }}
-                className="rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 transition"
-              >
-                Фильтры
-              </button>
-            </div>
-          </div>
-
-          {/* Grid tiles */}
-          <DeadStockGrid
-            data={gridData}
-            shopUuid={selectedShops[0] ?? ""}
-            onAction={(action) => setPlannedActions(prev => {
-              // Replace if same item+shop already planned
-              const key = `${action.itemId}|${action.shopId}`;
-              const filtered = prev.filter(a => `${a.itemId}|${a.shopId}` !== key);
-              return [...filtered, action];
-            })}
-            plannedActions={plannedActions}
-          />
-        </div>
-      </motion.div>
-    );
-  }
-
-  // 🔹 Основной экран — фильтры
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
-      className="app-page w-full px-4 sm:px-6 py-6 bg-background text-foreground flex flex-col items-center"
-    >
-      <motion.h1
-        className="text-xl sm:text-2xl font-semibold mb-2"
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        Мёртвые остатки
-      </motion.h1>
-      <p className="text-sm text-muted-foreground mb-6">
-        Выберите период, магазин и группы товаров
-      </p>
-      <motion.div
-        className="bg-card rounded-2xl shadow-sm p-4 sm:p-6 w-full max-w-3xl space-y-4 border border-border"
-        initial={{ opacity: 0, scale: 0.97 }}
-        animate={{ opacity: 1, scale: 1 }}
-      >
-        {/* Выбор периода: две кнопки в стиле Сегодня/Вчера */}
-        <div className="grid grid-cols-2 gap-2">
-          {/* Кнопка 1: Выбрать период (календарь) */}
-          <Popover
-            open={showPeriodPicker}
-            onOpenChange={(open) => {
-              setShowPeriodPicker(open);
-              setIsDatePickerOpen(open);
-              if (!open) setTempPeriod(undefined);
-            }}
-          >
-            <PopoverTrigger asChild>
+    <div className="app-page min-h-screen bg-background">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-3 app-safe-top">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <Package className="w-5 h-5 text-primary" />
+              Мёртвые остатки
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+              {dateFilter.since === dateFilter.until ? dateFilter.since : `${dateFilter.since} → ${dateFilter.until}`}
+              {" · "}{totalItems} товаров{criticalCount > 0 && ` · ${criticalCount} критичных`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {plannedActions.length > 0 && (
               <button
-                type="button"
-                onClick={() => {
-                  setTempPeriod(period);
-                  setShowPeriodPicker(true);
-                  setIsDatePickerOpen(true);
-                  setActivePreset(null);
-                }}
-                className={`rounded-lg border px-3 py-2 text-sm transition ${
-                  period?.from && period?.to
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : startDate && endDate && !activePreset
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card text-foreground"
-                }`}
+                onClick={() => downloadActionsXlsx(plannedActions)}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition"
               >
-                {period?.from && period?.to
-                  ? `${formatDate(period.from)} → ${formatDate(period.to)}`
-                  : startDate && endDate && !activePreset
-                  ? `${formatDate(new Date(startDate))} → ${formatDate(new Date(endDate))}`
-                  : "Выбрать период"}
+                <FileDown className="w-3.5 h-3.5" />
+                Документ ({plannedActions.length})
               </button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-auto p-0">
-              <Calendar
-                mode="range"
-                selected={tempPeriod?.from ? tempPeriod : undefined}
-                onSelect={setTempPeriod}
-                numberOfMonths={1}
-                disabled={(date) => date > new Date()}
-                initialFocus
-              />
-              <div className="flex justify-end p-2">
-                <button
-                  className="px-3 py-1 rounded bg-primary text-primary-foreground text-sm"
-                  disabled={!(tempPeriod?.from && tempPeriod?.to)}
-                  onClick={() => {
-                    setPeriod(tempPeriod);
-                    setShowPeriodPicker(false);
-                    setIsDatePickerOpen(false);
-                    setActivePreset(null);
-                  }}
-                >
-                  Применить
-                </button>
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {/* Кнопка 2: По месяцам (dropdown) */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => { setShowPresetDropdown(!showPresetDropdown); setShowPeriodPicker(false); }}
-              className={`w-full rounded-lg border px-3 py-2 text-sm transition ${
-                activePreset
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-foreground"
-              }`}
-            >
-              {activePreset
-                ? PRESETS.find(p => p.key === activePreset)?.label
-                : "По месяцам"}
-            </button>
-            {showPresetDropdown && (
-              <div
-                className="absolute top-full mt-1 left-0 right-0 z-20 bg-card border border-border rounded-xl shadow-lg overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {PRESETS.map(p => (
-                  <button
-                    key={p.key}
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); applyPreset(p.key); }}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition ${
-                      activePreset === p.key
-                        ? "bg-primary/10 text-primary font-semibold"
-                        : "text-foreground hover:bg-secondary"
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
             )}
+            <button
+              onClick={() => { setReportData(null); setPlannedActions([]); }}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 transition"
+            >
+              Фильтры
+            </button>
           </div>
         </div>
-        {/* Закрыть dropdown при клике вне */}
-        {showPresetDropdown && (
-          <div className="fixed inset-0 z-10" onClick={() => setShowPresetDropdown(false)} />
-        )}
+        <div className="mt-2 flex gap-3 text-xs">
+          <span className="text-red-500 font-semibold">{criticalCount} критичных</span>
+          <span className="text-muted-foreground">{totalItems - criticalCount} остальных</span>
+          {plannedActions.length > 0 && (
+            <span className="text-green-600 font-semibold">{plannedActions.length} запланировано</span>
+          )}
+        </div>
+      </div>
 
-        <ShopFilter
-          shops={shopOptions}
-          selectedIds={selectedShops}
-          onChange={(ids) => {
-            setSelectedShops(ids);
-            void fetchGroups(ids.length === 0 ? null : ids[0]);
-          }}
-          isLoading={isLoadingShops}
-        />
-        <GroupSelector
-          groupOptions={groupOptions}
-          selectedGroups={selectedGroups}
-          setSelectedGroups={setSelectedGroups}
-          isLoadingGroups={isLoadingGroups}
-          onOpenChange={setIsGroupSelectorOpen}
-        />
-        {!isMiniApp && (
-          <motion.button
-            onClick={submitForecast}
-            className={`w-full py-3 rounded-xl font-medium text-white transition ${
-              isFormValid
-                ? "bg-primary hover:bg-primary/90"
-                : "bg-muted text-muted-foreground cursor-not-allowed"
-            }`}
-            disabled={!isFormValid}
-            whileHover={{ scale: isFormValid ? 1.03 : 1 }}
-            whileTap={{ scale: isFormValid ? 0.97 : 1 }}
-          >
-            Сгенерировать отчёт
-          </motion.button>
+      {/* Grid tiles */}
+      <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
+        {sections.map(section => (
+          <div key={section.key}>
+            <button
+              onClick={() => setExpandedSections(prev => ({
+                ...prev, [section.key]: !prev[section.key],
+              }))}
+              className="w-full flex items-center gap-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {expandedSections[section.key]
+                ? <ChevronDown className="w-3.5 h-3.5" />
+                : <ChevronUp className="w-3.5 h-3.5 rotate-90" />}
+              {section.label} · {section.items.length}
+            </button>
+
+            <AnimatePresence>
+              {expandedSections[section.key] && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="space-y-1.5 overflow-hidden"
+                >
+                  {section.items.map((item) => {
+                    const planned = plannedMap.get(`${item.itemId}|${item.shopId}`);
+                    const rec = getRecommendation(item);
+                    const badge = getDaysBadge(item.daysWithoutSales);
+
+                    return (
+                      <motion.button
+                        key={`${item.itemId}|${item.shopId}`}
+                        onClick={() => setSelectedTile(item)}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`w-full text-left rounded-lg border border-l-4 ${rec.color} bg-card hover:shadow-sm transition-shadow overflow-hidden`}
+                      >
+                        <div className="px-3 py-2.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[13px] font-medium text-foreground truncate leading-tight">
+                                {item.name}
+                              </p>
+                              {item.article && (
+                                <p className="text-[10px] text-muted-foreground mt-0.5 font-mono truncate">
+                                  {item.article}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${badge.cls}`}>
+                                {badge.label}
+                              </span>
+                              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground rotate-[270deg]" />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1.5 text-[11px]">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              <Package className="w-3 h-3" />
+                              {item.quantity} шт.
+                            </span>
+                            <span className="text-muted-foreground/50">·</span>
+                            <span className="text-muted-foreground truncate">{item.shopName}</span>
+                            <span className="text-muted-foreground/50">·</span>
+                            <span className={`truncate ${
+                              planned ? "text-green-600 font-medium" :
+                              rec.action === "writeoff" ? "text-red-600" :
+                              rec.action === "promo" ? "text-amber-600" : "text-blue-600"
+                            }`}>
+                              {planned ? "✓ Запланировано" : rec.text}
+                            </span>
+                          </div>
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ))}
+
+        {gridData.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            Нет мёртвых остатков за выбранный период
+          </div>
         )}
-      </motion.div>
-    </motion.div>
+      </div>
+
+      {/* Detail Modal */}
+      <AnimatePresence>
+        {selectedTile && (
+          <DeadStockDetailModal
+            item={selectedTile}
+            onClose={() => setSelectedTile(null)}
+            onAction={(action) => {
+              setPlannedActions(prev => {
+                const key = `${action.itemId}|${action.shopId}`;
+                const filtered = prev.filter(a => `${a.itemId}|${a.shopId}` !== key);
+                return [...filtered, action];
+              });
+              setSelectedTile(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
