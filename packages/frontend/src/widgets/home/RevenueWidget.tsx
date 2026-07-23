@@ -13,7 +13,7 @@ import { RevenueDetailsUser } from "@/widgets/dashboard/cards/RevenueDetailsUser
 import { SkeletonCard } from "./widgetUtils";
 import {
   DollarSign, TrendingUp, TrendingDown, Brain, Sparkles,
-  AlertTriangle, Target,
+  AlertTriangle, 
 } from "lucide-react";
 
 interface Props { since: string; until: string; expanded: boolean; onToggle: () => void }
@@ -109,22 +109,22 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
       whileTap={{ scale: 0.98 }}
       className={`cursor-pointer rounded-xl ${colors.bg} text-white p-4 shadow-lg relative overflow-hidden`}
     >
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5">
           <DollarSign className="w-4 h-4 opacity-80" />
           <span className="text-xs font-medium opacity-90">Выручка</span>
         </div>
         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${colors.badge}`}>
-          {pctClamped}% плана
+          {pctClamped}%
         </span>
       </div>
 
-      <div className="flex items-end justify-between gap-3">
+      <div className="flex items-end justify-between gap-2">
         <div>
-          <div className="text-2xl sm:text-3xl font-bold leading-none">
+          <div className="text-xl sm:text-2xl font-bold leading-none">
             {formatRub(netSales)} ₽
           </div>
-          <div className="flex items-center gap-2 mt-1 text-xs opacity-75">
+          <div className="flex items-center gap-2 mt-1 text-[11px] opacity-75">
             {delta !== null && (
               <span className="flex items-center gap-0.5">
                 {delta >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
@@ -132,33 +132,31 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
               </span>
             )}
             {totalPlan > 0 && (
-              <span className="flex items-center gap-1 opacity-60">
-                <Target className="w-3 h-3" />
+              <span className="opacity-60 truncate">
                 план {formatRub(totalPlan)} ₽
               </span>
             )}
           </div>
         </div>
         {trend7.length >= 2 && (
-          <Sparkline values={trend7} width={72} height={28} className="text-white/60 shrink-0" />
+          <Sparkline values={trend7} width={56} height={20} className="text-white/60 shrink-0 mb-0.5" />
         )}
       </div>
 
-      <div className="mt-3 pt-3 border-t border-white/15 flex items-start gap-2">
-        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 opacity-70" />
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium leading-tight">{rec.text}</p>
-          <p className="text-[10px] opacity-70 mt-0.5">{rec.action}</p>
-        </div>
+      <div className="mt-2 pt-2 border-t border-white/15 flex items-center gap-2">
+        <AlertTriangle className="w-3 h-3 shrink-0 opacity-60" />
+        <p className="text-[10px] truncate leading-tight opacity-80 flex-1">
+          {rec.text} — {rec.action.toLowerCase()}
+        </p>
         <button
           onClick={(e) => { e.stopPropagation(); setShowWhy(!showWhy); }}
-          className="shrink-0 flex items-center gap-1 text-[10px] font-medium bg-white/15 hover:bg-white/25 rounded-full px-2.5 py-1 transition"
+          className="shrink-0 flex items-center gap-1 text-[10px] font-medium bg-white/15 hover:bg-white/25 rounded-full px-2 py-0.5 transition"
         >
-          <Brain className="w-3 h-3" /> Почему?
+          <Brain className="w-2.5 h-2.5" /> Почему?
         </button>
       </div>
 
-      <div className="absolute bottom-0 left-0 h-1 bg-white/20 w-full">
+      <div className="absolute bottom-0 left-0 h-0.5 bg-white/20 w-full">
         <div className={`h-full ${colors.bar} transition-all duration-700`} style={{ width: `${pctClamped}%` }} />
       </div>
     </motion.div>
