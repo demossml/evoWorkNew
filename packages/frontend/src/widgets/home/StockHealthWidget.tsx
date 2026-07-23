@@ -47,20 +47,6 @@ function ErrorTile({ message, onRetry }: { message: string; onRetry: () => void 
   );
 }
 
-// ====== Empty state ======
-
-function EmptyState() {
-  return (
-    <div className="mb-4 rounded-xl bg-card p-4 shadow">
-      <div className="text-center py-4">
-        <div className="text-2xl mb-1">✅</div>
-        <p className="text-sm text-muted-foreground">Мёртвого стока нет</p>
-        <p className="text-xs text-muted-foreground">Все товары продаются</p>
-      </div>
-    </div>
-  );
-}
-
 // ====== Main widget ======
 
 export function StockHealthWidget() {
@@ -182,9 +168,9 @@ export function StockHealthWidget() {
     return <ErrorTile message={error?.message || "Не удалось загрузить данные"} onRetry={() => refetch()} />;
   }
 
-  // Empty — all zeros
+  // Empty — all zeros → nothing to show
   if (!data || (data.deadStockCount === 0 && data.lowStockCount === 0 && data.outOfStockCount === 0)) {
-    return <EmptyState />;
+    return null;
   }
 
   const collapseAll = (except?: string) => {

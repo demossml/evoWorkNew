@@ -80,8 +80,8 @@ export function AccessoriesWidget({ since, until, expanded, onToggle }: Props) {
           <div className="flex items-center gap-1.5 shrink-0 ml-1">
             <span className="text-[9px] opacity-50">{stats.totalProducts} поз.</span>
             {overallMarginPct !== null && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20">
-                маржа {overallMarginPct}%
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-black/30 text-white">
+                {overallMarginPct}%
               </span>
             )}
           </div>
@@ -150,9 +150,10 @@ export function AccessoriesWidget({ since, until, expanded, onToggle }: Props) {
           <div className="text-[10px] text-muted-foreground">Топ-3</div>
         </div>
         {overallMarginPct !== null && (
-          <div className="rounded-xl p-2.5 text-center" style={{ backgroundColor: marginColor(overallMarginPct), opacity: 0.15 }}>
-            <div className="text-sm font-bold" style={{ color: marginColor(overallMarginPct) }}>{overallMarginPct}%</div>
-            <div className="text-[10px] text-muted-foreground">Маржа</div>
+          <div className="rounded-xl p-2.5 text-center relative overflow-hidden">
+            <div className="absolute inset-0 opacity-20" style={{ backgroundColor: marginColor(overallMarginPct) }} />
+            <div className="relative text-sm font-bold text-foreground">{overallMarginPct}%</div>
+            <div className="relative text-[10px] text-muted-foreground">Маржа</div>
           </div>
         )}
       </div>

@@ -116,7 +116,7 @@ export default function Home() {
 
           {(isSuperAdmin || isAdmin) && (
             <div className={isExpanded("best") ? "col-span-2" : ""}>
-              <ErrorBoundary variant="widget" name="Лучший магазин">
+            <ErrorBoundary variant="widget" name="Эффективность">
                 <BestShopWidget since={since} until={until} dateMode={dateMode} expanded={isExpanded("best")} onToggle={() => toggle("best")} />
               </ErrorBoundary>
             </div>
