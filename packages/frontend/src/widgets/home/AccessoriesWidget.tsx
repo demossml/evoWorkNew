@@ -174,56 +174,51 @@ export function AccessoriesWidget({ since, until, expanded, onToggle }: Props) {
             return (
               <div key={`${sale.name}-${sale.shopName}`}>
                 <div className="flex items-center justify-between text-xs mb-0.5">
-                  <span className="text-foreground font-medium truncate flex-1 flex items-center gap-1">
+                  <span className="text-foreground truncate flex-1 flex items-center gap-1">
                     <span className="text-[10px] text-muted-foreground w-4 text-right shrink-0">{idx + 1}.</span>
-                    {sale.name}
+                    <span className="font-medium truncate">{sale.name}</span>
                     {itemMarginPct !== null && (
-                      <span className="text-[9px] ml-1 shrink-0" style={{ color: marginColor(itemMarginPct) }}>
+                      <span className="text-[10px] ml-1 shrink-0 font-semibold" style={{ color: marginColor(itemMarginPct) }}>
                         {itemMarginPct}%
                       </span>
                     )}
                   </span>
-                  <span className="text-muted-foreground tabular-nums ml-2 text-xs">
+                  <span className="text-foreground tabular-nums ml-2 text-xs font-semibold">
                     {formatRub(sale.sum)} ₽
                   </span>
                 </div>
                 {/* Полоса выручки */}
-                <div className="h-3 rounded-full overflow-hidden flex bg-muted/30">
+                <div className="h-3.5 rounded-full overflow-hidden flex bg-muted/50">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${Math.min(barW, 100)}%` }}
                     transition={{ duration: 0.5, ease: "easeOut" }}
                     className="h-full rounded-full"
-                    style={{ backgroundColor: "hsl(var(--chart-1) / 0.3)" }}
+                    style={{ backgroundColor: "hsl(var(--chart-1))", opacity: 0.4 }}
                   />
                 </div>
                 {/* Тонкая полоска маржи */}
                 {itemMarginPct !== null && itemMarginPct > 0 && (
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: "100%" }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                    className="h-3 rounded-full overflow-hidden flex bg-muted/20 mt-0.5"
-                  >
-                    <div
-                      className="h-full flex items-center justify-start pl-2 text-[8px] font-medium whitespace-nowrap min-w-0"
-                      style={{
-                        width: `${Math.max(itemMarginPct, 5)}%`,
-                        backgroundColor: marginColor(itemMarginPct),
-                        opacity: 0.25,
-                      }}
-                    >
-                      {itemMarginPct > 8 && (
-                        <span className="text-foreground/60">маржа {itemMarginPct}%</span>
-                      )}
+                  <div className="h-3.5 rounded-full overflow-hidden flex bg-muted/30 mt-0.5 relative">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.max(itemMarginPct, 5)}%` }}
+                      transition={{ duration: 0.5, ease: "easeOut" }}
+                      className="absolute inset-0 rounded-full"
+                      style={{ backgroundColor: marginColor(itemMarginPct), opacity: 0.3 }}
+                    />
+                    <div className="relative z-10 flex items-center justify-between w-full px-2 text-[9px]">
+                      <span className="font-semibold text-foreground whitespace-nowrap">
+                        {itemMarginPct > 8 ? `маржа ${itemMarginPct}%` : `${itemMarginPct}%`}
+                      </span>
+                      <span className="font-semibold text-foreground tabular-nums">
+                        {formatRub(itemMarginRub)} ₽
+                      </span>
                     </div>
-                    <div className="flex-1 flex items-center justify-end pr-2 text-[8px] text-muted-foreground">
-                      {formatRub(itemMarginRub)} ₽
-                    </div>
-                  </motion.div>
+                  </div>
                 )}
-                <div className="flex items-center gap-3 text-[9px] text-muted-foreground mt-0.5 pl-5">
-                  <span>{sale.quantity} шт</span>
+                <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-0.5 pl-5">
+                  <span className="text-foreground font-medium">{sale.quantity} шт</span>
                   <span>{sale.shopName}</span>
                 </div>
               </div>
@@ -242,7 +237,7 @@ export function AccessoriesWidget({ since, until, expanded, onToggle }: Props) {
             {stats.byShop.map((shop) => (
               <div key={shop.shopName} className="flex items-center justify-between text-xs">
                 <span className="text-foreground truncate">{shop.shopName}</span>
-                <span className="text-muted-foreground tabular-nums">{formatRub(shop.sum)} ₽</span>
+                <span className="text-foreground font-semibold tabular-nums">{formatRub(shop.sum)} ₽</span>
               </div>
             ))}
           </div>
