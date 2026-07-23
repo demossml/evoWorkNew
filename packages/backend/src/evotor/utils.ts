@@ -1636,4 +1636,12 @@ export async function createCostPricesTableIfNotExists(db: D1Database): Promise<
 	console.log("[migration] product_cost_prices v2 (SCD Type 2) — таблица готова");
 }
 
+/**
+ * Нормализует название товара: trim + замена латинской C на кириллическую С.
+ * Используется для сравнения имён из 1С и Evotor.
+ */
+export function normalizeProductName(name: string): string {
+	return name.trim().replace(/\u0043/g, "\u0421");
+}
+
 
