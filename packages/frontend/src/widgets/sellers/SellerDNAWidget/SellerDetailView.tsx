@@ -1,8 +1,6 @@
 import { motion } from "framer-motion";
 import {
   TrendingUp,
-  TrendingDown,
-  Minus,
   Clock,
   ArrowLeft,
   ArrowRightLeft,
@@ -31,6 +29,7 @@ import type { DateFilterValue } from "@/widgets/home/DateFilter";
 import type { SellerDNAProfile, DNALabel, HourlyPoint, AbsenceAnalysis, AbsenceSlot } from "./types";
 import { useWeekdayBreakdown } from "@/hooks/useWeekdayBreakdown";
 import { client } from "@/helpers/api";
+import { trendBadge } from "@shared/ui";
 
 // ===================== Props =====================
 
@@ -65,29 +64,6 @@ function formatMoney(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1000) return `${Math.round(n / 1000)}k`;
   return `${n}`;
-}
-
-function trendBadge(trend: "up" | "down" | "stable", slope: number) {
-  if (trend === "up") {
-    return (
-      <span className="inline-flex items-center gap-0.5 text-success text-xs font-medium">
-        <TrendingUp className="w-3 h-3" />+{slope.toFixed(0)}/д
-      </span>
-    );
-  }
-  if (trend === "down") {
-    return (
-      <span className="inline-flex items-center gap-0.5 text-destructive text-xs font-medium">
-        <TrendingDown className="w-3 h-3" />
-        {slope.toFixed(0)}/д
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-0.5 text-muted-foreground text-xs font-medium">
-      <Minus className="w-3 h-3" />0/д
-    </span>
-  );
 }
 
 // ===================== Chart helpers =====================

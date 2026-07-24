@@ -17,7 +17,7 @@ import {
   type DowData,
 } from "@/hooks/dashboard/useSellerEffectiveness";
 import { useSellerEffectiveness } from "@/hooks/dashboard/useSellerEffectiveness";
-import { ReportKPIBar, ReportShareButton } from "@shared/ui";
+import { ReportKPIBar, ReportShareButton, trendArrow } from "@shared/ui";
 
 // ====== Helpers ======
 
@@ -25,12 +25,6 @@ function fmtRub(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M ₽`;
   if (n >= 1_000) return `${Math.round(n / 1000)}k ₽`;
   return `${Math.round(n)} ₽`;
-}
-
-function trendArrow(dir: "↑" | "↓" | "→"): { icon: JSX.Element; color: string } {
-  if (dir === "↑") return { icon: <TrendingUp className="w-4 h-4" />, color: "text-emerald-500" };
-  if (dir === "↓") return { icon: <TrendingDown className="w-4 h-4" />, color: "text-red-500" };
-  return { icon: <span className="text-lg">→</span>, color: "text-gray-400" };
 }
 
 function riskBadge(level: "ok" | "warn" | "critical") {
@@ -694,7 +688,7 @@ function SellerDetail({ seller, onClose }: { seller: SellerMetrics; onClose: () 
 
           {isAdmin && !seller.rankEligible && (
             <div className="bg-muted rounded-lg p-3 text-xs text-muted-foreground">
-              ⚠️ Исключён из общего рейтинга — всего {seller.daysWorked} смен. Требуется минимум 20 смен для статистической значимости.
+              Исключён из общего рейтинга — всего {seller.daysWorked} смен. Требуется минимум 20 смен для статистической значимости.
             </div>
           )}
         </div>
@@ -1056,7 +1050,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
           ))}
 
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
-            <div className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-1">📐 Источники данных</div>
+            <div className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-1">Источники данных</div>
             <div className="text-xs text-muted-foreground">
               DuckDB: evotor.duckdb (30 091 продаж). Таблицы: sells, employees, positions, product_groups, vape_groups.
               Период: 04.03.2026 – 03.06.2026 (90 дней). Покрытие open_user_uuid: 99.4%.

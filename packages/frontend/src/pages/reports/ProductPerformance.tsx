@@ -11,7 +11,7 @@ import {
 } from "recharts";
 import { type ProductMetrics } from "@/hooks/dashboard/useProductEffectiveness";
 import { useProductEffectiveness } from "@/hooks/dashboard/useProductEffectiveness";
-import { ReportKPIBar, ReportShareButton, AIInsightsPanel, AIChatPanel } from "@shared/ui";
+import { ReportKPIBar, ReportShareButton, AIInsightsPanel, AIChatPanel, trendArrow } from "@shared/ui";
 import { useProductAIInsights } from "@/hooks/dashboard/useProductAIInsights";
 import { Brain } from "lucide-react";
 
@@ -24,19 +24,13 @@ function fmtRub(n: number | null | undefined): string {
   return `${Math.round(n)} ₽`;
 }
 
-function trendArrow(dir: "↑" | "↓" | "→"): { icon: JSX.Element; color: string } {
-  if (dir === "↑") return { icon: <TrendingUp className="w-4 h-4" />, color: "text-emerald-500" };
-  if (dir === "↓") return { icon: <TrendingDown className="w-4 h-4" />, color: "text-red-500" };
-  return { icon: <span className="text-lg">→</span>, color: "text-gray-400" };
-}
-
 const segmentLabels: Record<string, { label: string; cls: string }> = {
-  star: { label: "⭐ Звезда", cls: "bg-yellow-100 text-yellow-700" },
-  cash_cow: { label: "💰 Дойная корова", cls: "bg-emerald-100 text-emerald-700" },
-  problem: { label: "⚠️ Проблемный", cls: "bg-red-100 text-red-700" },
-  declining: { label: "📉 Падающий", cls: "bg-orange-100 text-orange-700" },
-  new: { label: "🆕 Новый", cls: "bg-blue-100 text-blue-700" },
-  local_hit: { label: "📍 Локальный хит", cls: "bg-purple-100 text-purple-700" },
+  star: { label: "Звезда", cls: "bg-warning/15 text-warning" },
+  cash_cow: { label: "Дойная корова", cls: "bg-success/15 text-success" },
+  problem: { label: "Проблемный", cls: "bg-destructive/15 text-destructive" },
+  declining: { label: "Падающий", cls: "bg-warning/15 text-warning" },
+  new: { label: "Новый", cls: "bg-primary/15 text-primary" },
+  local_hit: { label: "Локальный хит", cls: "bg-accent/15 text-accent-foreground" },
 };
 
 const COLORS = ["#10b981", "#f59e0b", "#ef4444", "#3b82f6", "#8b5cf6", "#ec4899"];
@@ -358,7 +352,7 @@ function ProductCard({ product, index, expanded, onToggle, onAskAI }: {
                             <div className="bg-white dark:bg-gray-800 border border-border rounded-lg px-2 py-1 text-xs shadow">
                               <div>{d.date}</div>
                               <div className="font-medium">{fmtRub(d.value)}</div>
-                              {isAnom && <div className="text-amber-500">⚠ Аномалия</div>}
+                              {isAnom && <div className="text-amber-500">Аномалия</div>}
                             </div>
                           );
                         }}

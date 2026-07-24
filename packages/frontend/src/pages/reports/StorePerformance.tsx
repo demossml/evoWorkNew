@@ -11,7 +11,7 @@ import {
 } from "recharts";
 import { type StoreMetrics } from "@/hooks/dashboard/useStoreEffectiveness";
 import { useStoreEffectiveness } from "@/hooks/dashboard/useStoreEffectiveness";
-import { ReportKPIBar, ReportShareButton, AIInsightsPanel, AIChatPanel } from "@shared/ui";
+import { ReportKPIBar, ReportShareButton, AIInsightsPanel, AIChatPanel, trendArrow } from "@shared/ui";
 import { useStoreAIInsights } from "@/hooks/dashboard/useStoreAIInsights";
 import { Brain } from "lucide-react";
 
@@ -24,19 +24,13 @@ function fmtRub(n: number | null | undefined): string {
   return `${Math.round(n)} ₽`;
 }
 
-function trendArrow(dir: "↑" | "↓" | "→"): { icon: JSX.Element; color: string } {
-  if (dir === "↑") return { icon: <TrendingUp className="w-4 h-4" />, color: "text-emerald-500" };
-  if (dir === "↓") return { icon: <TrendingDown className="w-4 h-4" />, color: "text-red-500" };
-  return { icon: <span className="text-lg">→</span>, color: "text-gray-400" };
-}
-
 const segmentLabels: Record<string, { label: string; cls: string }> = {
-  healthy: { label: "✅ Здоровая", cls: "bg-emerald-100 text-emerald-700" },
-  declining: { label: "📉 Падающая", cls: "bg-red-100 text-red-700" },
-  volatile: { label: "🌊 Волатильная", cls: "bg-amber-100 text-amber-700" },
-  understaffed: { label: "👥 Недоукомплектована", cls: "bg-orange-100 text-orange-700" },
-  assortment_gap: { label: "📦 Перекос ассортимента", cls: "bg-purple-100 text-purple-700" },
-  discipline_issue: { label: "⏰ Дисциплина открытия", cls: "bg-blue-100 text-blue-700" },
+  healthy: { label: "Здоровая", cls: "bg-success/15 text-success" },
+  declining: { label: "Падающая", cls: "bg-destructive/15 text-destructive" },
+  volatile: { label: "Волатильная", cls: "bg-warning/15 text-warning" },
+  understaffed: { label: "Недоукомплектована", cls: "bg-warning/15 text-warning" },
+  assortment_gap: { label: "Перекос ассортимента", cls: "bg-accent/15 text-accent-foreground" },
+  discipline_issue: { label: "Дисциплина открытия", cls: "bg-primary/15 text-primary" },
 };
 
 const COLORS = ["#10b981", "#f59e0b", "#ef4444", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4"];
@@ -395,7 +389,7 @@ function StoreCard({ store, index, expanded, onToggle, onAskAI }: {
                   </div>
                   {store.openingComplianceCorrelation < -0.3 && (
                     <div className="mt-2 text-[10px] text-red-500 bg-red-50 dark:bg-red-900/20 rounded px-2 py-1">
-                      ⚠️ Опоздания с открытием статистически значимо связаны с более низкой выручкой. Рекомендуется усилить контроль открытия.
+                      Опоздания с открытием статистически значимо связаны с более низкой выручкой. Рекомендуется усилить контроль открытия.
                     </div>
                   )}
                 </div>

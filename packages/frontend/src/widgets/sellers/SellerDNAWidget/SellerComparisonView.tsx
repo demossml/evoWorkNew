@@ -4,9 +4,6 @@ import {
   ArrowLeft,
   Sparkles,
   Users,
-  TrendingUp,
-  TrendingDown,
-  Minus,
   Star,
 } from "lucide-react";
 import {
@@ -77,29 +74,6 @@ function initials(name: string) {
   return parts.length >= 2
     ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
     : name.slice(0, 2).toUpperCase();
-}
-
-function trendBadge(trend: "up" | "down" | "stable", slope: number) {
-  if (trend === "up") {
-    return (
-      <span className="inline-flex items-center gap-0.5 text-success text-[10px] font-medium">
-        <TrendingUp className="w-2.5 h-2.5" />+{slope.toFixed(0)}/д
-      </span>
-    );
-  }
-  if (trend === "down") {
-    return (
-      <span className="inline-flex items-center gap-0.5 text-destructive text-[10px] font-medium">
-        <TrendingDown className="w-2.5 h-2.5" />
-        {slope.toFixed(0)}/д
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-0.5 text-muted-foreground text-[10px] font-medium">
-      <Minus className="w-2.5 h-2.5" />0/д
-    </span>
-  );
 }
 
 // ===================== Charts =====================
