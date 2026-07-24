@@ -16,14 +16,23 @@ export const useTheme = () => {
       // Применяем сразу
       applyTheme();
 
+      // Динамический theme-color для PWA
+      const metaTheme = document.querySelector('meta[name="theme-color"]');
+      const updateMetaTheme = () => {
+        const theme = WebApp.colorScheme;
+        if (metaTheme) metaTheme.setAttribute("content", theme === "dark" ? "#080c16" : "#f9fafb");
+      };
+      updateMetaTheme();
+
       // Подписка на смену темы
-      WebApp.onEvent("themeChanged", applyTheme);
+      const onThemeChanged = () => { applyTheme(); updateMetaTheme(); };
+      WebApp.onEvent("themeChanged", onThemeChanged);
 
       // Разрешаем предупреждение при закрытии
       WebApp.enableClosingConfirmation();
 
       return () => {
-        WebApp.offEvent("themeChanged", applyTheme);
+        WebApp.offEvent("themeChanged", onThemeChanged);
         WebApp.disableClosingConfirmation();
       };
     }
@@ -33,6 +42,8 @@ export const useTheme = () => {
 
     const applyBrowserTheme = () => {
       document.documentElement.classList.toggle("dark", mq.matches);
+      const metaTheme = document.querySelector('meta[name="theme-color"]');
+      if (metaTheme) metaTheme.setAttribute("content", mq.matches ? "#080c16" : "#f9fafb");
     };
 
     applyBrowserTheme();

@@ -101,6 +101,22 @@ export default defineConfig({
             purpose: "any maskable",
           },
         ],
+        shortcuts: [
+          {
+            name: "Продажи сегодня",
+            short_name: "Продажи",
+            description: "Посмотреть продажи за сегодня",
+            url: "/evotor/sales-today",
+            icons: [{ src: "/pwa-192x192.png", sizes: "192x192" }],
+          },
+          {
+            name: "Зарплата",
+            short_name: "Зарплата",
+            description: "Посмотреть зарплату",
+            url: "/evotor/salary-user-report",
+            icons: [{ src: "/pwa-192x192.png", sizes: "192x192" }],
+          },
+        ],
       },
     }),
   ],
