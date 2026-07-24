@@ -51,19 +51,6 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
     return top || "основной магазин";
   }, [filtered]);
 
-  if (loading || !filtered) return <SkeletonCard tone="blue" />;
-  if (error) return <div className="text-red-500 text-sm p-2">Ошибка: {error}</div>;
-
-  // Trend + delta
-  const trend7: number[] = (filtered as any).dailySell
-    ? Object.values((filtered as any).dailySell).slice(-7).map(Number) : [];
-  const prev = trend7.length >= 2 ? trend7[trend7.length - 2] : null;
-  const curr = trend7.length >= 1 ? trend7[trend7.length - 1] : null;
-  const delta = prev && prev > 0 && curr ? Math.round(((curr - prev) / prev) * 100) : null;
-
-  const recText = getRecText(delta, bestShop);
-  const bgColor = getDeltaColor(delta);
-
   // Cash/card split
   const { cashShare, cardShare } = useMemo(() => {
     let cash = 0, card = 0;
@@ -101,6 +88,19 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
     }
     return map;
   }, [grossProfit]);
+
+  if (loading || !filtered) return <SkeletonCard tone="blue" />;
+  if (error) return <div className="text-red-500 text-sm p-2">Ошибка: {error}</div>;
+
+  // Trend + delta
+  const trend7: number[] = (filtered as any).dailySell
+    ? Object.values((filtered as any).dailySell).slice(-7).map(Number) : [];
+  const prev = trend7.length >= 2 ? trend7[trend7.length - 2] : null;
+  const curr = trend7.length >= 1 ? trend7[trend7.length - 1] : null;
+  const delta = prev && prev > 0 && curr ? Math.round(((curr - prev) / prev) * 100) : null;
+
+  const recText = getRecText(delta, bestShop);
+  const bgColor = getDeltaColor(delta);
 
   // Margin color: green >= 30%, amber >= 15%, red < 15%
   function marginColor(pct: number): string {

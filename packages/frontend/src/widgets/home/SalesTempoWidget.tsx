@@ -10,7 +10,8 @@ import { SkeletonCard } from "./widgetUtils";
 import { Clock3, TrendingUp, TrendingDown } from "lucide-react";
 
 function formatRub(n: number): string {
-  return n.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
+  if (!Number.isFinite(n)) return "0";
+  return Math.round(n).toLocaleString("ru-RU");
 }
 
 interface Props { since: string; until: string; expanded: boolean; onToggle: () => void }
