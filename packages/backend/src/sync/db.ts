@@ -228,7 +228,8 @@ export async function createSalaryTable(db: D1Database): Promise<void> {
         dataPlan INTEGER NOT NULL,
         salesDataVape INTEGER NOT NULL,
         bonusPlan INTEGER NOT NULL,
-        totalBonus INTEGER NOT NULL
+        totalBonus INTEGER NOT NULL,
+        UNIQUE(date, shopUuid)
       )`,
     )
     .run();
@@ -239,21 +240,9 @@ export async function saveSalaryData(
   db: D1Database,
   dataReport: Record<string, unknown>,
 ): Promise<void> {
-  const existingRecord = await db
-    .prepare("SELECT 1 FROM salaryData WHERE date = ? AND shopUuid = ?")
-    .bind(dataReport.date as string, dataReport.shopUuid as string)
-    .first();
-
-  if (existingRecord) {
-    console.log(
-      `Запись за ${dataReport.date} / ${dataReport.shopUuid} уже существует. Пропуск.`,
-    );
-    return;
-  }
-
   await db
     .prepare(
-      `INSERT INTO salaryData (
+      `INSERT OR REPLACE INTO salaryData (
         date, shopUuid, employeeUuid, bonusAccessories,
         dataPlan, salesDataVape, bonusPlan, totalBonus
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
