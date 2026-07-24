@@ -101,10 +101,26 @@ export default defineConfig({
             type: "image/png",
           },
           {
-            src: "/pwa-512x512.png",
+            src: "/pwa-512x512-maskable.png",
             sizes: "512x512",
             type: "image/png",
-            purpose: "any maskable",
+            purpose: "maskable",
+          },
+        ],
+        screenshots: [
+          {
+            src: "/screenshots/home-light.png",
+            sizes: "1080x1920",
+            type: "image/png",
+            form_factor: "narrow",
+            label: "Главная страница",
+          },
+          {
+            src: "/screenshots/report-light.png",
+            sizes: "1080x1920",
+            type: "image/png",
+            form_factor: "narrow",
+            label: "Отчёт по продажам",
           },
         ],
         shortcuts: [
