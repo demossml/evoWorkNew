@@ -4874,4 +4874,43 @@ function escapeHtml(s: string): string {
 	return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// ─── Push-уведомления ──────────────────────────────────────────────────
+
+// Хранилище подписок (in-memory, сбрасывается при перезапуске)
+const pushSubscriptions = new Set<string>();
+
+api
+	.post("/api/push/subscribe", async (c) => {
+		try {
+			const body = await c.req.json<{ endpoint: string; keys: { p256dh: string; auth: string } }>();
+			const { isValidSubscription } = await import("./push/pushService.js");
+			if (!isValidSubscription(body)) {
+				return c.json({ error: "Invalid subscription" }, 400);
+			}
+			pushSubscriptions.add(JSON.stringify(body));
+			console.log(`[push] +1 подписка (всего ${pushSubscriptions.size})`);
+			return c.json({ ok: true, count: pushSubscriptions.size });
+		} catch (err) {
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+	.post("/api/push/unsubscribe", async (c) => {
+		try {
+			const body = await c.req.json<{ endpoint: string }>();
+			for (const stored of pushSubscriptions) {
+				if (stored.includes(body.endpoint)) {
+					pushSubscriptions.delete(stored);
+					console.log(`[push] −1 подписка (всего ${pushSubscriptions.size})`);
+					break;
+				}
+			}
+			return c.json({ ok: true });
+		} catch (err) {
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+	.get("/api/push/vapid-public-key", (c) => {
+		return c.json({ publicKey: process.env.VAPID_PUBLIC_KEY || "" });
+	});
+
 export type IAPI = typeof api;
