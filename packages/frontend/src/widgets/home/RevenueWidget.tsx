@@ -38,6 +38,7 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
   const { data, loading, error } = useSalesData({ since, until, enabled: true });
   const filtered = useFilteredSalesData(data, true, null);
   const { netSales } = useSalesCalculations(filtered);
+  const { data: grossProfit } = useGrossProfit({ since, until });
   const [showWhy, setShowWhy] = useState(false);
 
   // Best shop
@@ -81,7 +82,6 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
   }, [filtered]);
 
   // Gross profit / margin
-  const { data: grossProfit } = useGrossProfit({ since, until });
   const overallMarginPct = useMemo(() => {
     if (!grossProfit?.total?.revenue || grossProfit.total.revenue <= 0) return null;
     return Math.round((grossProfit.total.profit / grossProfit.total.revenue) * 100);

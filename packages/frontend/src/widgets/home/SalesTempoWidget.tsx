@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSalesData } from "@/hooks/dashboard/useSalesData";
 import { useFilteredSalesData } from "@/hooks/dashboard/useFilteredSalesData";
