@@ -163,7 +163,7 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
   const shops = Object.entries(filtered.salesDataByShopName || {})
     .sort(([, a], [, b]) => (b as any).totalSell - (a as any).totalSell);
 
-  const detail = (
+  const detail = expanded ? (
     <motion.div
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -314,7 +314,7 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
         </div>
       </div>
     </motion.div>
-  );
+  ) : null;
 
   return (
     <>
