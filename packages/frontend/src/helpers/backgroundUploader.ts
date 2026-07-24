@@ -203,3 +203,24 @@ export const getQueueCount = async (userId: string): Promise<number> => {
   const pendingFiles = await getPendingFiles(userId);
   return pendingFiles.length;
 };
+
+/**
+ * Зарегистрировать Background Sync для загрузки фото.
+ * Если SyncManager не поддерживается (Safari/iOS/Telegram) —
+ * silently fallback на текущий localStorage+setTimeout механизм.
+ */
+export async function registerUploadSync(): Promise<void> {
+  if (!("serviceWorker" in navigator)) return;
+  const sw = navigator.serviceWorker;
+  if (!sw.controller) {
+    // Ждём активации SW
+    await sw.ready;
+  }
+  if ("sync" in sw && typeof (sw as any).sync?.register === "function") {
+    try {
+      await (sw as any).sync.register("upload-photos");
+    } catch {
+      // Fallback — синхронизация не поддерживается (iOS/Safari)
+    }
+  }
+}

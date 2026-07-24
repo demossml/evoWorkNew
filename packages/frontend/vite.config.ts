@@ -50,6 +50,16 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          // Dashboard — StaleWhileRevalidate (быстрый показ + фоновое обновление)
+          {
+            urlPattern: /\/api\/evotor\/(sales-today|sales-garden-report|plan-for-today|accessories-sales|gross-profit-today|dashboard-home-insights)/,
+            handler: "StaleWhileRevalidate" as const,
+            options: {
+              cacheName: "dashboard-cache",
+              expiration: { maxEntries: 20, maxAgeSeconds: 5 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           // API (GET, без salary/auth/login) — Network First
           {
             urlPattern: /^\/api\/(?!.*(salary|auth|login)).*/,
