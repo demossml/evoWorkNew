@@ -25,6 +25,16 @@ function App() {
   useTheme();
   useTelegramFullscreenLayout();
 
+  // Онлайн/офлайн индикатор
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const on = () => setIsOnline(true);
+    const off = () => setIsOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+  }, []);
+
   useQuery({
     queryKey: queryKeys.admin.dataMode(),
     queryFn: fetchDataMode,
@@ -97,6 +107,12 @@ function App() {
   return (
     <>
       <PWAInstall />
+      {/* Офлайн-индикатор */}
+      {!isOnline && (
+        <div className="fixed top-0 left-0 right-0 z-[100] bg-destructive text-destructive-foreground text-center py-1 text-sm font-medium">
+          Нет подключения к интернету
+        </div>
+      )}
       {/* Индикатор фоновой загрузки */}
       {uploadStatus.isUploading && uploadStatus.total > 0 && (
         <div

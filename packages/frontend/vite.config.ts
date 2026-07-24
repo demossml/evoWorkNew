@@ -9,14 +9,58 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate", // автообновление SW
       devOptions: {
-        enabled: false, // ⚡️ отключено в dev — SW перехватывает /api/* запросы и спамит в консоль
+        enabled: true, // включено в dev для тестирования офлайн-режима
+        type: "module",
       },
       workbox: {
+        navigateFallback: "/offline.html",
+        navigateFallbackAllowlist: [/^\//],
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
+          // Статика (JS/CSS) — Cache First
           {
-            urlPattern: /^\/api\/.*/,
-            handler: "NetworkOnly" as const,
-            options: { cacheName: "api-cache", expiration: { maxEntries: 0 } },
+            urlPattern: /\.(?:js|css|mjs)$/,
+            handler: "CacheFirst" as const,
+            method: "GET",
+            options: {
+              cacheName: "static-assets",
+              expiration: { maxEntries: 60, maxAgeSeconds: 30 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // Шрифты — Cache First
+          {
+            urlPattern: /\.(?:woff|woff2|ttf|eot)$/,
+            handler: "CacheFirst" as const,
+            method: "GET",
+            options: {
+              cacheName: "fonts",
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // Изображения — Cache First
+          {
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/,
+            handler: "CacheFirst" as const,
+            method: "GET",
+            options: {
+              cacheName: "images",
+              expiration: { maxEntries: 100, maxAgeSeconds: 7 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // API (GET, без salary/auth/login) — Network First
+          {
+            urlPattern: /^\/api\/(?!.*(salary|auth|login)).*/,
+            handler: "NetworkFirst" as const,
+            method: "GET",
+            options: {
+              cacheName: "api-cache",
+              expiration: { maxEntries: 200, maxAgeSeconds: 5 * 60 },
+              networkTimeoutSeconds: 3,
+              cacheableResponse: { statuses: [0, 200] },
+            },
           },
         ],
       },
