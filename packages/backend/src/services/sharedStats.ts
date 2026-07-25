@@ -5,7 +5,7 @@
  */
 
 import type { D1Database } from "@cloudflare/workers-types";
-import { VAPE_GROUP_UUIDS } from "../sync/cron";
+import { getVapeGroupUuids } from "./settingsService";
 
 // ===================== Statistics =====================
 
@@ -165,13 +165,14 @@ export async function buildCategoryMap(
   db: D1Database,
 ): Promise<Map<string, string>> {
   const map = new Map<string, string>();
+  const vapeUuids = await getVapeGroupUuids(db);
 
-  const vapePlaceholders = VAPE_GROUP_UUIDS.map(() => "?").join(",");
+  const vapePlaceholders = vapeUuids.map(() => "?").join(",");
   const vapeRows = await db
     .prepare(
       `SELECT uuid FROM shopProduct WHERE parentUuid IN (${vapePlaceholders})`,
     )
-    .bind(...VAPE_GROUP_UUIDS)
+    .bind(...vapeUuids)
     .all<{ uuid: string }>();
   for (const r of vapeRows.results ?? []) map.set(r.uuid, "vape");
 

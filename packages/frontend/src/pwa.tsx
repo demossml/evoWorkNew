@@ -134,7 +134,6 @@ function urlB64ToUint8Array(base64String: string): Uint8Array {
 
 /**
  * Установить бейдж на иконке PWA.
- * Работает только когда приложение установлено на домашний экран.
  */
 export async function setAppBadge(count: number): Promise<void> {
   if ("setAppBadge" in navigator) {
@@ -146,4 +145,20 @@ export async function setAppBadge(count: number): Promise<void> {
       }
     } catch { /* ignore */ }
   }
+}
+
+// ─── Push outcome tracking ──────────────────────────────────────────────
+
+/**
+ * Сообщить серверу об outcome push-уведомления (opened/clicked/dismissed).
+ * Вызывается из service worker (notificationclick) или из App при старте.
+ */
+export async function reportPushOutcome(title: string, outcome: "opened" | "clicked" | "dismissed"): Promise<void> {
+  try {
+    await fetch("/api/push/outcome", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, outcome }),
+    });
+  } catch { /* ignore */ }
 }

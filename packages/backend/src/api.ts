@@ -1075,7 +1075,9 @@ export const api = new Hono<IEnv>()
 							until,
 							productsAks,
 						);
-						const bonusAccessories = Math.floor(salesDataAks * 0.05);
+						const { getNumberSetting } = await import("./services/settingsService.js");
+						const bonusRate = await getNumberSetting(db, "bonus_accessories_rate", 0.05);
+						const bonusAccessories = Math.floor(salesDataAks * bonusRate);
 
 						const salesDataVape = await getSalesSumFromD1(
 							db,
@@ -2297,6 +2299,14 @@ export const api = new Hono<IEnv>()
 			stock: { label: "синхронизация остатков", run: syncStock },
 			salary: { label: "расчёт ЗП", run: getDataForCurrentDate },
 			"dead-stock": { label: "кэш мёртвых остатков", run: refreshDeadStockTask },
+			"push-check": {
+				label: "push-уведомления",
+				run: async (e) => {
+					const { runPushCycle } = await import("./push/pushScheduler.js");
+					// Внутренние задачи используют env, а не c.get("db")
+					await runPushCycle(e.DB);
+				},
+			},
 		};
 
 		const entry = tasks[task];
@@ -4876,34 +4886,32 @@ function escapeHtml(s: string): string {
 
 // ─── Push-уведомления ──────────────────────────────────────────────────
 
-// Хранилище подписок (in-memory, сбрасывается при перезапуске)
-const pushSubscriptions = new Set<string>();
+// ─── Push-уведомления (D1-backed) ──────────────────────────────────────
 
 api
 	.post("/api/push/subscribe", async (c) => {
 		try {
+			const db = c.get("db");
 			const body = await c.req.json<{ endpoint: string; keys: { p256dh: string; auth: string } }>();
-			const { isValidSubscription } = await import("./push/pushService.js");
+			const { isValidSubscription, saveSubscription, getSubscriptionCount } = await import("./push/pushService.js");
 			if (!isValidSubscription(body)) {
 				return c.json({ error: "Invalid subscription" }, 400);
 			}
-			pushSubscriptions.add(JSON.stringify(body));
-			console.log(`[push] +1 подписка (всего ${pushSubscriptions.size})`);
-			return c.json({ ok: true, count: pushSubscriptions.size });
+			await saveSubscription(db, body);
+			const count = await getSubscriptionCount(db);
+			console.log(`[push] +1 подписка (всего ${count})`);
+			return c.json({ ok: true, count });
 		} catch (err) {
 			return c.json({ error: String(err) }, 500);
 		}
 	})
 	.post("/api/push/unsubscribe", async (c) => {
 		try {
+			const db = c.get("db");
 			const body = await c.req.json<{ endpoint: string }>();
-			for (const stored of pushSubscriptions) {
-				if (stored.includes(body.endpoint)) {
-					pushSubscriptions.delete(stored);
-					console.log(`[push] −1 подписка (всего ${pushSubscriptions.size})`);
-					break;
-				}
-			}
+			const { removeSubscription } = await import("./push/pushService.js");
+			await removeSubscription(db, body.endpoint);
+			console.log(`[push] −1 подписка`);
 			return c.json({ ok: true });
 		} catch (err) {
 			return c.json({ error: String(err) }, 500);
@@ -4911,6 +4919,80 @@ api
 	})
 	.get("/api/push/vapid-public-key", (c) => {
 		return c.json({ publicKey: process.env.VAPID_PUBLIC_KEY || "" });
+	})
+	.post("/api/push/trigger", async (c) => {
+		try {
+			const db = c.get("db");
+			const { runPushCycle } = await import("./push/pushScheduler.js");
+			const result = await runPushCycle(db);
+			return c.json(result);
+		} catch (err) {
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+	.get("/api/push/status", async (c) => {
+		try {
+			const db = c.get("db");
+			const { getSubscriptionCount } = await import("./push/pushService.js");
+			const { getWeeklyStats } = await import("./push/decisionLogger.js");
+			const count = await getSubscriptionCount(db);
+			const stats = await getWeeklyStats(db);
+			return c.json({
+				subscriptions: count,
+				vapidConfigured: !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
+				weeklyStats: stats,
+			});
+		} catch (err) {
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+	.post("/api/push/outcome", async (c) => {
+		try {
+			const db = c.get("db");
+			const body = await c.req.json<{ title: string; outcome: string }>();
+			const { logOutcomeByTitle } = await import("./push/decisionLogger.js");
+			await logOutcomeByTitle(db, body.title, body.outcome as any);
+			return c.json({ ok: true });
+		} catch (err) {
+			return c.json({ error: String(err) }, 500);
+		}
+	});
+
+// ─── Настройки приложения ──────────────────────────────────────────────
+
+api
+	.get("/api/settings", async (c) => {
+		try {
+			const db = c.get("db");
+			const { getAllSettings } = await import("./services/settingsService.js");
+			const settings = await getAllSettings(db);
+			return c.json(settings);
+		} catch (err) {
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+	.put("/api/settings/:key", async (c) => {
+		try {
+			const db = c.get("db");
+			const key = c.req.param("key");
+			const body = await c.req.json<{ value: string }>();
+			const { updateSetting } = await import("./services/settingsService.js");
+			await updateSetting(db, key, body.value);
+			return c.json({ ok: true });
+		} catch (err) {
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+	.post("/api/settings/batch", async (c) => {
+		try {
+			const db = c.get("db");
+			const body = await c.req.json<Array<{ key: string; value: string }>>();
+			const { batchUpdateSettings } = await import("./services/settingsService.js");
+			await batchUpdateSettings(db, body);
+			return c.json({ ok: true });
+		} catch (err) {
+			return c.json({ error: String(err) }, 500);
+		}
 	});
 
 export type IAPI = typeof api;

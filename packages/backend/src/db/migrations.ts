@@ -187,5 +187,93 @@ export async function runMigrations(db: D1Database): Promise<void> {
 	await createIndexIfMissing(db, "product_cost_prices", "idx_pcp_name", "productName");
 	await createIndexIfMissing(db, "product_cost_prices", "idx_pcp_name_eff", "productName, effectiveFrom DESC");
 
+	// ══════════════════════════════════════════════════════════
+	// app_settings — настройки приложения
+	// ══════════════════════════════════════════════════════════
+	await db.prepare(`
+		CREATE TABLE IF NOT EXISTS app_settings (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL,
+			type TEXT NOT NULL DEFAULT 'string',
+			category TEXT NOT NULL DEFAULT 'general',
+			label TEXT NOT NULL DEFAULT '',
+			description TEXT DEFAULT '',
+			updated_at TEXT DEFAULT (datetime('now'))
+		)
+	`).run();
+
+	// Вставляем стандартные настройки, если их ещё нет
+	const insertSetting = async (key: string, value: string, type: string, category: string, label: string, desc: string) => {
+		const exists = await db.prepare("SELECT 1 FROM app_settings WHERE key = ?").bind(key).first();
+		if (!exists) {
+			await db.prepare("INSERT INTO app_settings (key, value, type, category, label, description) VALUES (?,?,?,?,?,?)")
+				.bind(key, value, type, category, label, desc).run();
+		}
+	};
+
+	await insertSetting("bonus_accessories_rate", "0.05", "number", "bonus", "Бонус с аксессуаров", "% от продаж");
+	await insertSetting("bonus_plan_amount", "450", "number", "bonus", "Бонус за план", "₽ за выполнение");
+	await insertSetting("margin_green", "30", "number", "thresholds", "Маржа: зелёный", "≥ N%");
+	await insertSetting("margin_yellow", "15", "number", "thresholds", "Маржа: жёлтый", "≥ N%");
+	await insertSetting("plan_green", "90", "number", "thresholds", "План: зелёный", "≥ N%");
+	await insertSetting("plan_yellow", "70", "number", "thresholds", "План: жёлтый", "≥ N%");
+	await insertSetting("accessory_share_target", "12", "number", "thresholds", "Цель аксессуаров", "% в выручке");
+	await insertSetting("dead_stock_days", "14", "number", "thresholds", "Мёртвый сток", "дней без продаж");
+	await insertSetting("category_threshold", "0.05", "number", "thresholds", "Значимость категории", "мин. доля");
+	await insertSetting("refund_trend", "1.5", "number", "thresholds", "Тренд возвратов", "коэф. роста");
+	await insertSetting("sync_delay_shops", "7000", "number", "sync", "Задержка: магазины", "мс");
+	await insertSetting("sync_delay_requests", "2000", "number", "sync", "Задержка: запросы", "мс");
+	await insertSetting("upload_max_attempts", "4", "number", "upload", "Макс. попыток загрузки", "");
+	await insertSetting("upload_lock_ttl", "120000", "number", "upload", "Блокировка очереди", "мс");
+	await insertSetting("api_timeout", "15000", "number", "general", "Таймаут API", "мс");
+	await insertSetting("vape_group_uuids", JSON.stringify([
+		"78ddfd78-dc52-11e8-b970-ccb0da458b5a",
+		"bc9e7e4c-fdac-11ea-aaf2-2cf05d04be1d",
+		"0627db0b-4e39-11ec-ab27-2cf05d04be1d",
+		"2b8eb6b4-92ea-11ee-ab93-2cf05d04be1d",
+		"8a8fcb5f-9582-11ee-ab93-2cf05d04be1d",
+		"97d6fa81-84b1-11ea-b9bb-70c94e4ebe6a",
+		"ad8afa41-737d-11ea-b9b9-70c94e4ebe6a",
+		"568905bd-9460-11ee-9ef4-be8fe126e7b9",
+		"568905be-9460-11ee-9ef4-be8fe126e7b9",
+	]), "json", "general", "Вейп-группы", "UUID групп товаров");
+
+	// ══════════════════════════════════════════════════════════
+	// push_subscriptions — Web Push подписки
+	// ══════════════════════════════════════════════════════════
+	await db.prepare(`
+		CREATE TABLE IF NOT EXISTS push_subscriptions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			endpoint TEXT UNIQUE NOT NULL,
+			p256dh TEXT NOT NULL,
+			auth TEXT NOT NULL,
+			user_agent TEXT DEFAULT '',
+			created_at TEXT DEFAULT (datetime('now')),
+			last_used_at TEXT DEFAULT (datetime('now'))
+		)
+	`).run();
+
+	// ══════════════════════════════════════════════════════════
+	// push_log — логирование решений push-агента
+	// ══════════════════════════════════════════════════════════
+	await db.prepare(`
+		CREATE TABLE IF NOT EXISTS push_log (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			decision TEXT NOT NULL DEFAULT 'suppress',  -- send | suppress | defer
+			priority TEXT NOT NULL DEFAULT 'P2',         -- P0 | P1 | P2 | P3
+			reason TEXT NOT NULL DEFAULT '',              -- обоснование по чеклисту
+			title TEXT DEFAULT '',
+			body TEXT DEFAULT '',
+			category TEXT DEFAULT '',                     -- revenue_drop | plan | margin | dead_stock | refunds | accessory
+			created_at TEXT DEFAULT (datetime('now')),
+			sent_at TEXT DEFAULT NULL,
+			delivered_at TEXT DEFAULT NULL,
+			opened_at TEXT DEFAULT NULL,
+			clicked_at TEXT DEFAULT NULL,
+			outcome TEXT DEFAULT NULL,                    -- delivered | opened | clicked | dismissed | expired
+			subscription_count INTEGER DEFAULT 0
+		)
+	`).run();
+
 	console.log("[migration] Миграции завершены.");
 }

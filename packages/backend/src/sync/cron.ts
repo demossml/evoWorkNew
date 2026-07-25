@@ -34,6 +34,21 @@ import { getCostPriceMapByUuid } from "../evotor/utils";
 // Vape group UUIDs (shared across tasks)
 // ============================================================================
 
+import { getVapeGroupUuids, getNumberSetting } from "../services/settingsService";
+
+// Кеш задержек (обновляется при каждом вызове)
+async function getSyncDelayRequests(db: D1Database): Promise<number> {
+  return getNumberSetting(db, "sync_delay_requests", 2000);
+}
+async function getSyncDelayShops(db: D1Database): Promise<number> {
+  return getNumberSetting(db, "sync_delay_shops", 7000);
+}
+async function getBonusAccessoriesRate(db: D1Database): Promise<number> {
+  return getNumberSetting(db, "bonus_accessories_rate", 0.05);
+}
+
+// Deprecated: используй getVapeGroupUuids(db) из settingsService.
+// Оставлен как fallback для обратной совместимости.
 export const VAPE_GROUP_UUIDS = [
   "78ddfd78-dc52-11e8-b970-ccb0da458b5a",
   "bc9e7e4c-fdac-11ea-aaf2-2cf05d04be1d",
@@ -65,7 +80,7 @@ export async function updateProducts(env: SyncEnv): Promise<void> {
   const shopUuids = await evo.getShopUuids();
 
   for (const shopUuid of shopUuids) {
-    await delay(2000);
+    await delay(await getSyncDelayRequests(env.DB));
     console.log(`Fetching products for shop: ${shopUuid}`);
     const products = await evo.getProductsUuid(shopUuid);
     await updateOrInsertData(products, env.DB);
@@ -419,7 +434,7 @@ export async function getDataForCurrentDate(env: SyncEnv): Promise<void> {
     console.log("Salary and bonus:", salaryAndBonus);
 
     for (const doc of docOpenSessions) {
-      await delay(7000);
+      await delay(await getSyncDelayShops(env.DB));
 
       const openShopUuid = doc.storeUuid;
       const employeeUuid = doc.openUserUuid;
@@ -450,7 +465,8 @@ export async function getDataForCurrentDate(env: SyncEnv): Promise<void> {
         console.log("Accessories sales:", salesDataAks);
       }
 
-      const bonusAccessories = Math.floor(salesDataAks * 0.05);
+      const bonusRate = await getBonusAccessoriesRate(env.DB);
+      const bonusAccessories = Math.floor(salesDataAks * bonusRate);
 
       // D1: продажи vape
       const porodUuidVape = await getProductsByGroupFromD1(env.DB, VAPE_GROUP_UUIDS);

@@ -26,6 +26,7 @@ import { createSettingsTable } from "./src/db/repositories/settings";
 import { createIndexDocumentsTable, createOpeningPhotosTable, createOpenStorsTable, createSalaryBonusTable } from "./src/utils";
 import { createProductsTableIfNotExists } from "./src/sync/db";
 import { createCostPricesTableIfNotExists } from "./src/evotor/utils";
+import { runMigrations } from "./src/db/migrations";
 
 import { syncDocuments, syncShops, syncEmployees, updateProductsShope, updatePlan_, getDataForCurrentDate, updateDataSaleByPlan, checkAndSendCriticalAlerts } from "./src/sync/cron";
 
@@ -73,6 +74,8 @@ const evotor = new Evotor(EVOTOR_TOKEN);
 let tablesReady = false;
 async function ensureTables(): Promise<void> {
 	if (tablesReady) return;
+	// Главные миграции (app_settings, push_subscriptions, push_log и др.) — идемпотентны
+	await runMigrations(db as any);
 	await createIndexDocumentsTable(db as any);
 	await createSettingsTable(db as any);
 	await createOpeningPhotosTable(db as any);

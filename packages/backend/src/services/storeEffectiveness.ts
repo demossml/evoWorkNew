@@ -10,6 +10,7 @@ import {
   trendDirection,
   formatDateLocal,
 } from "./sharedStats";
+import { getNumberSetting } from "./settingsService";
 
 const MIN_DAYS_FOR_TREND = 5;
 

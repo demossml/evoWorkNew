@@ -25,6 +25,7 @@ const GAP_MS = parseInt(process.env.GAP_MS || "3000");
 const DOC_INTERVAL = parseInt(process.env.DOC_INTERVAL || "180000");  // 3 min
 const SHOP_INTERVAL = parseInt(process.env.SHOP_INTERVAL || "1200000"); // 20 min
 const PROD_INTERVAL = parseInt(process.env.PROD_INTERVAL || "1200000"); // 20 min
+const PUSH_INTERVAL = parseInt(process.env.PUSH_INTERVAL || "7200000"); // 2 hours
 
 const BASE = `http://localhost:${PORT}/api/internal/sync`;
 
@@ -32,7 +33,7 @@ const BASE = `http://localhost:${PORT}/api/internal/sync`;
 // Последовательная очередь
 // ============================================================================
 
-type TaskName = "documents" | "shops" | "products";
+type TaskName = "documents" | "shops" | "products" | "push-check";
 
 interface QueuedTask {
   name: TaskName;
@@ -111,16 +112,19 @@ console.log("🕐 Local sequential scheduler started");
 console.log(`   Документы: каждые ${DOC_INTERVAL / 1000}s`);
 console.log(`   Магазины:   каждые ${SHOP_INTERVAL / 1000}s`);
 console.log(`   Товары:     каждые ${PROD_INTERVAL / 1000}s`);
+console.log(`   Push:       каждые ${PUSH_INTERVAL / 1000}s (${PUSH_INTERVAL / 3600000}ч)`);
 console.log(`   Пауза между задачами: ${GAP_MS / 1000}s`);
 console.log(`   API: ${BASE}/:task`);
 console.log("");
 
-// Первый запуск всех трёх задач при старте
+// Первый запуск всех задач при старте
 enqueue("documents", "документы (initial)");
 enqueue("shops", "магазины (initial)");
 enqueue("products", "товары (initial)");
+// Push не запускаем при старте — ждём первый интервал
 
 // Далее по расписанию
 setInterval(() => enqueue("documents", "документы"), DOC_INTERVAL);
 setInterval(() => enqueue("shops", "магазины"), SHOP_INTERVAL);
 setInterval(() => enqueue("products", "товары"), PROD_INTERVAL);
+setInterval(() => enqueue("push-check", "push-уведомления"), PUSH_INTERVAL);

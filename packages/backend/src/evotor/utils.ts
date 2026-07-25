@@ -3,7 +3,7 @@ import {
 	getDocumentsBySales,
 	getDocumentsBySalesPeriod,
 } from "../utils";
-import { VAPE_GROUP_UUIDS } from "../sync/cron";
+import { getVapeGroupUuids } from "../services/settingsService";
 
 import type { D1Database } from "@cloudflare/workers-types";
 
@@ -800,12 +800,13 @@ export async function getSalesByProductGroup(
 
 	try {
 		// 1. Собираем UUID вейп-товаров
-		const vapePlaceholders = VAPE_GROUP_UUIDS.map(() => "?").join(",");
+		const vapeParentUuids = await getVapeGroupUuids(db);
+		const vapePlaceholders = vapeParentUuids.map(() => "?").join(",");
 		const vapeRows = await db
 			.prepare(
 				`SELECT uuid FROM shopProduct WHERE parentUuid IN (${vapePlaceholders})`,
 			)
-			.bind(...VAPE_GROUP_UUIDS)
+			.bind(...vapeParentUuids)
 			.all<{ uuid: string }>();
 		const vapeUuids = new Set((vapeRows.results ?? []).map(r => r.uuid));
 

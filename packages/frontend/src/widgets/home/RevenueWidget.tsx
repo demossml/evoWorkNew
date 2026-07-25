@@ -4,6 +4,7 @@ import { useSalesData } from "@/hooks/dashboard/useSalesData";
 import { useFilteredSalesData } from "@/hooks/dashboard/useFilteredSalesData";
 import { useSalesCalculations } from "@/hooks/dashboard/useSalesCalculations";
 import { useGrossProfit } from "@/hooks/dashboard/useGrossProfit";
+import { useNumberSetting } from "@/hooks/useSettings";
 import { Sparkline } from "@shared/ui";
 import { TileWrapper } from "./TileWrapper";
 import { SkeletonCard } from "./widgetUtils";
@@ -39,6 +40,8 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
   const filtered = useFilteredSalesData(data, true, null);
   const { netSales } = useSalesCalculations(filtered);
   const { data: grossProfit } = useGrossProfit({ since, until });
+  const marginGreen = useNumberSetting("margin_green", 30);
+  const marginYellow = useNumberSetting("margin_yellow", 15);
   const [showWhy, setShowWhy] = useState(false);
 
   // Best shop
@@ -102,10 +105,10 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
   const recText = getRecText(delta, bestShop);
   const bgColor = getDeltaColor(delta);
 
-  // Margin color: green >= 30%, amber >= 15%, red < 15%
+  // Margin color: thresholds from API (fallback: green ≥ 30%, amber ≥ 15%)
   function marginColor(pct: number): string {
-    if (pct >= 30) return "hsl(var(--success))";
-    if (pct >= 15) return "hsl(var(--warning))";
+    if (pct >= marginGreen) return "hsl(var(--success))";
+    if (pct >= marginYellow) return "hsl(var(--warning))";
     return "hsl(var(--destructive))";
   }
 
