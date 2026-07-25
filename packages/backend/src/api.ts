@@ -4958,6 +4958,136 @@ api
 		}
 	});
 
+// ─── Настройки продавцов ──────────────────────────────────────────────
+
+api
+	.get("/api/sellers/settings", async (c) => {
+		try {
+			const db = c.get("db");
+			const empRows = await db
+				.prepare("SELECT uuid, name FROM employees ORDER BY name")
+				.all<{ uuid: string; name: string }>();
+			const setRows = await db
+				.prepare("SELECT * FROM seller_settings")
+				.all<any>();
+			const map = new Map((setRows.results ?? []).map((s: any) => [s.employee_uuid, s]));
+			const sellers = (empRows.results ?? []).map((emp) => {
+				const s = map.get(emp.uuid);
+				return {
+					uuid: emp.uuid,
+					name: emp.name,
+					salary_mode: s?.salary_mode ?? "full",
+					base_salary: s?.base_salary ?? 0,
+				};
+			});
+			return c.json({ sellers });
+		} catch (err) {
+			return c.json({ error: String(err), sellers: [] }, 500);
+		}
+	})
+	.put("/api/sellers/:uuid", async (c) => {
+		try {
+			const db = c.get("db");
+			const uuid = c.req.param("uuid");
+			const body = await c.req.json<{
+				employee_name: string;
+				salary_mode: string;
+				base_salary: number;
+			}>();
+			await db
+				.prepare(
+					`INSERT OR REPLACE INTO seller_settings
+					 (employee_uuid, employee_name, salary_mode, base_salary, updated_at)
+					 VALUES (?, ?, ?, ?, datetime('now'))`,
+				)
+				.bind(uuid, body.employee_name, body.salary_mode, body.base_salary)
+				.run();
+			return c.json({ ok: true });
+		} catch (err) {
+			return c.json({ error: String(err) }, 500);
+		}
+	});
+
+// ─── Акционные товары ─────────────────────────────────────────────────
+
+api
+	// Список товаров в группе
+	.get("/api/shop-products", async (c) => {
+		try {
+			const db = c.get("db");
+			const groupUuid = c.req.query("group_uuid");
+			if (!groupUuid) {
+				return c.json({ products: [] });
+			}
+			const rows = await db
+				.prepare(
+					"SELECT uuid, name, article, price FROM shopProduct WHERE parentUuid = ? ORDER BY name",
+				)
+				.bind(groupUuid)
+				.all<{ uuid: string; name: string; article: string; price: number }>();
+			return c.json({ products: rows.results ?? [] });
+		} catch (err) {
+			return c.json({ error: String(err), products: [] }, 500);
+		}
+	})
+
+	// Список всех акционных товаров
+	.get("/api/promo/products", async (c) => {
+		try {
+			const db = c.get("db");
+			const rows = await db
+				.prepare(
+					`SELECT * FROM promo_products
+					 WHERE is_active = 1 OR deactivated_at >= datetime('now', '-7 days')
+					 ORDER BY group_name, product_name`,
+				)
+				.all();
+			return c.json({ products: rows.results ?? [] });
+		} catch (err) {
+			return c.json({ error: String(err), products: [] }, 500);
+		}
+	})
+
+	// Включить/выключить акцию
+	.post("/api/promo/toggle", async (c) => {
+		try {
+			const db = c.get("db");
+			const body = await c.req.json<{
+				product_uuid: string;
+				product_name: string;
+				group_uuid: string;
+				group_name: string;
+				bonus_amount: number;
+				is_active: boolean;
+			}>();
+			const now = new Date().toISOString().replace("T", " ").slice(0, 19);
+
+			if (body.is_active) {
+				// Включаем акцию — новая запись
+				await db
+					.prepare(
+						`INSERT INTO promo_products (product_uuid, product_name, group_uuid, group_name, bonus_amount, is_active, activated_at)
+						 VALUES (?, ?, ?, ?, ?, 1, ?)`,
+					)
+					.bind(body.product_uuid, body.product_name, body.group_uuid, body.group_name, body.bonus_amount, now)
+					.run();
+			} else {
+				// Выключаем — закрываем последнюю активную запись
+				await db
+					.prepare(
+						`UPDATE promo_products SET is_active = 0, deactivated_at = ?
+						 WHERE product_uuid = ? AND is_active = 1`,
+					)
+					.bind(now, body.product_uuid)
+					.run();
+			}
+
+			return c.json({ ok: true });
+		} catch (err) {
+			return c.json({ error: String(err) }, 500);
+		}
+	});
+
 // ─── Настройки приложения ──────────────────────────────────────────────
 
 api

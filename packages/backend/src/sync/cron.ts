@@ -47,9 +47,9 @@ async function getBonusAccessoriesRate(db: D1Database): Promise<number> {
   return getNumberSetting(db, "bonus_accessories_rate", 0.05);
 }
 
-// Deprecated: используй getVapeGroupUuids(db) из settingsService.
-// Оставлен как fallback для обратной совместимости.
-export const VAPE_GROUP_UUIDS = [
+// Deprecated fallback — только на случай недоступности БД.
+// ВСЕ функции ниже используют getVapeGroupUuids(env.DB) из БД.
+const VAPE_GROUP_UUIDS_FALLBACK = [
   "78ddfd78-dc52-11e8-b970-ccb0da458b5a",
   "bc9e7e4c-fdac-11ea-aaf2-2cf05d04be1d",
   "0627db0b-4e39-11ec-ab27-2cf05d04be1d",
@@ -60,6 +60,11 @@ export const VAPE_GROUP_UUIDS = [
   "568905bd-9460-11ee-9ef4-be8fe126e7b9",
   "568905be-9460-11ee-9ef4-be8fe126e7b9",
 ];
+
+// Устарело: используйте getVapeGroupUuids(db) из settingsService.
+// Этот экспорт оставлен только для обратной совместимости.
+// ВСЕ новые обращения должны идти через getVapeGroupUuids(db).
+export const VAPE_GROUP_UUIDS = VAPE_GROUP_UUIDS_FALLBACK;
 
 interface SyncEnv {
   EVOTOR_API_TOKEN: string;
@@ -397,7 +402,8 @@ export async function updatePlan_(env: SyncEnv): Promise<void> {
     console.log("Старт функции updatePlan");
     console.log(`Дата для плана: ${datePlan}`);
 
-    const productUuids = await getUuidsByParentUuidList(env.DB, VAPE_GROUP_UUIDS);
+    const planGroupUuids = await getVapeGroupUuids(env.DB);
+    const productUuids = await getUuidsByParentUuidList(env.DB, planGroupUuids);
     console.log(`Получены UUID товаров: ${productUuids.length} шт.`);
 
     const datPlan = await evo.getPlan(date, productUuids);
@@ -439,9 +445,10 @@ export async function getDataForCurrentDate(env: SyncEnv): Promise<void> {
       const openShopUuid = doc.storeUuid;
       const employeeUuid = doc.openUserUuid;
 
+      const planGroupUuids = await getVapeGroupUuids(env.DB);
       const productUuids = await getUuidsByParentUuidList(
         env.DB,
-        VAPE_GROUP_UUIDS,
+        planGroupUuids,
       );
 
       // D1: план из таблицы plan
@@ -468,8 +475,8 @@ export async function getDataForCurrentDate(env: SyncEnv): Promise<void> {
       const bonusRate = await getBonusAccessoriesRate(env.DB);
       const bonusAccessories = Math.floor(salesDataAks * bonusRate);
 
-      // D1: продажи vape
-      const porodUuidVape = await getProductsByGroupFromD1(env.DB, VAPE_GROUP_UUIDS);
+      // D1: продажи vape (используем группы планов из БД)
+      const porodUuidVape = await getProductsByGroupFromD1(env.DB, planGroupUuids);
       const salesDataVape = await getSalesSumFromD1(
         env.DB, openShopUuid, sincetDate, untilDate, porodUuidVape
       );
@@ -478,15 +485,58 @@ export async function getDataForCurrentDate(env: SyncEnv): Promise<void> {
       const currentPlan = datPlan[openShopUuid] ?? 0;
       const bonusPlan = salesDataVape >= currentPlan ? Number(bonus) : 0;
 
+      // --- Бонус за акционные товары ---
+      let bonusPromo = 0;
+      try {
+        const promoRows = await env.DB
+          .prepare(
+            `SELECT pp.bonus_amount, COALESCE(SUM(ps.quantity), 0) as qty
+             FROM promo_products pp
+             JOIN productSold ps ON ps.productUuid = pp.product_uuid AND ps.date = ?
+             WHERE pp.is_active = 1
+               AND pp.activated_at <= datetime(? || ' 23:59:59')
+               AND (pp.deactivated_at IS NULL OR pp.deactivated_at > datetime(? || ' 00:00:00'))
+             GROUP BY pp.id`,
+          )
+          .bind(datePlan, datePlan, datePlan)
+          .all<{ bonus_amount: number; qty: number }>();
+        for (const r of promoRows.results ?? []) {
+          bonusPromo += r.bonus_amount * r.qty;
+        }
+      } catch { /* promo table may not exist yet */ }
+
+      // --- Персональные настройки продавца ---
+      let sellerMode = "full";
+      let sellerBaseSalary = 0;
+      try {
+        const sellerRow = await env.DB
+          .prepare("SELECT salary_mode, base_salary FROM seller_settings WHERE employee_uuid = ?")
+          .bind(employeeUuid)
+          .first<{ salary_mode: string; base_salary: number }>();
+        if (sellerRow) {
+          sellerMode = sellerRow.salary_mode;
+          sellerBaseSalary = sellerRow.base_salary;
+        }
+      } catch { /* table may not exist */ }
+
+      // Если full — бонус с аксессуаров не платим
+      const effectiveBonusAccessories = sellerMode === "bonus" ? bonusAccessories : 0;
+      // Оклад: персональный > глобальный (из настроек)
+      const globalBaseSalary = await getNumberSetting(env.DB, "base_salary", 0);
+      const effectiveBaseSalary = sellerBaseSalary > 0 ? sellerBaseSalary : globalBaseSalary;
+
       const dataReport = {
         date: datePlan,
         shopUuid: openShopUuid,
         employeeUuid: employeeUuid,
-        bonusAccessories: bonusAccessories,
+        bonusAccessories: effectiveBonusAccessories,
+        bonusPromo: bonusPromo,
         dataPlan: currentPlan,
         salesDataVape: salesDataVape,
         bonusPlan: bonusPlan,
-        totalBonus: bonusAccessories + bonusPlan,
+        salaryMode: sellerMode,
+        baseSalary: effectiveBaseSalary,
+        totalBonus: effectiveBonusAccessories + bonusPlan + bonusPromo,
       };
       console.log("Salary report:", dataReport);
 
@@ -512,7 +562,8 @@ export async function updateDataSaleByPlan(env: SyncEnv): Promise<void> {
 
   console.log("Initialized dates:", { datePlan, since, until });
 
-  const productUuids = await getUuidsByParentUuidList(env.DB, VAPE_GROUP_UUIDS);
+  const planGroupUuids = await getVapeGroupUuids(env.DB);
+  const productUuids = await getUuidsByParentUuidList(env.DB, planGroupUuids);
 
   // D1: план из таблицы plan
   let plan = await getPlan(datePlan, env.DB);
@@ -547,7 +598,8 @@ export async function updateDataSaleByPlan(env: SyncEnv): Promise<void> {
 
   for (const shopId of shopUuids) {
     try {
-      const productUuids = await getProductsByGroupFromD1(env.DB, VAPE_GROUP_UUIDS);
+      const planGroupUuids = await getVapeGroupUuids(env.DB);
+      const productUuids = await getProductsByGroupFromD1(env.DB, planGroupUuids);
       const shopName = await getShopNameFromDB(env.DB, shopId);
 
       const sumSalesData = await getSalesSumFromD1(env.DB, shopId, since, until, productUuids);
@@ -721,15 +773,16 @@ export async function aggregateSellerDailyMetrics(env: SyncEnv): Promise<void> {
     const empNames: Record<string, string> = {};
     for (const r of empRows.results ?? []) empNames[r.uuid] = r.name;
 
-    // 6. Build category map (vape + accessories)
+    // 6. Build category map (plan groups = vape, остальное из accessories)
     const categoryMap = new Map<string, string>();
+    const planGroupUuids = await getVapeGroupUuids(env.DB);
 
-    const vapePlaceholders = VAPE_GROUP_UUIDS.map(() => "?").join(",");
+    const vapePlaceholders = planGroupUuids.map(() => "?").join(",");
     const vapeRows = await env.DB
       .prepare(
         `SELECT uuid FROM shopProduct WHERE parentUuid IN (${vapePlaceholders})`,
       )
-      .bind(...VAPE_GROUP_UUIDS)
+      .bind(...planGroupUuids)
       .all<{ uuid: string }>();
     for (const r of vapeRows.results ?? []) categoryMap.set(r.uuid, "vape");
 

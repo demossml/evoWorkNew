@@ -225,9 +225,12 @@ export async function createSalaryTable(db: D1Database): Promise<void> {
         shopUuid TEXT NOT NULL,
         employeeUuid TEXT NOT NULL,
         bonusAccessories INTEGER NOT NULL,
+        bonusPromo INTEGER NOT NULL DEFAULT 0,
         dataPlan INTEGER NOT NULL,
         salesDataVape INTEGER NOT NULL,
         bonusPlan INTEGER NOT NULL,
+        salaryMode TEXT NOT NULL DEFAULT 'full',
+        baseSalary INTEGER NOT NULL DEFAULT 0,
         totalBonus INTEGER NOT NULL,
         UNIQUE(date, shopUuid)
       )`,
@@ -243,18 +246,21 @@ export async function saveSalaryData(
   await db
     .prepare(
       `INSERT OR REPLACE INTO salaryData (
-        date, shopUuid, employeeUuid, bonusAccessories,
-        dataPlan, salesDataVape, bonusPlan, totalBonus
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        date, shopUuid, employeeUuid, bonusAccessories, bonusPromo,
+        dataPlan, salesDataVape, bonusPlan, salaryMode, baseSalary, totalBonus
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       dataReport.date as string,
       dataReport.shopUuid as string,
       dataReport.employeeUuid as string,
       dataReport.bonusAccessories as number,
+      (dataReport.bonusPromo as number) ?? 0,
       dataReport.dataPlan as number,
       dataReport.salesDataVape as number,
       dataReport.bonusPlan as number,
+      (dataReport.salaryMode as string) ?? "full",
+      (dataReport.baseSalary as number) ?? 0,
       dataReport.totalBonus as number,
     )
     .run();

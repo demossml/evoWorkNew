@@ -2,8 +2,7 @@ import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import { useDataSourceStore } from "@shared/model/dataSourceStore";
 
-const Settings = lazy(() => import("@/pages/reports/Settings"));
-const SettingsNew = lazy(() => import("@/pages/reports/SettingsNew"));
+const Settings = lazy(() => import("@/pages/reports/SettingsNew"));
 const Home = lazy(() => import("@/pages/Home"));
 
 const SalesReport = lazy(() => import("@/pages/reports/SaleReport"));
@@ -43,7 +42,6 @@ export function AppRouter() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/evotor/settings" element={<Settings />} />
-        <Route path="/evotor/settings-new" element={<SettingsNew />} />
         <Route path="/evotor/plan-for-today" element={<Navigate to="/" replace />} />
         <Route path="/evotor/sales-report" element={<SalesReport />} />
         <Route path="/evotor/salary-report" element={<SalaryReports />} />

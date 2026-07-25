@@ -226,17 +226,9 @@ export async function runMigrations(db: D1Database): Promise<void> {
 	await insertSetting("upload_max_attempts", "4", "number", "upload", "Макс. попыток загрузки", "");
 	await insertSetting("upload_lock_ttl", "120000", "number", "upload", "Блокировка очереди", "мс");
 	await insertSetting("api_timeout", "15000", "number", "general", "Таймаут API", "мс");
-	await insertSetting("vape_group_uuids", JSON.stringify([
-		"78ddfd78-dc52-11e8-b970-ccb0da458b5a",
-		"bc9e7e4c-fdac-11ea-aaf2-2cf05d04be1d",
-		"0627db0b-4e39-11ec-ab27-2cf05d04be1d",
-		"2b8eb6b4-92ea-11ee-ab93-2cf05d04be1d",
-		"8a8fcb5f-9582-11ee-ab93-2cf05d04be1d",
-		"97d6fa81-84b1-11ea-b9bb-70c94e4ebe6a",
-		"ad8afa41-737d-11ea-b9b9-70c94e4ebe6a",
-		"568905bd-9460-11ee-9ef4-be8fe126e7b9",
-		"568905be-9460-11ee-9ef4-be8fe126e7b9",
-	]), "json", "general", "Вейп-группы", "UUID групп товаров");
+	await insertSetting("base_salary", "0", "number", "salary", "Оклад", "₽/день, базовая ставка");
+	await insertSetting("salary_mode", "oklad", "string", "salary", "Режим оплаты", "oklad — только оклад; oklad_bonus — оклад + бонус с аксессуаров");
+	await insertSetting("vape_group_uuids", JSON.stringify([]), "json", "general", "Группы планов", "UUID групп товаров для расчёта плана");
 
 	// ══════════════════════════════════════════════════════════
 	// push_subscriptions — Web Push подписки
@@ -272,6 +264,44 @@ export async function runMigrations(db: D1Database): Promise<void> {
 			clicked_at TEXT DEFAULT NULL,
 			outcome TEXT DEFAULT NULL,                    -- delivered | opened | clicked | dismissed | expired
 			subscription_count INTEGER DEFAULT 0
+		)
+	`).run();
+
+	// ══════════════════════════════════════════════════════════
+	// promo_products — акционные товары
+	// ══════════════════════════════════════════════════════════
+	await db.prepare(`
+		CREATE TABLE IF NOT EXISTS promo_products (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			product_uuid TEXT NOT NULL,
+			product_name TEXT DEFAULT '',
+			group_uuid TEXT NOT NULL,
+			group_name TEXT DEFAULT '',
+			bonus_amount REAL NOT NULL DEFAULT 0,
+			is_active INTEGER NOT NULL DEFAULT 1,
+			activated_at TEXT NOT NULL,
+			deactivated_at TEXT DEFAULT NULL,
+			created_at TEXT DEFAULT (datetime('now'))
+		)
+	`).run();
+	await createIndexIfMissing(db, "promo_products", "idx_pp_product", "product_uuid, activated_at");
+	await createIndexIfMissing(db, "promo_products", "idx_pp_active", "is_active, product_uuid");
+
+	// Дополнительные колонки для существующих таблиц
+	await addColumnIfMissing(db, "salaryData", "bonusPromo", "INTEGER NOT NULL DEFAULT 0");
+	await addColumnIfMissing(db, "salaryData", "salaryMode", "TEXT NOT NULL DEFAULT 'full'");
+	await addColumnIfMissing(db, "salaryData", "baseSalary", "INTEGER NOT NULL DEFAULT 0");
+
+	// ══════════════════════════════════════════════════════════
+	// seller_settings — персональные настройки продавцов
+	// ══════════════════════════════════════════════════════════
+	await db.prepare(`
+		CREATE TABLE IF NOT EXISTS seller_settings (
+			employee_uuid TEXT PRIMARY KEY,
+			employee_name TEXT DEFAULT '',
+			salary_mode TEXT NOT NULL DEFAULT 'full',
+			base_salary REAL NOT NULL DEFAULT 0,
+			updated_at TEXT DEFAULT (datetime('now'))
 		)
 	`).run();
 
