@@ -13,11 +13,8 @@ if (!initData) {
   }
 }
 
-// В dev-режиме шлём API-запросы напрямую на бэкенд, минуя Vite proxy
-const API_BASE = import.meta.env.DEV ? "http://localhost:3000" : "";
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const client = hc<any>(API_BASE, {
+export const client = hc<any>("", {
   init: {
     headers: {
       initData: initData || "guest",

@@ -19,6 +19,7 @@ import { FinanceWidget } from "@widgets/home/FinanceWidget";
 import { BestShopWidget } from "@widgets/home/BestShopWidget";
 import { TopProductWidget } from "@widgets/home/TopProductWidget";
 import { AccessoriesWidget } from "@widgets/home/AccessoriesWidget";
+import { PromoEarningsWidget } from "@widgets/home/PromoEarningsWidget";
 import { isTelegramMiniApp } from "../helpers/telegram";
 import { useState, useEffect, useCallback } from "react";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react";
@@ -89,6 +90,10 @@ export default function Home() {
         </div>
         <ErrorBoundary variant="widget" name="План по магазинам">
           <PlanStatusWidget date={since} />
+        </ErrorBoundary>
+
+        <ErrorBoundary variant="widget" name="Акционные товары">
+          <PromoEarningsWidget />
         </ErrorBoundary>
 
         <div className="grid grid-cols-2 gap-4">

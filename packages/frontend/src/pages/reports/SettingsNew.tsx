@@ -76,14 +76,14 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  bonus: "border-l-emerald-500",
-  salary: "border-l-teal-500",
-  thresholds: "border-l-amber-500",
-  sync: "border-l-blue-500",
-  upload: "border-l-purple-500",
+  bonus: "border-l-4 border-l-emerald-500",
+  salary: "border-l-4 border-l-teal-500",
+  thresholds: "border-l-4 border-l-amber-500",
+  sync: "border-l-4 border-l-blue-500",
+  upload: "border-l-4 border-l-purple-500",
   general: "border-l-slate-400",
-  push: "border-l-rose-500",
-  schedule: "border-l-cyan-500",
+  push: "border-l-4 border-l-rose-500",
+  schedule: "border-l-4 border-l-cyan-500",
 };
 
 // ─── Card: Setting Row ────────────────────────────────────────────────
@@ -106,27 +106,27 @@ function SettingRow({
   const isJson = setting.type === "json";
 
   return (
-    <div className="flex items-center gap-3 py-2.5 border-b border-white/5 last:border-b-0">
+    <div className="flex items-center gap-3 py-2 border-b border-border last:border-b-0">
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-white/90 truncate">
+        <div className="text-sm font-medium truncate">
           {formatLabel(setting.key)}
         </div>
         {setting.description && (
-          <div className="text-xs text-white/40 mt-0.5">{setting.description}</div>
+          <div className="text-xs text-muted-foreground mt-0.5">{setting.description}</div>
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {isJson ? (
           <textarea
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white w-48 h-16 resize-none
-                       focus:outline-none focus:border-blue-500/50 font-mono text-xs"
+            className="bg-muted border border-border rounded-lg px-3 py-1.5 text-sm w-48 h-16 resize-none
+                       focus:outline-none focus:border-primary/50 font-mono text-xs"
             value={value}
             onChange={(e) => onChange(e.target.value)}
           />
         ) : (
           <input
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white w-28
-                       focus:outline-none focus:border-blue-500/50 text-right"
+            className="bg-muted border border-border rounded-lg px-3 py-1.5 text-sm w-28
+                       focus:outline-none focus:border-primary/50 text-right"
             type={isNumber ? "number" : "text"}
             step={isNumber ? "any" : undefined}
             value={value}
@@ -137,7 +137,7 @@ function SettingRow({
           <button
             onClick={onSave}
             disabled={saving}
-            className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30
+            className="p-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30
                        disabled:opacity-50 transition-colors"
             title="Сохранить"
           >
@@ -145,7 +145,7 @@ function SettingRow({
           </button>
         )}
         {!dirty && setting.updated_at && (
-          <Check className="w-4 h-4 text-white/20" title="Сохранено" />
+          <Check className="w-4 h-4 text-muted-foreground" title="Сохранено" />
         )}
       </div>
     </div>
@@ -178,18 +178,17 @@ function SettingsCard({
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-white/[0.03] backdrop-blur-sm rounded-xl border border-white/10 border-l-4 ${borderColor}
-                  overflow-hidden`}
+      className={`bg-card border border-border rounded-xl overflow-hidden`}
     >
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
-        <span className="text-white/60">{icon}</span>
-        <h3 className="text-white font-semibold text-sm">{getCategoryLabel(category)}</h3>
-        <span className="text-white/20 text-xs ml-auto">{settings.length}</span>
+      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border">
+        <span className="text-muted-foreground">{icon}</span>
+        <h3 className="text-sm font-semibold">{getCategoryLabel(category)}</h3>
+        <span className="text-muted-foreground text-xs ml-auto">{settings.length}</span>
       </div>
 
       {/* Rows */}
-      <div className="px-4 py-2">
+      <div className="px-4 py-1.5">
         {settings.map((s) => (
           <SettingRow
             key={s.key}
@@ -238,11 +237,11 @@ function SalaryCard({
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white/[0.03] backdrop-blur-sm rounded-xl border border-white/10 border-l-4 border-l-teal-500 overflow-hidden"
+      className="bg-card border border-border rounded-xl border-l-4 border-l-teal-500 overflow-hidden"
     >
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
-        <span className="text-white/60"><Wallet className="w-5 h-5" /></span>
-        <h3 className="text-white font-semibold text-sm">Зарплата</h3>
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+        <span className="text-muted-foreground"><Wallet className="w-5 h-5" /></span>
+        <h3 className="text-foreground font-semibold text-sm">Зарплата</h3>
       </div>
 
       <div className="px-4 py-3 space-y-3">
@@ -252,17 +251,17 @@ function SalaryCard({
           className="flex items-center gap-3 py-2 cursor-pointer select-none"
         >
           <div className={`w-10 h-5 rounded-full transition-colors relative ${
-            isBonusMode ? "bg-teal-500" : "bg-white/20"
+            isBonusMode ? "bg-teal-500" : "bg-muted"
           }`}>
             <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
               isBonusMode ? "translate-x-5" : "translate-x-0.5"
             }`} />
           </div>
           <div>
-            <div className="text-sm text-white/90">
+            <div className="text-sm text-foreground">
               {isBonusMode ? "Оклад + бонус с аксессуаров" : "Только оклад"}
             </div>
-            <div className="text-xs text-white/40">
+            <div className="text-xs text-muted-foreground">
               {isBonusMode
                 ? "Меньший оклад + 5% с продаж аксессуаров"
                 : "Фиксированная ставка без бонусов"}
@@ -400,27 +399,27 @@ function GroupPickerCard({
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-white/[0.03] backdrop-blur-sm rounded-xl border border-white/10 border-l-4 ${borderColor} overflow-hidden`}
+      className={`bg-card border border-border rounded-xl ${borderColor} overflow-hidden`}
     >
       <div
-        className="flex items-center gap-3 px-4 py-3 border-b border-white/5 cursor-pointer"
+        className="flex items-center gap-3 px-4 py-3 border-b border-border cursor-pointer"
         onClick={() => setExpanded(!expanded)}
       >
-        <span className="text-white/60">{icon}</span>
-        <h3 className="text-white font-semibold text-sm">{title}</h3>
-        <span className="text-white/20 text-xs">{selected.length} выбрано</span>
-        <span className="ml-auto text-white/40">
+        <span className="text-muted-foreground">{icon}</span>
+        <h3 className="text-foreground font-semibold text-sm">{title}</h3>
+        <span className="text-muted-foreground text-xs">{selected.length} выбрано</span>
+        <span className="ml-auto text-muted-foreground">
           {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </span>
       </div>
 
       {expanded && (
         <div className="px-4 py-3">
-          <p className="text-xs text-white/40 mb-3">{description}</p>
+          <p className="text-xs text-muted-foreground mb-3">{description}</p>
 
           {loading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-5 h-5 animate-spin text-white/30" />
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
             </div>
           ) : (
             <>
@@ -430,21 +429,21 @@ function GroupPickerCard({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Поиск группы..."
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white
-                           placeholder:text-white/20 focus:outline-none focus:border-cyan-500/50 mb-3"
+                className="w-full bg-muted border border-border rounded-lg px-3 py-1.5 text-sm text-white
+                           placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 mb-3"
               />
 
               {/* Кнопки выбрать/снять */}
               <div className="flex gap-2 mb-2">
                 <button
                   onClick={selectAll}
-                  className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-white/60 hover:bg-white/20"
+                  className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground hover:bg-muted"
                 >
                   Выбрать найденные
                 </button>
                 <button
                   onClick={deselectAll}
-                  className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-white/60 hover:bg-white/20"
+                  className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground hover:bg-muted"
                 >
                   Снять найденные
                 </button>
@@ -455,19 +454,19 @@ function GroupPickerCard({
                 {filtered.map((group) => (
                   <label
                     key={group.uuid}
-                    className="flex items-center gap-2 py-1 cursor-pointer hover:bg-white/5 rounded px-1"
+                    className="flex items-center gap-2 py-1 cursor-pointer hover:bg-muted rounded px-1"
                   >
                     <input
                       type="checkbox"
                       checked={selected.includes(group.uuid)}
                       onChange={() => toggle(group.uuid)}
-                      className="w-3.5 h-3.5 accent-cyan-500"
+                      className="w-3.5 h-3.5 accent-primary"
                     />
-                    <span className="text-xs text-white/80 truncate">{group.name}</span>
+                    <span className="text-xs text-foreground truncate">{group.name}</span>
                   </label>
                 ))}
                 {filtered.length === 0 && (
-                  <div className="text-xs text-white/30 py-2 text-center">
+                  <div className="text-xs text-muted-foreground py-2 text-center">
                     Группы не найдены
                   </div>
                 )}
@@ -475,7 +474,7 @@ function GroupPickerCard({
 
               {/* Выбранные */}
               {selectedNames.length > 0 && (
-                <div className="mb-3 text-[10px] text-white/50 leading-relaxed">
+                <div className="mb-3 text-[10px] text-muted-foreground leading-relaxed">
                   Выбрано: {selectedNames.join(", ")}
                 </div>
               )}
@@ -485,16 +484,16 @@ function GroupPickerCard({
                 <button
                   onClick={handleSave}
                   disabled={saving || !dirty}
-                  className="px-3 py-1.5 text-xs rounded-lg bg-cyan-500/20 text-cyan-400
-                             hover:bg-cyan-500/30 disabled:opacity-30 transition-colors"
+                  className="px-3 py-1.5 text-xs rounded-lg bg-primary/20 text-primary
+                             hover:bg-primary/30 disabled:opacity-30 transition-colors"
                 >
                   {saving ? "Сохранение..." : "Сохранить"}
                 </button>
                 <button
                   onClick={handleReset}
                   disabled={!dirty}
-                  className="px-3 py-1.5 text-xs rounded-lg bg-white/5 text-white/50
-                             hover:bg-white/10 disabled:opacity-30 transition-colors"
+                  className="px-3 py-1.5 text-xs rounded-lg bg-muted text-muted-foreground
+                             hover:bg-muted disabled:opacity-30 transition-colors"
                 >
                   Сбросить
                 </button>
@@ -652,25 +651,25 @@ function PromoProductsCard() {
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white/[0.03] backdrop-blur-sm rounded-xl border border-white/10 border-l-4 border-l-amber-500 overflow-hidden"
+      className="bg-card border border-border rounded-xl border-l-4 border-l-amber-500 overflow-hidden"
     >
       <div
-        className="flex items-center gap-3 px-4 py-3 border-b border-white/5 cursor-pointer"
+        className="flex items-center gap-3 px-4 py-3 border-b border-border cursor-pointer"
         onClick={() => setExpanded(!expanded)}
       >
-        <span className="text-white/60"><DollarSign className="w-5 h-5" /></span>
-        <h3 className="text-white font-semibold text-sm">Акционные товары</h3>
-        <span className="text-white/20 text-xs">
+        <span className="text-muted-foreground"><DollarSign className="w-5 h-5" /></span>
+        <h3 className="text-foreground font-semibold text-sm">Акционные товары</h3>
+        <span className="text-muted-foreground text-xs">
           {Object.values(promoState).filter((s) => s.isActive).length} активно
         </span>
-        <span className="ml-auto text-white/40">
+        <span className="ml-auto text-muted-foreground">
           {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </span>
       </div>
 
       {expanded && (
         <div className="px-4 py-3 space-y-3">
-          <p className="text-xs text-white/40">
+          <p className="text-xs text-muted-foreground">
             Выберите группу, отметьте товары и укажите бонус за продажу. Акция действует пока галка включена.
             При выключении фиксируется время окончания.
           </p>
@@ -679,7 +678,7 @@ function PromoProductsCard() {
           <select
             value={selectedGroupUuid}
             onChange={(e) => setSelectedGroupUuid(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white
+            className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-white
                        focus:outline-none focus:border-amber-500/50"
           >
             <option value="">— Выберите группу —</option>
@@ -693,12 +692,12 @@ function PromoProductsCard() {
           {/* Список товаров */}
           {loading && (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-5 h-5 animate-spin text-white/30" />
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
             </div>
           )}
 
           {!loading && selectedGroupUuid && products.length === 0 && (
-            <div className="text-xs text-white/30 py-2 text-center">В группе нет товаров</div>
+            <div className="text-xs text-muted-foreground py-2 text-center">В группе нет товаров</div>
           )}
 
           {!loading && products.length > 0 && (
@@ -712,7 +711,7 @@ function PromoProductsCard() {
                   <div
                     key={product.uuid}
                     className={`flex items-center gap-2 py-1.5 px-2 rounded transition-colors ${
-                      isActive ? "bg-amber-500/10" : "hover:bg-white/5"
+                      isActive ? "bg-amber-500/10" : "hover:bg-muted"
                     }`}
                   >
                     {/* Галка */}
@@ -722,7 +721,7 @@ function PromoProductsCard() {
                       className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
                         isActive
                           ? "bg-amber-500 border-amber-500 text-black"
-                          : "border-white/20 hover:border-white/40"
+                          : "border-border hover:border-white/40"
                       }`}
                     >
                       {isActive && <Check className="w-3 h-3" />}
@@ -730,7 +729,7 @@ function PromoProductsCard() {
                     </button>
 
                     {/* Название */}
-                    <span className={`text-xs truncate flex-1 ${isActive ? "text-amber-300" : "text-white/70"}`}>
+                    <span className={`text-xs truncate flex-1 ${isActive ? "text-amber-300" : "text-foreground"}`}>
                       {product.name}
                     </span>
 
@@ -740,15 +739,15 @@ function PromoProductsCard() {
                       min="0"
                       value={state?.bonusAmount ?? "0"}
                       onChange={(e) => updateBonus(product.uuid, e.target.value)}
-                      className={`w-16 text-right bg-white/5 border rounded px-1.5 py-0.5 text-xs
+                      className={`w-16 text-right bg-muted border rounded px-1.5 py-0.5 text-xs
                                  focus:outline-none ${
                                    isActive
                                      ? "border-amber-500/50 text-amber-300"
-                                     : "border-white/10 text-white/50"
+                                     : "border-border text-muted-foreground"
                                  }`}
                       placeholder="0"
                     />
-                    <span className="text-[10px] text-white/30 w-8">₽/шт</span>
+                    <span className="text-[10px] text-muted-foreground w-8">₽/шт</span>
                   </div>
                 );
               })}
@@ -822,16 +821,16 @@ function SellersCard() {
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white/[0.03] backdrop-blur-sm rounded-xl border border-white/10 border-l-4 border-l-blue-500 overflow-hidden"
+      className="bg-card border border-border rounded-xl border-l-4 border-l-blue-500 overflow-hidden"
     >
       <div
-        className="flex items-center gap-3 px-4 py-3 border-b border-white/5 cursor-pointer"
+        className="flex items-center gap-3 px-4 py-3 border-b border-border cursor-pointer"
         onClick={() => setExpanded(!expanded)}
       >
-        <span className="text-white/60"><Users className="w-5 h-5" /></span>
-        <h3 className="text-white font-semibold text-sm">Продавцы</h3>
-        <span className="text-white/20 text-xs">{sellers.length} чел.</span>
-        <span className="ml-auto text-white/40">
+        <span className="text-muted-foreground"><Users className="w-5 h-5" /></span>
+        <h3 className="text-foreground font-semibold text-sm">Продавцы</h3>
+        <span className="text-muted-foreground text-xs">{sellers.length} чел.</span>
+        <span className="ml-auto text-muted-foreground">
           {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </span>
       </div>
@@ -840,12 +839,12 @@ function SellersCard() {
         <div className="px-4 py-3 space-y-4">
           {loading && (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-5 h-5 animate-spin text-white/30" />
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
             </div>
           )}
 
           {!loading && sellers.length === 0 && (
-            <div className="text-xs text-white/40 py-2">Нет данных о продавцах</div>
+            <div className="text-xs text-muted-foreground py-2">Нет данных о продавцах</div>
           )}
 
           {!loading && sellers.map((seller) => {
@@ -853,8 +852,8 @@ function SellersCard() {
             const isSaving = saving.has(seller.uuid);
 
             return (
-              <div key={seller.uuid} className="pb-3 border-b border-white/5 last:border-b-0">
-                <div className="text-sm text-white font-medium mb-2">{seller.name}</div>
+              <div key={seller.uuid} className="pb-3 border-b border-border last:border-b-0">
+                <div className="text-sm text-foreground font-medium mb-2">{seller.name}</div>
 
                 {/* Галка full/bonus */}
                 <div className="flex items-center gap-4 mb-2">
@@ -867,7 +866,7 @@ function SellersCard() {
                       disabled={isSaving}
                       className="accent-blue-500"
                     />
-                    <span className={!isBonus ? "text-white/90" : "text-white/40"}>
+                    <span className={!isBonus ? "text-foreground" : "text-muted-foreground"}>
                       Большой оклад
                     </span>
                   </label>
@@ -880,16 +879,16 @@ function SellersCard() {
                       disabled={isSaving}
                       className="accent-amber-500"
                     />
-                    <span className={isBonus ? "text-amber-300" : "text-white/40"}>
+                    <span className={isBonus ? "text-amber-300" : "text-muted-foreground"}>
                       Маленький + аксессуары
                     </span>
                   </label>
-                  {isSaving && <Loader2 className="w-3 h-3 animate-spin text-white/30" />}
+                  {isSaving && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
                 </div>
 
                 {/* Поле оклада */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-white/40">Оклад:</span>
+                  <span className="text-xs text-muted-foreground">Оклад:</span>
                   <input
                     type="number"
                     min="0"
@@ -904,10 +903,10 @@ function SellersCard() {
                       );
                     }}
                     onBlur={() => updateSeller(seller, { base_salary: seller.base_salary })}
-                    className="w-24 bg-white/5 border border-white/10 rounded px-2 py-0.5 text-xs text-white text-right
+                    className="w-24 bg-muted border border-border rounded px-2 py-0.5 text-xs text-foreground text-right
                                focus:outline-none focus:border-blue-500/50"
                   />
-                  <span className="text-xs text-white/30">₽/день</span>
+                  <span className="text-xs text-muted-foreground">₽/день</span>
                 </div>
               </div>
             );
@@ -996,40 +995,40 @@ function ScheduleCard() {
   const ids = Object.keys(schedules);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-white/[0.03] backdrop-blur-sm rounded-xl border border-white/10 border-l-4 border-l-cyan-500 overflow-hidden">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5 cursor-pointer" onClick={() => setExpanded(!expanded)}>
-        <span className="text-white/60"><Clock className="w-5 h-5" /></span>
-        <h3 className="text-white font-semibold text-sm">Расписание магазинов</h3>
-        <span className="text-white/20 text-xs">{ids.length} маг.</span>
-        <span className="ml-auto text-white/40">{expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}</span>
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-xl border-l-4 border-l-cyan-500 overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border cursor-pointer" onClick={() => setExpanded(!expanded)}>
+        <span className="text-muted-foreground"><Clock className="w-5 h-5" /></span>
+        <h3 className="text-foreground font-semibold text-sm">Расписание магазинов</h3>
+        <span className="text-muted-foreground text-xs">{ids.length} маг.</span>
+        <span className="ml-auto text-muted-foreground">{expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}</span>
       </div>
       {expanded && (
         <div className="px-4 py-3">
-          {loading ? <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-white/30" /></div> : (
+          {loading ? <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div> : (
             <div className="space-y-4">
               {ids.map(uid => {
                 const name = shopNames[uid] || uid.slice(0, 8);
                 return (
-                  <div key={uid} className="pb-3 border-b border-white/5 last:border-b-0">
+                  <div key={uid} className="pb-3 border-b border-border last:border-b-0">
                     <div className="flex items-center gap-2 mb-2">
-                      <Store className="w-3.5 h-3.5 text-white/50" />
-                      <span className="text-sm font-medium text-white/80">{name}</span>
-                      <button onClick={() => copyShop(uid)} className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/50 hover:bg-cyan-500/30 hover:text-cyan-300 ml-auto" title="Применить расписание этого магазина ко всем">→ всем магазинам</button>
+                      <Store className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-sm font-medium text-foreground">{name}</span>
+                      <button onClick={() => copyShop(uid)} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover:bg-primary/30 hover:text-primary ml-auto" title="Применить расписание этого магазина ко всем">→ всем магазинам</button>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {weekdays.map(day => {
                         const d = schedules[uid]?.[day] ?? defDay;
                         return (
-                          <div key={day} className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] ${d.working ? "bg-white/10" : "bg-white/5 opacity-50"}`}>
-                            <button onClick={() => upd(uid, day, { working: !d.working })} className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${d.working ? "bg-cyan-500/80 border-cyan-500 text-black" : "border-white/20"}`}>{d.working && <Check className="w-2.5 h-2.5" />}</button>
-                            <span className="w-5 font-medium text-white/70">{dayLabels[day]}</span>
+                          <div key={day} className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] ${d.working ? "bg-muted" : "bg-muted opacity-50"}`}>
+                            <button onClick={() => upd(uid, day, { working: !d.working })} className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${d.working ? "bg-primary/80 border-primary text-black" : "border-border"}`}>{d.working && <Check className="w-2.5 h-2.5" />}</button>
+                            <span className="w-5 font-medium text-foreground">{dayLabels[day]}</span>
                             {d.working ? (
-                              <><input type="time" value={d.open} onChange={e => upd(uid, day, { open: e.target.value })} className="w-14 bg-transparent border-none text-white/70 text-[10px] focus:outline-none [&::-webkit-calendar-picker-indicator]:hidden" />
-                              <span className="text-white/20">–</span>
-                              <input type="time" value={d.close} onChange={e => upd(uid, day, { close: e.target.value })} className="w-14 bg-transparent border-none text-white/70 text-[10px] focus:outline-none [&::-webkit-calendar-picker-indicator]:hidden" /></>
-                            ) : <span className="text-white/20 italic">выходной</span>}
-                            <button onClick={() => copyDay(uid, day)} className="text-white/20 hover:text-white/50 ml-0.5" title="Копировать день на все магазины"><ChevronRight className="w-3 h-3 rotate-180" /></button>
-                            <button onClick={() => fillWeek(uid, day)} className="text-white/20 hover:text-cyan-400 ml-0.5" title="Заполнить всю неделю этим днём">→нед</button>
+                              <><input type="time" value={d.open} onChange={e => upd(uid, day, { open: e.target.value })} className="w-14 bg-transparent border-none text-foreground text-[10px] focus:outline-none [&::-webkit-calendar-picker-indicator]:hidden" />
+                              <span className="text-muted-foreground">–</span>
+                              <input type="time" value={d.close} onChange={e => upd(uid, day, { close: e.target.value })} className="w-14 bg-transparent border-none text-foreground text-[10px] focus:outline-none [&::-webkit-calendar-picker-indicator]:hidden" /></>
+                            ) : <span className="text-muted-foreground italic">выходной</span>}
+                            <button onClick={() => copyDay(uid, day)} className="text-muted-foreground hover:text-muted-foreground ml-0.5" title="Копировать день на все магазины"><ChevronRight className="w-3 h-3 rotate-180" /></button>
+                            <button onClick={() => fillWeek(uid, day)} className="text-muted-foreground hover:text-primary ml-0.5" title="Заполнить всю неделю этим днём">→нед</button>
                           </div>
                         );
                       })}
@@ -1037,7 +1036,7 @@ function ScheduleCard() {
                   </div>
                 );
               })}
-              <button onClick={save} disabled={saving} className="w-full px-3 py-2 text-xs rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 disabled:opacity-50">{saving ? "Сохранение..." : "Сохранить расписание"}</button>
+              <button onClick={save} disabled={saving} className="w-full px-3 py-2 text-xs rounded-lg bg-primary/20 text-primary hover:bg-primary/30 disabled:opacity-50">{saving ? "Сохранение..." : "Сохранить расписание"}</button>
               {message && <div className={`text-xs ${message.startsWith("Ошибка") ? "text-red-400" : "text-emerald-400"}`}>{message}</div>}
             </div>
           )}
@@ -1117,8 +1116,8 @@ function PushSection() {
 
   if (checking) {
     return (
-      <div className="bg-white/[0.03] rounded-xl border border-white/10 p-4 flex items-center justify-center">
-        <Loader2 className="w-5 h-5 animate-spin text-white/30" />
+      <div className="bg-white/[0.03] rounded-xl border border-border p-4 flex items-center justify-center">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -1127,16 +1126,16 @@ function PushSection() {
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white/[0.03] backdrop-blur-sm rounded-xl border border-white/10 border-l-4 border-l-rose-500
+      className="bg-card border border-border rounded-xl border-l-4 border-l-rose-500
                   overflow-hidden"
     >
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
-        <span className="text-white/60"><Bell className="w-5 h-5" /></span>
-        <h3 className="text-white font-semibold text-sm">Push-уведомления</h3>
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+        <span className="text-muted-foreground"><Bell className="w-5 h-5" /></span>
+        <h3 className="text-foreground font-semibold text-sm">Push-уведомления</h3>
         <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
           subscribed
             ? "bg-emerald-500/20 text-emerald-400"
-            : "bg-white/5 text-white/40"
+            : "bg-muted text-muted-foreground"
         }`}>
           {subscribed ? "Активна" : "Не активна"}
         </span>
@@ -1173,7 +1172,7 @@ function PushSection() {
           </div>
         )}
 
-        <div className="text-xs text-white/30 leading-relaxed">
+        <div className="text-xs text-muted-foreground leading-relaxed">
           Push-уведомления позволяют получать важные оповещения (план выполнен, мёртвый сток,
           падение выручки) даже когда приложение закрыто. Не чаще 2–3 уведомлений в день.
         </div>
@@ -1254,14 +1253,14 @@ export default function SettingsNew() {
   const grouped = useMemo(() => {
     const map: Record<string, AppSetting[]> = {};
     for (const s of settings ?? []) {
-      // vape_group_uuids управляется через GroupPickerCard «Группы планов»
-      if (s.key === "vape_group_uuids") continue;
+      // salary-категория скрыта — настройки продавцов в отдельной плитке
+      if (s.key === "vape_group_uuids" || s.category === "salary") continue;
       const cat = s.category || "general";
       if (!map[cat]) map[cat] = [];
       map[cat].push(s);
     }
     // Порядок секций
-    const order = ["bonus", "salary", "thresholds", "sync", "upload", "general"];
+    const order = ["bonus", "thresholds", "sync", "upload", "general"];
     return order.filter((k) => map[k]).map((k) => ({ category: k, items: map[k] }));
   }, [settings]);
 
@@ -1270,15 +1269,15 @@ export default function SettingsNew() {
   // ─── Render ─────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[#080c16] text-white pb-20">
+    <div className="min-h-screen bg-background text-foreground pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-[#080c16]/80 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Settings2 className="w-6 h-6 text-blue-400" />
+      <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-xl border-b border-border">
+        <div className="max-w-2xl mx-auto px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Settings2 className="w-5 h-5 text-primary" />
             <div>
-              <h1 className="text-lg font-bold text-white">Настройки</h1>
-              <p className="text-xs text-white/40">Пороги, бонусы, синхронизация</p>
+              <h1 className="text-base font-bold">Настройки</h1>
+              <p className="text-[10px] text-muted-foreground">Пороги, бонусы, синхронизация</p>
             </div>
           </div>
 
@@ -1287,8 +1286,8 @@ export default function SettingsNew() {
               <>
                 <button
                   onClick={resetAll}
-                  className="px-3 py-1.5 text-xs rounded-lg bg-white/5 text-white/60 hover:bg-white/10 transition-colors
-                             flex items-center gap-1.5"
+                  className="px-2.5 py-1 text-[10px] rounded-lg bg-muted text-muted-foreground hover:bg-muted transition-colors
+                             flex items-center gap-1"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   Сброс
@@ -1296,8 +1295,8 @@ export default function SettingsNew() {
                 <button
                   onClick={saveAll}
                   disabled={batchMutation.isPending}
-                  className="px-3 py-1.5 text-xs rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30
-                             transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-2.5 py-1 text-[10px] rounded-lg bg-primary/20 text-primary hover:bg-primary/30
+                             transition-colors flex items-center gap-1 disabled:opacity-50"
                 >
                   {batchMutation.isPending ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1317,7 +1316,7 @@ export default function SettingsNew() {
         {/* Loading */}
         {isLoading && (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-white/20" />
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         )}
 
@@ -1331,16 +1330,6 @@ export default function SettingsNew() {
 
         {/* Settings cards */}
         {!isLoading && !error && grouped.map(({ category, items }) => (
-          category === "salary" ? (
-            <SalaryCard
-              key={category}
-              settings={settings!}
-              editedValues={editedValues}
-              onEdit={handleEdit}
-              onSaveOne={saveOne}
-              savingKeys={savingKeys}
-            />
-          ) : (
             <SettingsCard
               key={category}
               category={category}
@@ -1350,15 +1339,14 @@ export default function SettingsNew() {
               onSaveOne={saveOne}
               savingKeys={savingKeys}
             />
-          )
-        ))}
+          ))}
 
         {/* Группы планов */}
         {!isLoading && !error && (
           <GroupPickerCard
             title="Группы планов"
             icon={<Zap className="w-5 h-5" />}
-            borderColor="border-l-indigo-500"
+            borderColor="border-l-4 border-l-indigo-500"
             description="Товары этих групп участвуют в расчёте плана продаж. Выберите нужные товарные группы."
             loadSelected={async () => {
               const res = await fetch("/api/settings", { headers: { initData: "guest" } });
@@ -1383,7 +1371,7 @@ export default function SettingsNew() {
           <GroupPickerCard
             title="Аксессуар-группы"
             icon={<Package className="w-5 h-5" />}
-            borderColor="border-l-violet-500"
+            borderColor="border-l-4 border-l-violet-500"
             description="Товары этих групп считаются аксессуарами. Участвуют в расчёте бонуса с аксессуаров."
             loadSelected={async () => {
               const res = await fetch("/api/evotor/settings-config", {
@@ -1424,7 +1412,7 @@ export default function SettingsNew() {
           exit={{ opacity: 0 }}
           className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-sm z-50 shadow-lg ${
             toast.type === "err"
-              ? "bg-red-500/90 text-white"
+              ? "bg-destructive/90 text-white"
               : "bg-emerald-500/90 text-white"
           }`}
         >

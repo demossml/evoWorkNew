@@ -981,6 +981,7 @@ export const api = new Hono<IEnv>()
 				totalSalesAccessories: 0,
 				workingDays: 0,
 				totalBonusAccessories: 0,
+				totalBonusPromo: 0,
 				totalBonusPlan: 0,
 				totalBonus: 0,
 				totalPayout: 0,
@@ -1089,13 +1090,35 @@ export const api = new Hono<IEnv>()
 
 						const bonusPlan =
 						(currentPlan > 0 && salesDataVape >= currentPlan) ? 450 : 0;
+
+						// Бонус за акционные товары
+						let bonusPromo = 0;
+						try {
+							const promoRows = await db
+								.prepare(
+									`SELECT pp.bonus_amount, COALESCE(SUM(ps.quantity), 0) as qty
+									 FROM promo_products pp
+									 JOIN productSold ps ON ps.productUuid = pp.product_uuid AND ps.date = ?
+									 WHERE pp.is_active = 1
+									   AND pp.activated_at <= datetime(? || ' 23:59:59')
+									   AND (pp.deactivated_at IS NULL OR pp.deactivated_at > datetime(? || ' 00:00:00'))
+									 GROUP BY pp.id`,
+								)
+								.bind(datePlan, datePlan, datePlan)
+								.all<{ bonus_amount: number; qty: number }>();
+							for (const r of promoRows.results ?? []) {
+								bonusPromo += r.bonus_amount * r.qty;
+							}
+						} catch { /* promo table may not exist */ }
+
 						Object.assign(dataReport, {
 						salesAccessories: salesDataAks,
 						bonusAccessories,
+						bonusPromo,
 						dataPlan: currentPlan,
 						salesDataVape,
 						bonusPlan,
-						totalBonus: bonusAccessories + bonusPlan,
+						totalBonus: bonusAccessories + bonusPlan + bonusPromo,
 					});
 					}
 
@@ -1109,6 +1132,7 @@ export const api = new Hono<IEnv>()
 				result.push(dataReport);
 				totalReport.totalSalesAccessories += (dataReport as any).salesAccessories || 0;
 				totalReport.totalBonusAccessories += (dataReport as any).bonusAccessories;
+				totalReport.totalBonusPromo += (dataReport as any).bonusPromo || 0;
 				totalReport.totalBonusPlan += dataReport.bonusPlan;
 				totalReport.totalBonus += dataReport.totalBonus;
 				totalReport.workingDays += 1;
@@ -5011,7 +5035,7 @@ api
 // ─── Акционные товары ─────────────────────────────────────────────────
 
 api
-	// Список товаров в группе
+	// Список товаров в группе (дедуплицировано по имени)
 	.get("/api/shop-products", async (c) => {
 		try {
 			const db = c.get("db");
@@ -5021,7 +5045,7 @@ api
 			}
 			const rows = await db
 				.prepare(
-					"SELECT uuid, name, article, price FROM shopProduct WHERE parentUuid = ? ORDER BY name",
+					"SELECT name, MIN(uuid) as uuid, MIN(article) as article, MIN(price) as price FROM shopProduct WHERE parentUuid = ? GROUP BY name ORDER BY name",
 				)
 				.bind(groupUuid)
 				.all<{ uuid: string; name: string; article: string; price: number }>();
@@ -5085,6 +5109,79 @@ api
 			return c.json({ ok: true });
 		} catch (err) {
 			return c.json({ error: String(err) }, 500);
+		}
+	})
+
+	// Заработок на акционных товарах за сегодня
+	.get("/api/promo/today-earnings", async (c) => {
+		try {
+			const db = c.get("db");
+			const employeeUuid = c.req.query("employee_uuid") || "";
+			const today = new Date().toISOString().slice(0, 10);
+
+			let items: { product: string; bonus: number; qty: number; earned: number }[] = [];
+
+			// Пробуем с productSold (есть в продакшене)
+			try {
+				const cond = employeeUuid ? "AND ps.employeeUuid = ?" : "";
+				const bindArgs = employeeUuid
+					? [today, employeeUuid, today, today]
+					: [today, today, today];
+
+				const rows = await db
+					.prepare(
+						`SELECT pp.product_name, pp.bonus_amount,
+							COALESCE(SUM(CASE WHEN ps.type = 'SELL' THEN ps.quantity ELSE 0 END), 0)
+							  - COALESCE(SUM(CASE WHEN ps.type = 'PAYBACK' THEN ps.quantity ELSE 0 END), 0) AS qty
+						FROM promo_products pp
+						LEFT JOIN productSold ps
+							ON ps.productUuid = pp.product_uuid AND ps.date = ? ${cond}
+						WHERE pp.is_active = 1
+							AND pp.activated_at <= datetime(? || ' 23:59:59')
+							AND (pp.deactivated_at IS NULL OR pp.deactivated_at > datetime(? || ' 00:00:00'))
+						GROUP BY pp.id
+						ORDER BY pp.product_name`,
+					)
+					.bind(...bindArgs)
+					.all<{ product_name: string; bonus_amount: number; qty: number }>();
+
+				items = (rows.results ?? []).map((r) => ({
+					product: r.product_name,
+					bonus: r.bonus_amount,
+					qty: Math.max(0, r.qty),
+					earned: Math.max(0, r.qty) * r.bonus_amount,
+				}));
+			} catch {
+				// productSold не существует — запрашиваем без него
+			}
+
+			// Если продаж нет — показываем все активные акции с 0 продаж
+			if (items.length === 0) {
+				try {
+					const rows = await db
+						.prepare(
+							`SELECT product_name, bonus_amount
+							 FROM promo_products
+							 WHERE is_active = 1
+							   AND activated_at <= datetime(? || ' 23:59:59')
+							   AND (deactivated_at IS NULL OR deactivated_at > datetime(? || ' 00:00:00'))
+							 ORDER BY product_name`,
+						)
+						.bind(today, today)
+						.all<{ product_name: string; bonus_amount: number }>();
+					items = (rows.results ?? []).map((r) => ({
+						product: r.product_name,
+						bonus: r.bonus_amount,
+						qty: 0,
+						earned: 0,
+					}));
+				} catch { /* ignore */ }
+			}
+
+			const total = items.reduce((s, i) => s + i.earned, 0);
+			return c.json({ items, total });
+		} catch (err) {
+			return c.json({ error: String(err), items: [], total: 0 }, 500);
 		}
 	});
 
