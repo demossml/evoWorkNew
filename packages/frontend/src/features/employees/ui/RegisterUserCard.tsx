@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
 import { Input, Button, Card, CardHeader, CardTitle, CardContent } from "@shared/ui";
 import { client } from "@/helpers/api";
 import { useQueryClient } from "@tanstack/react-query";
@@ -11,7 +10,6 @@ interface RegisterUserCardProps {
 
 export function RegisterUserCard({ onRegister }: RegisterUserCardProps) {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [telegramId, setTelegramId] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,7 +35,8 @@ export function RegisterUserCard({ onRegister }: RegisterUserCardProps) {
         localStorage.setItem("telegramId", telegramId);
         await invalidateUserQueries(queryClient);
         onRegister(telegramId);
-        navigate("/", { replace: true });
+        // Принудительный релоад — в PWA navigate на тот же роут не срабатывает
+        window.location.replace("/");
       } else {
         setError("Ошибка при регистрации");
       }
