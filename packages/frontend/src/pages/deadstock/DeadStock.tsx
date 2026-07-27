@@ -496,7 +496,7 @@ export default function DeadSt() {
                       shopName: a.shopName,
                       action: a.action,
                       quantity: a.quantity,
-                      targetShop: a.targetShops?.map(t => `${t.shopName}:${t.qty}`).join(", ") || "",
+                      targetShop: a.targetShops?.map(t => t.shopName).join(", ") || "",
                       reason: a.reason || "",
                     }));
                     const res = await fetch("/api/dead-stocks/save-report", {
