@@ -423,19 +423,28 @@ export default function DeadSt() {
         sold: item.sold,
         lastSaleDate: item.lastSaleDate,
         daysWithoutSales: item.daysWithoutSales,
+        category: (item as any).category ?? null,
         shopId: item.shopId,
         shopName: item.shopName,
-        unitCost: costs?.unitCost ?? null,
-        totalFrozenCost: costs?.totalFrozenCost ?? null,
+        unitCost: costs?.unitCost ?? (item as any).unitCost ?? null,
+        totalFrozenCost: costs?.totalFrozenCost ?? (item as any).totalFrozenCost ?? null,
         groupName: costs?.groupName ?? null,
       };
     });
 
     const totalItems = gridData.length;
+    const countA = gridData.filter(i => i.category === "A").length;
+    const countB = gridData.filter(i => i.category === "B").length;
+    const countC = gridData.filter(i => i.category === "C").length;
+    const countD = gridData.filter(i => i.category === "D").length;
     const avgDays = totalItems > 0
       ? Math.round(gridData.reduce((s, i) => s + (i.daysWithoutSales >= 999 ? 0 : i.daysWithoutSales), 0) / totalItems)
       : 0;
-    const critical = gridData.filter(i => i.daysWithoutSales >= 180).length;
+
+    // Цвета категорий
+    const catBadge = (label: string, cls: string, count: number) => (
+      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${cls}`}>{label}: {count}</span>
+    );
 
     return (
       <motion.div
@@ -452,11 +461,16 @@ export default function DeadSt() {
                 {formatPeriod(shopName, startDate, endDate)}
               </h1>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {totalItems} товаров без продаж
+                {totalItems} товаров
                 {avgDays > 0 && ` · в среднем ${avgDays} дн.`}
-                {critical > 0 && ` · ${critical} критичных`}
                 {plannedActions.length > 0 && ` · ${plannedActions.length} запланировано`}
               </p>
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                {catBadge("Мёртвый", "bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300", countA)}
+                {catBadge("Умирающий", "bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300", countB)}
+                {catBadge("Медленный", "bg-yellow-100 text-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-300", countC)}
+                {catBadge("Затоварен", "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300", countD)}
+              </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {plannedActions.length > 0 && (

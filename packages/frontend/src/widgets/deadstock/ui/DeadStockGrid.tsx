@@ -21,6 +21,8 @@ export interface DeadStockTileItem {
   totalFrozenCost?: number | null;
   /** Название группы товара */
   groupName?: string | null;
+  /** Категория A/B/C/D */
+  category?: string | null;
 }
 
 interface DeadStockGridProps {
@@ -96,13 +98,17 @@ export const DeadStockGrid: React.FC<DeadStockGridProps> = ({
   );
 
   const sections = useMemo(() => {
-    const critical = data.filter(i => i.daysWithoutSales >= 180);
-    const warning = data.filter(i => i.daysWithoutSales >= 90 && i.daysWithoutSales < 180);
-    const attention = data.filter(i => i.daysWithoutSales < 90);
+    const catA = data.filter(i => i.category === "A");
+    const catB = data.filter(i => i.category === "B");
+    const catC = data.filter(i => i.category === "C");
+    const catD = data.filter(i => i.category === "D");
+    const other = data.filter(i => !i.category || !["A","B","C","D"].includes(i.category));
     return [
-      { label: `Критичные · ${critical.length}`, items: critical, color: "text-red-500", show: critical.length > 0 },
-      { label: `Внимание · ${warning.length}`, items: warning, color: "text-amber-500", show: warning.length > 0 },
-      { label: `Наблюдение · ${attention.length}`, items: attention, color: "text-blue-500", show: attention.length > 0 },
+      { label: `Мёртвый · ${catA.length}`, items: catA, color: "text-red-600", bg: "bg-red-50 dark:bg-red-950/20", badge: "bg-red-100 text-red-800", show: catA.length > 0 },
+      { label: `Умирающий · ${catB.length}`, items: catB, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-950/20", badge: "bg-orange-100 text-orange-800", show: catB.length > 0 },
+      { label: `Медленный · ${catC.length}`, items: catC, color: "text-yellow-600", bg: "bg-yellow-50 dark:bg-yellow-950/20", badge: "bg-yellow-100 text-yellow-800", show: catC.length > 0 },
+      { label: `Затоварен · ${catD.length}`, items: catD, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/20", badge: "bg-blue-100 text-blue-800", show: catD.length > 0 },
+      { label: `Прочее · ${other.length}`, items: other, color: "text-gray-500", bg: "bg-gray-50 dark:bg-gray-800", badge: "bg-gray-100 text-gray-600", show: other.length > 0 },
     ].filter(s => s.show);
   }, [data]);
 
@@ -143,11 +149,16 @@ export const DeadStockGrid: React.FC<DeadStockGridProps> = ({
                         : "border-border hover:border-primary/40 hover:shadow-sm"
                     }`}
                   >
-                    {/* Строка 1: название + артикул */}
+                    {/* Строка 1: название + артикул + бейдж категории */}
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-foreground truncate flex-1">
                         {item.name}
                       </p>
+                      {item.category && (
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${section.badge}`}>
+                          {item.category}
+                        </span>
+                      )}
                       <span className="text-[10px] text-muted-foreground font-mono shrink-0">
                         {item.article}
                       </span>

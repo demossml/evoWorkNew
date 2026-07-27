@@ -2305,7 +2305,7 @@ export const api = new Hono<IEnv>()
 
 				// Сканируем ВСЕ документы за 90 дней для lastSaleDate
 				const since90 = new Date(); since90.setDate(since90.getDate() - 90);
-				const soldInPeriod = new Set<string>();
+				const soldQtyByUuid = new Map<string, number>();
 				const lastSaleByUuid = new Map<string, string>();
 
 				const docs = await db.prepare(
@@ -2316,6 +2316,8 @@ export const api = new Hono<IEnv>()
 				}>();
 
 				for (const doc of docs.results ?? []) {
+					const isRefund = doc.type === "PAYBACK";
+					const sign = isRefund ? -1 : 1;
 					const day = doc.close_date.slice(0, 10);
 					let txs: any[];
 					try { txs = JSON.parse(doc.transactions); } catch { continue; }
@@ -2324,28 +2326,49 @@ export const api = new Hono<IEnv>()
 						if (tx.type !== "REGISTER_POSITION" || !tx.commodityUuid) continue;
 						const uuid = tx.commodityUuid;
 						if (!productMap.has(uuid)) continue;
-						if (day >= startDate && day <= endDate) soldInPeriod.add(uuid);
+						if (day >= startDate && day <= endDate) {
+							soldQtyByUuid.set(uuid, (soldQtyByUuid.get(uuid) ?? 0) + (tx.quantity ?? 0) * sign);
+						}
 						if (!lastSaleByUuid.has(uuid) || day > lastSaleByUuid.get(uuid)!) {
 							lastSaleByUuid.set(uuid, day);
 						}
 					}
 				}
 
-				// Собираем все товары с остатком
+				// Длительность периода в днях
+				const periodDays = Math.max(1,
+					Math.floor((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1
+				);
+
+				// Классификация A/B/C/D
+				const classify = (soldQty: number, daysWithout: number, quantity: number): string => {
+					if (soldQty <= 0) return "A";
+					if (daysWithout > periodDays / 2) return "B";
+					if (soldQty < 3) return "C";
+					if (quantity / Math.max(soldQty, 1) > 12) return "D";
+					return "";
+				};
+
+				// Собираем товары — только с категорией (проблемные)
 				for (const [uuid, p] of productMap) {
+					const soldQty = soldQtyByUuid.get(uuid) ?? 0;
 					const lastSale = lastSaleByUuid.get(uuid) || null;
 					const daysWithoutSales = lastSale
 						? Math.floor((new Date(nowStr).getTime() - new Date(lastSale).getTime()) / 86400000)
 						: 999;
+					const category = classify(soldQty, daysWithoutSales, p.quantity);
+					if (!category) continue;
+
 					const unitCost = costByName.get(p.name) ?? null;
 					const totalFrozenCost = (unitCost != null) ? Math.round(p.quantity * unitCost * 100) / 100 : null;
 
 					allSalesData.push({
 						itemId: uuid, name: p.name, article: p.article || "",
 						quantity: p.quantity,
-						sold: soldInPeriod.has(uuid) ? 1 : 0,
+						sold: soldQty,
 						lastSaleDate: lastSale,
 						daysWithoutSales,
+						category,
 						shopId: shopUuid, shopName,
 						unitCost, totalFrozenCost,
 						parentUuid: p.parentUuid || null,
@@ -3398,23 +3421,30 @@ export const api = new Hono<IEnv>()
 	})
 
 	// --- /api/analytics/dead-stock ---
-	// Параметры: daysWithoutSales (default 45), shopId (null/"all" = все)
-	// Работает напрямую с реальными таблицами — без кэша
+	// Параметры: daysWithoutSales (default 45), shopId, since, until
+	// Классификация A/B/C/D на основе продаж за период
 	.get("/api/analytics/dead-stock", async (c) => {
 		try {
 			const db = c.get("db");
 			const daysWithoutSales = parseInt(c.req.query("daysWithoutSales") || "45");
 			const shopIdRaw = c.req.query("shopId") || undefined;
 			const shopId = (shopIdRaw && shopIdRaw !== "all" && shopIdRaw !== "null") ? shopIdRaw : undefined;
+			const sinceParam = c.req.query("since");
+			const untilParam = c.req.query("until");
+
+			// Период для классификации (по умолчанию — threshold в днях от сегодня)
+			const nowStr = new Date().toISOString().slice(0, 10);
+			const periodEnd = untilParam || nowStr;
+			const periodStart = sinceParam || new Date(new Date().getTime() - daysWithoutSales * 86400000).toISOString().slice(0, 10);
+			const periodDays = Math.max(1,
+				Math.floor((new Date(periodEnd).getTime() - new Date(periodStart).getTime()) / 86400000) + 1
+			);
 
 			// 1. Все товары с остатком > 0
 			let productQuery = `SELECT uuid, name, article, shopId, parentUuid, quantity, price, measureName
 			                    FROM shopProduct WHERE product_group = 0 AND quantity > 0`;
 			const binds: any[] = [];
-			if (shopId) {
-				productQuery += ` AND shopId = ?`;
-				binds.push(shopId);
-			}
+			if (shopId) { productQuery += ` AND shopId = ?`; binds.push(shopId); }
 			const products = await db.prepare(productQuery).bind(...binds).all<{
 				uuid: string; name: string; article: string | null;
 				shopId: string; parentUuid: string | null;
@@ -3426,32 +3456,33 @@ export const api = new Hono<IEnv>()
 					threshold: daysWithoutSales, shopId: shopId || null });
 			}
 
-			// 2. Имена магазинов
+			// 2. Имена магазинов и групп
 			const shopRows = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
 			const shopNames = new Map(shopRows.results?.map(r => [r.uuid, r.name]) ?? []);
-
-			// 3. Имена групп
 			const groupRows = await db.prepare("SELECT uuid, name FROM shopProduct WHERE product_group = 1").all<{ uuid: string; name: string }>();
 			const groupNames = new Map(groupRows.results?.map(r => [r.uuid, r.name]) ?? []);
 
-			// 4. Себестоимость из 1С
+			// 3. Себестоимость из 1С
 			const costRows = await db.prepare("SELECT productName, costPrice FROM product_cost_prices").all<{ productName: string; costPrice: number }>();
 			const costByName = new Map<string, number>();
 			for (const r of costRows.results ?? []) costByName.set(r.productName, r.costPrice);
 
-			// 5. Последние продажи — один проход по всем документам
-			const lastSaleByKey = new Map<string, string>(); // "uuid|shopId" → "YYYY-MM-DD"
+			// 4. Сканируем документы: lastSaleDate + soldQty за период
+			const lastSaleByKey = new Map<string, string>();
+			const soldQtyByKey = new Map<string, number>();
 			const since90 = new Date(); since90.setDate(since90.getDate() - 90);
 			const sinceStr = since90.toISOString().slice(0, 10);
 
 			const shopIds = [...new Set(productRows.map(p => p.shopId))];
 			for (const sid of shopIds) {
 				const docs = await db.prepare(
-					`SELECT transactions, close_date FROM index_documents
+					`SELECT transactions, close_date, type FROM index_documents
 					 WHERE shop_id = ? AND close_date >= ? AND type IN ('SELL', 'PAYBACK')`
-				).bind(sid, sinceStr + "T00:00:00").all<{ transactions: string; close_date: string }>();
+				).bind(sid, sinceStr + "T00:00:00").all<{ transactions: string; close_date: string; type: string }>();
 
 				for (const doc of docs.results ?? []) {
+					const isRefund = doc.type === "PAYBACK";
+					const sign = isRefund ? -1 : 1;
 					const day = doc.close_date.slice(0, 10);
 					let txs: any[];
 					try { txs = JSON.parse(doc.transactions); } catch { continue; }
@@ -3459,6 +3490,9 @@ export const api = new Hono<IEnv>()
 					for (const tx of txs) {
 						if (tx.type !== "REGISTER_POSITION" || !tx.commodityUuid) continue;
 						const key = `${tx.commodityUuid}|${sid}`;
+						if (day >= periodStart && day <= periodEnd) {
+							soldQtyByKey.set(key, (soldQtyByKey.get(key) ?? 0) + (tx.quantity ?? 0) * sign);
+						}
 						if (!lastSaleByKey.has(key) || day > lastSaleByKey.get(key)!) {
 							lastSaleByKey.set(key, day);
 						}
@@ -3466,38 +3500,42 @@ export const api = new Hono<IEnv>()
 				}
 			}
 
-			// 6. Собираем результат
-			const nowStr = new Date().toISOString().slice(0, 10);
-			const items: any[] = [];
+			// 5. Классификация A/B/C/D
+			const classify = (soldQty: number, daysWithout: number, quantity: number): string => {
+				if (soldQty <= 0) return "A";
+				if (daysWithout > periodDays / 2) return "B";
+				if (soldQty < 3) return "C";
+				if (quantity / Math.max(soldQty, 1) > 12) return "D";
+				return "";
+			};
 
+			// 6. Собираем результат — только проблемные товары
+			const items: any[] = [];
 			for (const p of productRows) {
 				const key = `${p.uuid}|${p.shopId}`;
 				const lastSale = lastSaleByKey.get(key) || null;
 				const days = lastSale
 					? Math.floor((new Date(nowStr).getTime() - new Date(lastSale).getTime()) / 86400000)
 					: 999;
-				if (days < daysWithoutSales) continue;
+				const soldQty = soldQtyByKey.get(key) ?? 0;
+				const category = classify(soldQty, days, p.quantity);
+				if (!category) continue;
+
+				// Обратная совместимость: если задан daysWithoutSales, дополнительно фильтруем
+				if (days < daysWithoutSales && category === "A") continue;
 
 				const unitCost = costByName.get(p.name) ?? null;
 				const totalFrozenCost = (unitCost != null) ? Math.round(p.quantity * unitCost * 100) / 100 : null;
 
 				items.push({
-					itemId: p.uuid,
-					name: p.name,
-					article: p.article || "",
-					currentStock: p.quantity,
-					daysWithoutSales: days,
-					lastSaleDate: lastSale,
-					shopId: p.shopId,
-					shopName: shopNames.get(p.shopId) || p.shopId,
-					totalRevenueLast90Days: 0,
-					unitCost,
-					totalFrozenCost,
+					itemId: p.uuid, name: p.name, article: p.article || "",
+					currentStock: p.quantity, daysWithoutSales: days,
+					lastSaleDate: lastSale, sold: soldQty, category,
+					shopId: p.shopId, shopName: shopNames.get(p.shopId) || p.shopId,
+					totalRevenueLast90Days: 0, unitCost, totalFrozenCost,
 					parentUuid: p.parentUuid || null,
 					groupName: p.parentUuid ? (groupNames.get(p.parentUuid) || null) : null,
-					updatedAt: nowStr,
-					price: p.price,
-					measureName: p.measureName,
+					updatedAt: nowStr, price: p.price, measureName: p.measureName,
 				});
 			}
 
