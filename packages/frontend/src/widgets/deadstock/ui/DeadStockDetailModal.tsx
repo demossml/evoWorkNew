@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Package, Clock, Hash, TrendingUp,
@@ -74,6 +74,54 @@ const ANALYSIS_LABELS: Record<string, string> = {
   promo: "Промо",
   keep: "Оставить",
 };
+
+/* ===================== NumberDrum ===================== */
+
+function NumberDrum({ value, max, onChange }: { value: number; max: number; onChange: (v: number) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const items = Array.from({ length: max + 1 }, (_, i) => i);
+
+  // Прокрутить к текущему значению при монтировании
+  useEffect(() => {
+    if (ref.current) {
+      const el = ref.current.children[value] as HTMLElement | undefined;
+      el?.scrollIntoView({ block: "center", behavior: "instant" });
+    }
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    if (!ref.current) return;
+    const container = ref.current;
+    const center = container.scrollTop + container.clientHeight / 2;
+    let closest = 0;
+    let minDist = Infinity;
+    for (let i = 0; i < container.children.length; i++) {
+      const child = container.children[i] as HTMLElement;
+      const childCenter = child.offsetTop + child.offsetHeight / 2;
+      const dist = Math.abs(center - childCenter);
+      if (dist < minDist) { minDist = dist; closest = i; }
+    }
+    if (closest !== value) onChange(closest);
+  }, [value, onChange]);
+
+  return (
+    <div
+      ref={ref}
+      onScroll={handleScroll}
+      className="drum h-[96px] w-12 overflow-y-auto border-x border-border bg-card rounded-lg"
+      style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
+    >
+      {items.map(n => (
+        <div
+          key={n}
+          onClick={() => onChange(n)}
+          className={`drum-item h-[32px] flex items-center justify-center text-xs cursor-pointer select-none transition-colors ${n === value ? "bg-primary/10 text-primary font-bold text-sm" : "text-muted-foreground hover:bg-secondary/50"}`}
+          style={{ scrollSnapAlign: "center" }}
+        >{n}</div>
+      ))}
+    </div>
+  );
+}
 
 /* ===================== HELPERS ===================== */
 
@@ -352,13 +400,7 @@ export const DeadStockDetailModal: React.FC<DeadStockDetailModalProps> = ({
                         return (
                           <div key={s.uuid} className="flex items-center gap-2">
                             <span className="text-xs flex-1 truncate">{s.name}</span>
-                            <input type="number" min={0} max={maxForThis} value={qty}
-                              onChange={e => {
-                                const v = Math.max(0, Math.min(maxForThis, +e.target.value || 0));
-                                setMoveMap(prev => ({ ...prev, [s.uuid]: v }));
-                              }}
-                              onClick={e => e.stopPropagation()}
-                              className={`w-14 px-2 py-1.5 rounded-lg border text-xs text-center ${totalDistributed > item.quantity ? "border-red-400 bg-red-50" : "bg-card border-border"}`} />
+                            <NumberDrum value={qty} max={maxForThis} onChange={v => setMoveMap(prev => ({ ...prev, [s.uuid]: v }))} />
                             <span className="text-[10px] text-muted-foreground w-8">шт.</span>
                           </div>
                         );
