@@ -134,42 +134,6 @@ export function PWAInstall() {
     trackInstall(result.outcome as "accepted" | "dismissed");
   };
 
-        await new Promise<void>((resolve) => {
-          const handler = () => {
-            navigator.serviceWorker.removeEventListener("controllerchange", handler);
-            resolve();
-          };
-          navigator.serviceWorker.addEventListener("controllerchange", handler);
-          setTimeout(resolve, 5000);
-        });
-      }
-
-      // 3. Перезагружаем
-      window.location.reload();
-    } catch {
-      window.location.reload();
-    }
-  };
-
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState(false);
-
-  useEffect(() => {
-    if (isPWAInstalled()) { setInstalled(true); return; }
-    const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e as BeforeInstallPromptEvent); };
-    window.addEventListener("beforeinstallprompt", handler);
-    window.addEventListener("appinstalled", () => { setInstalled(true); setDeferredPrompt(null); });
-    return () => { window.removeEventListener("beforeinstallprompt", handler); };
-  }, []);
-
-  const handleInstall = async () => {
-    if (!deferredPrompt) return;
-    await deferredPrompt.prompt();
-    const result = await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
-    trackInstall(result.outcome as "accepted" | "dismissed");
-  };
-
   // ── Баннер обновления ──
   if (showUpdate) {
     return (
