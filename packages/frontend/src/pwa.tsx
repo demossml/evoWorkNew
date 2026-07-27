@@ -45,21 +45,43 @@ export function PWAInstall() {
     }
   }, [offlineReady, needRefresh]);
 
-  /** Очистить все кэши, обновить SW и перезагрузить */
+  /** Очистить кэши, активировать новый SW и перезагрузить — один раз, без петли */
   const handleUpdate = async () => {
     setUpdating(true);
     try {
-      // 1. Очищаем все кэши
+      // 1. Очищаем контентные кэши (НЕ workbox-кеш самого SW)
       const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
+      const contentCaches = keys.filter(k =>
+        k.startsWith("static-assets") ||
+        k.startsWith("api-cache") ||
+        k.startsWith("dashboard-cache") ||
+        k.startsWith("images") ||
+        k.startsWith("fonts") ||
+        k.startsWith("workbox-precache")
+      );
+      await Promise.all(contentCaches.map(k => caches.delete(k)));
 
-      // 2. Сообщаем SW пропустить ожидание и активироваться
-      await updateServiceWorker(true);
+      // 2. Ждём, пока новый SW возьмёт управление
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg && reg.waiting) {
+        // Сообщаем ожидающему SW: «активируйся»
+        reg.waiting.postMessage({ type: "SKIP_WAITING" });
 
-      // 3. Перезагружаем страницу
+        // Ждём смены контроллера
+        await new Promise<void>((resolve) => {
+          const onControllerChange = () => {
+            navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+            resolve();
+          };
+          navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+          // Таймаут 5 секунд — если не дождались, всё равно перезагружаем
+          setTimeout(resolve, 5000);
+        });
+      }
+
+      // 3. Перезагружаем
       window.location.reload();
     } catch {
-      // Fallback: просто перезагрузить
       window.location.reload();
     }
   };
