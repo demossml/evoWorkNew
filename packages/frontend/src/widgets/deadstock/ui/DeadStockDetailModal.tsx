@@ -342,31 +342,39 @@ export const DeadStockDetailModal: React.FC<DeadStockDetailModalProps> = ({
               {showShopPicker && (
                 <div className="bg-secondary/30 rounded-xl p-3 space-y-2" onClick={e => e.stopPropagation()}>
                   <p className="text-[11px] font-medium">Распределите остаток ({item.quantity} шт.) по магазинам:</p>
-                  {fastData?.allShops.filter(s => s.uuid !== item.shopId).map(s => {
-                    const qty = moveMap[s.uuid] || 0;
-                    return (
-                      <div key={s.uuid} className="flex items-center gap-2">
-                        <span className="text-xs flex-1 truncate">{s.name}</span>
-                        <input type="number" min={0} max={item.quantity} value={qty}
-                          onChange={e => setMoveMap(prev => ({ ...prev, [s.uuid]: Math.max(0, Math.min(item.quantity, +e.target.value || 0)) }))}
-                          onClick={e => e.stopPropagation()}
-                          className="w-14 px-2 py-1.5 rounded-lg bg-card border border-border text-xs text-center" />
-                        <span className="text-[10px] text-muted-foreground w-8">шт.</span>
-                      </div>
-                    );
-                  })}
-                  <p className="text-[10px] text-muted-foreground">
-                    Распределено: {Object.values(moveMap).reduce((s, q) => s + q, 0)} / {item.quantity} шт.
-                  </p>
-                  {item.unitCost != null && (
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                      Перемещаем на {Math.round(Object.values(moveMap).reduce((s, q) => s + q, 0) * item.unitCost).toLocaleString("ru-RU")} ₽ по закупочной цене
-                    </p>
-                  )}
-                  <button type="button" onClick={e => { e.stopPropagation(); handleMultiMove(); }}
-                    className="w-full py-2.5 rounded-xl text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition">
-                    Переместить
-                  </button>
+                  {(() => {
+                    const totalDistributed = Object.values(moveMap).reduce((s, q) => s + q, 0);
+                    const remaining = item.quantity - totalDistributed;
+                    return (<>
+                      {fastData?.allShops.filter(s => s.uuid !== item.shopId).map(s => {
+                        const qty = moveMap[s.uuid] || 0;
+                        const maxForThis = Math.min(item.quantity, qty + remaining);
+                        return (
+                          <div key={s.uuid} className="flex items-center gap-2">
+                            <span className="text-xs flex-1 truncate">{s.name}</span>
+                            <input type="number" min={0} max={maxForThis} value={qty}
+                              onChange={e => {
+                                const v = Math.max(0, Math.min(maxForThis, +e.target.value || 0));
+                                setMoveMap(prev => ({ ...prev, [s.uuid]: v }));
+                              }}
+                              onClick={e => e.stopPropagation()}
+                              className={`w-14 px-2 py-1.5 rounded-lg border text-xs text-center ${totalDistributed > item.quantity ? "border-red-400 bg-red-50" : "bg-card border-border"}`} />
+                            <span className="text-[10px] text-muted-foreground w-8">шт.</span>
+                          </div>
+                        );
+                      })}
+                      <p className={`text-[10px] ${totalDistributed > item.quantity ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>
+                        Распределено: {totalDistributed} / {item.quantity} шт.
+                        {totalDistributed > item.quantity && " — превышает остаток!"}
+                      </p>
+                      <button
+                        onClick={handleMultiMove}
+                        disabled={totalDistributed <= 0 || totalDistributed > item.quantity}
+                        className="w-full py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-40">
+                        Подтвердить перемещение
+                      </button>
+                    </>);
+                  })()}
                 </div>
               )}
 
