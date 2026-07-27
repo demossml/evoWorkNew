@@ -110,27 +110,6 @@ export async function runMigrations(db: D1Database): Promise<void> {
 	`).run();
 
 	// ══════════════════════════════════════════════════════════
-	// dead_stock_cache
-	// ══════════════════════════════════════════════════════════
-	await db.prepare(`
-		CREATE TABLE IF NOT EXISTS dead_stock_cache (
-			itemId TEXT NOT NULL,
-			shopId TEXT NOT NULL,
-			name TEXT NOT NULL,
-			article TEXT,
-			currentStock INTEGER,
-			daysWithoutSales INTEGER NOT NULL DEFAULT 0,
-			lastSaleDate TEXT,
-			shopName TEXT NOT NULL DEFAULT '',
-			totalRevenueLast90Days REAL NOT NULL DEFAULT 0,
-			updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
-			PRIMARY KEY (itemId, shopId)
-		)
-	`).run();
-
-	await createIndexIfMissing(db, "dead_stock_cache", "idx_dsc_shop_days", "shopId, daysWithoutSales");
-
-	// ══════════════════════════════════════════════════════════
 	// plan
 	// ══════════════════════════════════════════════════════════
 	await db.prepare(`

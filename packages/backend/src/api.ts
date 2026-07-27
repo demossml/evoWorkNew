@@ -106,10 +106,6 @@ import {
 	upsertAbsenceEvents,
 	getAbsenceEvents,
 	type SellerAbsenceEvent,
-	createDeadStockCacheTable,
-	refreshDeadStockCache,
-	getDeadStockCache,
-	type DeadStockCacheRow,
 } from "./sync/db";
 import { saveDeadStocks } from "./db/repositories/saveDeadStocks";
 import { parseCostPriceFile } from "./services/costPriceParser";
@@ -121,7 +117,6 @@ import {
   syncStock,
   updateProducts,
   updateProductsShope,
-  refreshDeadStockTask,
 } from "./sync/cron";
 
 type OpeningRecord = {
@@ -1565,6 +1560,325 @@ export const api = new Hono<IEnv>()
 		}
 	})
 
+	// ─── Home tile: Revenue ────────────────────────────────────────────
+	// Агрегированные данные для плитки «Выручка» (продажи без себестоимости)
+	.get("/api/evotor/home/revenue-tile", async (c) => {
+		try {
+			const db = c.get("db");
+			const sinceParam = c.req.query("since");
+			const untilParam = c.req.query("until");
+			const shopUuid = c.req.query("shopUuid");
+
+			// Определяем диапазон дат
+			let since: string, until: string;
+			if (sinceParam && untilParam) {
+				since = sinceParam.length <= 10 ? sinceParam + "T00:00:00" : sinceParam;
+				until = untilParam.length <= 10 ? untilParam + "T23:59:59" : untilParam;
+			} else {
+				const today = new Date().toISOString().slice(0, 10);
+				since = today + "T00:00:00";
+				until = today + "T23:59:59";
+			}
+
+			// Список магазинов
+			const allUuids = await getShopUuidsFromDB(db);
+			const uuids = shopUuid ? [shopUuid] : allUuids;
+			const totalShops = allUuids.length;
+
+			// Получаем имена магазинов
+			const shopNameMap = new Map<string, string>();
+			const shopRows = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+			for (const r of shopRows.results ?? []) shopNameMap.set(r.uuid, r.name);
+
+			// Sales data
+			const { salesDataByShopName, grandTotalSell, grandTotalRefund, dailySell } =
+				await getSalesgardenReportData(db, uuids, since, until);
+
+			// Payment split (нал/безнал) — считаем по всем shop
+			let totalCash = 0, totalCard = 0;
+			for (const [, d] of Object.entries(salesDataByShopName)) {
+				const sell = (d as any).sell || {};
+				for (const [k, v] of Object.entries(sell) as [string, number][]) {
+					if (k.includes("Нал") || k.includes("CASH")) totalCash += v;
+					else totalCard += v;
+				}
+			}
+			const paymentTotal = totalCash + totalCard;
+			const cashPct = paymentTotal > 0 ? Math.round((totalCash / paymentTotal) * 100) : 50;
+			const cardPct = 100 - cashPct;
+
+			// Total checks
+			const checksResult = await db
+				.prepare(`SELECT COUNT(*) as cnt FROM index_documents
+				          WHERE close_date >= ? AND close_date <= ? AND type = 'SELL'`)
+				.bind(since, until)
+				.first<{ cnt: number }>();
+			const totalChecks = checksResult?.cnt ?? 0;
+
+			// Average check
+			const averageCheck = totalChecks > 0
+				? Math.round(grandTotalSell / totalChecks)
+				: 0;
+
+			// Best shop
+			let bestShop: { name: string; sales: number } | null = null;
+			for (const [name, d] of Object.entries(salesDataByShopName)) {
+				const sales = (d as any).totalSell || 0;
+				if (!bestShop || sales > bestShop.sales) {
+					bestShop = { name, sales: Math.round(sales) };
+				}
+			}
+
+			// Sales by category
+			const salesByGroup = await getSalesByProductGroup(db, since, until);
+
+			// Trend 7d: последние 7 дней выручки
+			const trend7d: number[] = [];
+			if (dailySell) {
+				const sorted = Object.entries(dailySell).sort(([a], [b]) => a.localeCompare(b));
+				const last7 = sorted.slice(-7);
+				for (const [, v] of last7) trend7d.push(Math.round(Number(v)));
+			}
+
+			// Delta vs yesterday
+			let deltaVsYesterdayPct: number | null = null;
+			if (trend7d.length >= 2) {
+				const prev = trend7d[trend7d.length - 2];
+				const curr = trend7d[trend7d.length - 1];
+				if (prev > 0) deltaVsYesterdayPct = Math.round(((curr - prev) / prev) * 100);
+			}
+
+			// Shops list (without margin/per-shop costs)
+			const shops = Object.entries(salesDataByShopName)
+				.map(([name, d]: [string, any]) => {
+					let sCash = 0, sCard = 0;
+					const sell = d.sell || {};
+					for (const [k, v] of Object.entries(sell) as [string, number][]) {
+						if (k.includes("Нал") || k.includes("CASH")) sCash += v;
+						else sCard += v;
+					}
+					const sTotal = sCash + sCard || 1;
+					return {
+						name,
+						sales: Math.round(d.totalSell || 0),
+						cashShare: Math.round((sCash / sTotal) * 100),
+						cardShare: Math.round((sCard / sTotal) * 100),
+					};
+				})
+				.sort((a, b) => b.sales - a.sales);
+
+			// dataCompleteness: считаем магазины, у которых были продажи
+			const reportedShops = shops.filter(s => s.sales > 0).length;
+
+			return c.json({
+				since: since.slice(0, 10),
+				until: until.slice(0, 10),
+				grossSales: Math.round(grandTotalSell),
+				deltaVsYesterdayPct,
+				totalChecks,
+				averageCheck,
+				paymentSplit: { cashPct, cardPct },
+				bestShop,
+				salesByCategory: salesByGroup ?? { vape: 0, accessory: 0, other: 0 },
+				trend7d,
+				shops,
+				dataCompleteness: { reportedShops, totalShops },
+			});
+		} catch (err) {
+			console.error("[revenue-tile] error:", err);
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+
+	// ─── Home tile: Finance ────────────────────────────────────────────
+	// Агрегированные данные для плитки «Финансовый отчёт» (прибыль, расходы, возвраты)
+	.get("/api/evotor/home/finance-tile", async (c) => {
+		try {
+			const db = c.get("db");
+			const sinceParam = c.req.query("since");
+			const untilParam = c.req.query("until");
+			const shopUuid = c.req.query("shopUuid");
+
+			let since: string, until: string;
+			if (sinceParam && untilParam) {
+				since = sinceParam.length <= 10 ? sinceParam + "T00:00:00" : sinceParam;
+				until = untilParam.length <= 10 ? untilParam + "T23:59:59" : untilParam;
+			} else {
+				const today = new Date().toISOString().slice(0, 10);
+				since = today + "T00:00:00";
+				until = today + "T23:59:59";
+			}
+
+			const allUuids = await getShopUuidsFromDB(db);
+			const uuids = shopUuid ? [shopUuid] : allUuids;
+			const totalShops = allUuids.length;
+
+			const shopNameMap = new Map<string, string>();
+			const shopRows = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+			for (const r of shopRows.results ?? []) shopNameMap.set(r.uuid, r.name);
+
+			// 1. Продажи + возвраты
+			const { salesDataByShopName, grandTotalSell, grandTotalRefund } =
+				await getSalesgardenReportData(db, uuids, since, until);
+
+			// 2. Расходы
+			const cashOutcomeData = await getDocumentsByCashOutcomeData(db, uuids, since, until);
+			const grandTotalCashOutcome = calculateTotalSum(cashOutcomeData);
+
+			// 3. Остатки наличных
+			const cashBalanceByShop = await getCashByShopsFromD1(db);
+			const totalCashBalance = Object.values(cashBalanceByShop).reduce((s, v) => s + v, 0);
+
+			// 4. Валовая прибыль (как в gross-profit-today)
+			const docs = await db
+				.prepare(`SELECT shop_id, type, transactions FROM index_documents
+				          WHERE close_date >= ? AND close_date <= ?
+				            AND type IN ('SELL', 'PAYBACK')`)
+				.bind(since, until)
+				.all<{ shop_id: string; type: string; transactions: string }>();
+
+			const byShop = new Map<string, Map<string, { revenue: number; qty: number; cost: number }>>();
+			const allNames = new Set<string>();
+
+			for (const doc of docs.results ?? []) {
+				const isRefund = doc.type === "PAYBACK";
+				let txs: any[];
+				try { txs = JSON.parse(doc.transactions); } catch { continue; }
+				if (!Array.isArray(txs)) continue;
+
+				if (!byShop.has(doc.shop_id)) byShop.set(doc.shop_id, new Map());
+				const shopMap = byShop.get(doc.shop_id)!;
+
+				for (const tx of txs) {
+					if (tx.type !== "REGISTER_POSITION") continue;
+					const name = (tx.commodityName || "").trim();
+					if (!name) continue;
+					const qty = tx.quantity ?? 0;
+					const sum = tx.sum ?? 0;
+					const sign = isRefund ? -1 : 1;
+
+					if (!shopMap.has(name)) shopMap.set(name, { revenue: 0, qty: 0, cost: 0 });
+					const p = shopMap.get(name)!;
+					p.revenue += sum * sign;
+					p.qty += qty * sign;
+					p.cost += (tx.costPrice ?? 0) * qty * sign;
+					allNames.add(name);
+				}
+			}
+
+			const uploadedCosts = await getCostPricesForPeriod(db, [...allNames], since);
+			if (uploadedCosts.size > 0) {
+				for (const [, shopMap] of byShop) {
+					for (const [name, p] of shopMap) {
+						const uploadedPrice = uploadedCosts.get(name);
+						if (uploadedPrice) p.cost = uploadedPrice * p.qty;
+					}
+				}
+			}
+
+			// Gross profit totals
+			let totalRevenueGP = 0, totalCostGP = 0, totalProfitGP = 0;
+			const shopProfitMap = new Map<string, { revenue: number; cost: number; profit: number }>();
+			for (const [shopId, shopMap] of byShop) {
+				let rev = 0, cost = 0;
+				for (const [, p] of shopMap) { rev += p.revenue; cost += p.cost; }
+				const profit = rev - cost;
+				const name = shopNameMap.get(shopId) || shopId;
+				shopProfitMap.set(name, {
+					revenue: Math.round(rev * 100) / 100,
+					cost: Math.round(cost * 100) / 100,
+					profit: Math.round(profit * 100) / 100,
+				});
+				totalRevenueGP += rev;
+				totalCostGP += cost;
+				totalProfitGP += profit;
+			}
+
+			const grossProfit = Math.round(totalProfitGP);
+			const marginPct = totalRevenueGP > 0
+				? Math.round((totalProfitGP / totalRevenueGP) * 100)
+				: null;
+
+			// Expenses by category
+			const expensesByCategory: Record<string, number> = {};
+			for (const [, cats] of Object.entries(cashOutcomeData)) {
+				for (const [cat, amt] of Object.entries(cats as Record<string, number>)) {
+					expensesByCategory[cat] = (expensesByCategory[cat] || 0) + (typeof amt === "number" ? amt : 0);
+				}
+			}
+
+			// Refunds
+			const refundAmount = Math.round(grandTotalRefund);
+			const refundPctOfSales = grandTotalSell > 0
+				? Math.round((grandTotalRefund / grandTotalSell) * 100)
+				: 0;
+
+			// Net cash
+			const netCash = Math.round(grandTotalSell - grandTotalRefund - grandTotalCashOutcome);
+
+			// Shops detail
+			const shops = uuids.map(uuid => {
+				const name = shopNameMap.get(uuid) || uuid;
+				const shopSales = (salesDataByShopName as any)[name];
+				const sales = shopSales?.totalSell || 0;
+				const refund = Object.values(shopSales?.refund || {}).reduce((s: number, v: any) => s + Number(v), 0);
+				const expenses = Object.values(cashOutcomeData[name] || {}).reduce((s: number, v: any) => s + Number(v), 0);
+				const expensesByCat: Record<string, number> = {};
+				for (const [cat, amt] of Object.entries(cashOutcomeData[name] || {})) {
+					expensesByCat[cat] = typeof amt === "number" ? Math.round(amt) : 0;
+				}
+				const cashBalance = cashBalanceByShop[name] || 0;
+				const gpData = shopProfitMap.get(name);
+				const profit = gpData ? Math.round(gpData.profit) : 0;
+				const shopMarginPct = gpData && gpData.revenue > 0
+					? Math.round((gpData.profit / gpData.revenue) * 100)
+					: null;
+				return {
+					name,
+					sales: Math.round(sales),
+					refund: Math.round(refund),
+					expenses: Math.round(expenses),
+					expensesByCategory: expensesByCat,
+					cashBalance: Math.round(cashBalance),
+					profit,
+					marginPct: shopMarginPct,
+				};
+			}).sort((a, b) => b.sales - a.sales);
+
+			const reportedShops = shops.filter(s => s.sales > 0 || s.expenses > 0).length;
+
+			// Thresholds from settings (default fallback)
+			let marginGreen = 30, marginYellow = 15;
+			try {
+				const greenRow = await db.prepare(
+					"SELECT value FROM app_settings WHERE key = 'margin_green'"
+				).first<{ value: string }>();
+				if (greenRow) marginGreen = Number(greenRow.value) || 30;
+				const yellowRow = await db.prepare(
+					"SELECT value FROM app_settings WHERE key = 'margin_yellow'"
+				).first<{ value: string }>();
+				if (yellowRow) marginYellow = Number(yellowRow.value) || 15;
+			} catch {}
+
+			return c.json({
+				since: since.slice(0, 10),
+				until: until.slice(0, 10),
+				grossProfit,
+				marginPct,
+				netCash,
+				refunds: { amount: refundAmount, pctOfSales: refundPctOfSales },
+				expenses: { total: Math.round(grandTotalCashOutcome), byCategory: expensesByCategory },
+				cashBalanceTotal: Math.round(totalCashBalance),
+				thresholds: { marginGreen, marginYellow },
+				shops,
+				dataCompleteness: { reportedShops, totalShops },
+			});
+		} catch (err) {
+			console.error("[finance-tile] error:", err);
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+
 	// @deprecated — использует Evotor API напрямую. Заменён на /api/dead-stocks/data (D1).
 	// Удалить после полного перехода на D1-only.
 	.post("/api/evotor/dead-stock", async (c) => {
@@ -1941,7 +2255,7 @@ export const api = new Hono<IEnv>()
 				groups: string[];
 			}>();
 
-			// Определяем список магазинов
+			// Список магазинов
 			let targetShopUuids: string[] = [];
 			if (shopIds && shopIds.length > 0) {
 				targetShopUuids = shopIds;
@@ -1949,151 +2263,257 @@ export const api = new Hono<IEnv>()
 				const allShops = await db.prepare("SELECT uuid FROM shops").all<{ uuid: string }>();
 				targetShopUuids = (allShops.results ?? []).map(s => s.uuid);
 			}
-
 			if (targetShopUuids.length === 0) {
-				return c.json({ salesData: [], shopName: "Все магазины", startDate, endDate });
+				return c.json({ salesData: [], shopName: "Все магазины", startDate, endDate,
+					totalFrozenCost: 0, categories: [] });
 			}
 
-			const allSalesData: {
-				itemId: string; name: string; article: string; quantity: number;
-				sold: number; lastSaleDate: string | null; daysWithoutSales: number;
-				shopId: string; shopName: string;
-			}[] = [];
+			// Имена магазинов и групп
+			const shopRows = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+			const shopNameMap = new Map(shopRows.results?.map(r => [r.uuid, r.name]) ?? []);
+			const groupRows = await db.prepare("SELECT uuid, name FROM shopProduct WHERE product_group = 1").all<{ uuid: string; name: string }>();
+			const groupNameMap = new Map(groupRows.results?.map(r => [r.uuid, r.name]) ?? []);
 
-			const now = new Date();
-			const nowStr = now.toISOString().slice(0, 10);
+			// Себестоимость из 1С
+			const costRows = await db.prepare("SELECT productName, costPrice FROM product_cost_prices").all<{ productName: string; costPrice: number }>();
+			const costByName = new Map<string, number>();
+			for (const r of costRows.results ?? []) costByName.set(r.productName, r.costPrice);
+
+			const allSalesData: any[] = [];
+			const nowStr = new Date().toISOString().slice(0, 10);
 
 			for (const shopUuid of targetShopUuids) {
-				const shopRow = await db.prepare(
-					"SELECT name FROM shops WHERE uuid = ?"
-				).bind(shopUuid).first<{ name: string }>();
-				const shopName = shopRow?.name || shopUuid;
+				const shopName = shopNameMap.get(shopUuid) || shopUuid;
 
-				// Получаем все товары магазина (shopProduct).
-				// article может отсутствовать в локальной SQLite — fallback к пустой строке.
-				let products: any;
-				try {
-					products = await db.prepare(
-						`SELECT uuid, name, article FROM shopProduct WHERE shopId = ? AND product_group = 0`
-					).bind(shopUuid).all<{ uuid: string; name: string; article: string | null }>();
-				} catch {
-					const rows = await db.prepare(
-						`SELECT uuid, name FROM shopProduct WHERE shopId = ? AND product_group = 0`
-					).bind(shopUuid).all<{ uuid: string; name: string }>();
-					products = { results: (rows.results ?? []).map(r => ({ ...r, article: null })) };
-				}
-
-				if (!products.results || products.results.length === 0) continue;
-
-				// Фильтр по группам (если выбраны)
-				let productUuids = products.results.map(p => p.uuid);
-				const productMap = new Map(products.results.map(p => [p.uuid, p]));
-
+				// Все товары с остатком > 0
+				let prodQuery = `SELECT uuid, name, article, parentUuid, quantity
+				                 FROM shopProduct WHERE shopId = ? AND product_group = 0 AND quantity > 0`;
+				const prodBinds: any[] = [shopUuid];
 				if (groups && groups.length > 0) {
-					const placeholders = groups.map(() => "?").join(",");
-					const filtered = await db.prepare(
-						`SELECT DISTINCT uuid FROM shopProduct WHERE parentUuid IN (${placeholders}) AND shopId = ?`
-					).bind(...groups, shopUuid).all<{ uuid: string }>();
-					const filteredSet = new Set((filtered.results ?? []).map(r => r.uuid));
-					productUuids = productUuids.filter(uuid => filteredSet.has(uuid));
+					const ph = groups.map(() => "?").join(",");
+					prodQuery += ` AND parentUuid IN (${ph})`;
+					prodBinds.push(...groups);
 				}
+				const products = await db.prepare(prodQuery).bind(...prodBinds).all<{
+					uuid: string; name: string; article: string | null;
+					parentUuid: string | null; quantity: number;
+				}>();
+				const productRows = products.results ?? [];
+				if (productRows.length === 0) continue;
 
-				if (productUuids.length === 0) continue;
+				const productMap = new Map(productRows.map(p => [p.uuid, p]));
 
-				// Проданные товары за период
-				const soldQtyByUuid = new Map<string, number>();
+				// Сканируем ВСЕ документы за 90 дней для lastSaleDate
+				const since90 = new Date(); since90.setDate(since90.getDate() - 90);
+				const soldInPeriod = new Set<string>();
 				const lastSaleByUuid = new Map<string, string>();
 
 				const docs = await db.prepare(
 					`SELECT type, transactions, close_date FROM index_documents
-					 WHERE shop_id = ? AND close_date >= ? AND close_date <= ?
-					 AND type IN ('SELL', 'PAYBACK')`
-				).bind(shopUuid, startDate + "T00:00:00", endDate + "T23:59:59").all<{
+					 WHERE shop_id = ? AND close_date >= ? AND type IN ('SELL', 'PAYBACK')`
+				).bind(shopUuid, since90.toISOString().slice(0,10) + "T00:00:00").all<{
 					type: string; transactions: string; close_date: string;
 				}>();
 
-				for (const doc of (docs.results ?? [])) {
-					const isRefund = doc.type === "PAYBACK";
-					const sign = isRefund ? -1 : 1;
+				for (const doc of docs.results ?? []) {
+					const day = doc.close_date.slice(0, 10);
 					let txs: any[];
 					try { txs = JSON.parse(doc.transactions); } catch { continue; }
 					if (!Array.isArray(txs)) continue;
-
 					for (const tx of txs) {
-						if (tx.type !== "REGISTER_POSITION") continue;
+						if (tx.type !== "REGISTER_POSITION" || !tx.commodityUuid) continue;
 						const uuid = tx.commodityUuid;
-						if (!uuid) continue;
-						if (!productUuids.includes(uuid)) continue;
-						soldQtyByUuid.set(uuid, (soldQtyByUuid.get(uuid) ?? 0) + (tx.quantity ?? 0) * sign);
-						const day = doc.close_date.slice(0, 10);
+						if (!productMap.has(uuid)) continue;
+						if (day >= startDate && day <= endDate) soldInPeriod.add(uuid);
 						if (!lastSaleByUuid.has(uuid) || day > lastSaleByUuid.get(uuid)!) {
 							lastSaleByUuid.set(uuid, day);
 						}
 					}
 				}
 
-				// Товары без продаж = мёртвые остатки
-				const deadProductNames: string[] = [];
-				const deadProducts: { uuid: string; name: string; article: string; lastSale: string | null; daysWithoutSales: number }[] = [];
-
-				for (const uuid of productUuids) {
-					if (soldQtyByUuid.has(uuid)) continue; // продавался — не мёртвый
-					const product = productMap.get(uuid);
-					if (!product) continue;
-
-					const lastSale = lastSaleByUuid.get(uuid);
+				// Собираем все товары с остатком
+				for (const [uuid, p] of productMap) {
+					const lastSale = lastSaleByUuid.get(uuid) || null;
 					const daysWithoutSales = lastSale
 						? Math.floor((new Date(nowStr).getTime() - new Date(lastSale).getTime()) / 86400000)
 						: 999;
-
-					deadProductNames.push(product.name);
-					deadProducts.push({
-						uuid,
-						name: product.name,
-						article: product.article || "",
-						lastSale: lastSale || null,
-						daysWithoutSales,
-					});
-				}
-
-				// Получаем реальные остатки из D1 (синхронизированы через syncStock).
-				// Только товары с фактическим остатком > 0 попадают в отчёт.
-				const stockMap = deadProductNames.length > 0
-					? await getProductStockFromD1(db, shopUuid, deadProductNames)
-					: new Map<string, number>();
-
-				for (const dp of deadProducts) {
-					const qty = stockMap.get(dp.name) ?? 0;
-					if (qty <= 0) continue; // только фактические остатки > 0
+					const unitCost = costByName.get(p.name) ?? null;
+					const totalFrozenCost = (unitCost != null) ? Math.round(p.quantity * unitCost * 100) / 100 : null;
 
 					allSalesData.push({
-						itemId: dp.uuid,
-						name: dp.name,
-						article: dp.article,
-						quantity: qty,
-						sold: 0,
-						lastSaleDate: dp.lastSale,
-						daysWithoutSales: dp.daysWithoutSales,
-						shopId: shopUuid,
-						shopName,
+						itemId: uuid, name: p.name, article: p.article || "",
+						quantity: p.quantity,
+						sold: soldInPeriod.has(uuid) ? 1 : 0,
+						lastSaleDate: lastSale,
+						daysWithoutSales,
+						shopId: shopUuid, shopName,
+						unitCost, totalFrozenCost,
+						parentUuid: p.parentUuid || null,
+						groupName: p.parentUuid ? (groupNameMap.get(p.parentUuid) || null) : null,
 					});
 				}
 			}
 
-			// Сортируем: сначала самые «мёртвые» (999 дней), потом по имени
-			allSalesData.sort((a, b) => {
-				if (b.daysWithoutSales !== a.daysWithoutSales) return b.daysWithoutSales - a.daysWithoutSales;
-				return a.name.localeCompare(b.name);
-			});
+			allSalesData.sort((a, b) => b.daysWithoutSales - a.daysWithoutSales || a.name.localeCompare(b.name));
+
+			const totalFrozenCost = allSalesData.reduce((s, i) => s + (i.totalFrozenCost ?? 0), 0);
+			const catMap = new Map<string, { groupName: string; totalFrozenCost: number; itemCount: number }>();
+			for (const i of allSalesData) {
+				const gKey = i.parentUuid || "__none__";
+				const gName = i.groupName || "Без категории";
+				if (!catMap.has(gKey)) catMap.set(gKey, { groupName: gName, totalFrozenCost: 0, itemCount: 0 });
+				const c = catMap.get(gKey)!;
+				c.totalFrozenCost += i.totalFrozenCost ?? 0;
+				c.itemCount += 1;
+			}
+			const categories = [...catMap.values()]
+				.map(c => ({ ...c, totalFrozenCost: Math.round(c.totalFrozenCost * 100) / 100,
+					share: totalFrozenCost > 0 ? Math.round((c.totalFrozenCost / totalFrozenCost) * 10000) / 100 : 0 }))
+				.sort((a, b) => b.totalFrozenCost - a.totalFrozenCost);
 
 			const displayName = targetShopUuids.length === 1
-				? allSalesData[0]?.shopName || "Магазин"
-				: "Все магазины";
+				? allSalesData[0]?.shopName || "Магазин" : "Все магазины";
 
-			return c.json({ salesData: allSalesData, shopName: displayName, startDate, endDate });
+			return c.json({ salesData: allSalesData, shopName: displayName, startDate, endDate,
+				totalFrozenCost: Math.round(totalFrozenCost * 100) / 100, categories });
 		} catch (err) {
 			console.error("dead-stocks/data error:", err);
-			return c.json({ salesData: [], shopName: "", startDate: "", endDate: "" }, 500);
+			return c.json({ salesData: [], shopName: "", startDate: "", endDate: "",
+				totalFrozenCost: 0, categories: [] }, 500);
+		}
+	})
+
+	// ─── Сохранение отчёта как HTML-страницы ───
+	.post("/api/dead-stocks/save-report", async (c) => {
+		try {
+			const db = c.get("db");
+			const { generateDeadStockHtml } = await import("./services/reportHtml");
+			const crypto = await import("crypto");
+			const body = await c.req.json<{
+				since?: string; until?: string;
+				daysWithoutSales?: number;
+				shopId?: string;
+				title?: string;
+			}>();
+			const daysWithoutSales = body.daysWithoutSales ?? 14;
+			const shopId = body.shopId || undefined;
+
+			// Собираем те же данные, что и GET /api/analytics/dead-stock
+			let prodQuery = `SELECT uuid, name, article, shopId, parentUuid, quantity, price, measureName
+			                 FROM shopProduct WHERE product_group = 0 AND quantity > 0`;
+			const binds: any[] = [];
+			if (shopId) { prodQuery += ` AND shopId = ?`; binds.push(shopId); }
+			const products = await db.prepare(prodQuery).bind(...binds).all<{
+				uuid: string; name: string; article: string | null; shopId: string;
+				parentUuid: string | null; quantity: number; price: number; measureName: string;
+			}>();
+			const productRows = products.results ?? [];
+
+			const shopRows = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+			const shopNames = new Map(shopRows.results?.map(r => [r.uuid, r.name]) ?? []);
+			const groupRows = await db.prepare("SELECT uuid, name FROM shopProduct WHERE product_group = 1").all<{ uuid: string; name: string }>();
+			const groupNames = new Map(groupRows.results?.map(r => [r.uuid, r.name]) ?? []);
+			const costRows = await db.prepare("SELECT productName, costPrice FROM product_cost_prices").all<{ productName: string; costPrice: number }>();
+			const costByName = new Map<string, number>();
+			for (const r of costRows.results ?? []) costByName.set(r.productName, r.costPrice);
+
+			const lastSaleByKey = new Map<string, string>();
+			const since90 = new Date(); since90.setDate(since90.getDate() - 90);
+			const sinceStr = since90.toISOString().slice(0, 10);
+			const shopIds = [...new Set(productRows.map(p => p.shopId))];
+			for (const sid of shopIds) {
+				const docs = await db.prepare(
+					`SELECT transactions, close_date FROM index_documents
+					 WHERE shop_id = ? AND close_date >= ? AND type IN ('SELL', 'PAYBACK')`
+				).bind(sid, sinceStr + "T00:00:00").all<{ transactions: string; close_date: string }>();
+				for (const doc of docs.results ?? []) {
+					const day = doc.close_date.slice(0, 10);
+					let txs: any[];
+					try { txs = JSON.parse(doc.transactions); } catch { continue; }
+					if (!Array.isArray(txs)) continue;
+					for (const tx of txs) {
+						if (tx.type !== "REGISTER_POSITION" || !tx.commodityUuid) continue;
+						const key = `${tx.commodityUuid}|${sid}`;
+						if (!lastSaleByKey.has(key) || day > lastSaleByKey.get(key)!) lastSaleByKey.set(key, day);
+					}
+				}
+			}
+
+			const nowStr = new Date().toISOString().slice(0, 10);
+			const items: any[] = [];
+			for (const p of productRows) {
+				const key = `${p.uuid}|${p.shopId}`;
+				const last = lastSaleByKey.get(key) || null;
+				const days = last ? Math.floor((new Date(nowStr).getTime() - new Date(last).getTime()) / 86400000) : 999;
+				if (days < daysWithoutSales) continue;
+				const uc = costByName.get(p.name) ?? null;
+				items.push({
+					name: p.name, article: p.article || "", shopName: shopNames.get(p.shopId) || p.shopId,
+					quantity: p.quantity, daysWithoutSales: days, lastSaleDate: last,
+					unitCost: uc, totalFrozenCost: uc != null ? Math.round(p.quantity * uc * 100) / 100 : null,
+					groupName: p.parentUuid ? (groupNames.get(p.parentUuid) || null) : null,
+					price: p.price, measureName: p.measureName,
+				});
+			}
+			items.sort((a, b) => b.daysWithoutSales - a.daysWithoutSales);
+
+			const totalFrozenCost = items.reduce((s, i) => s + (i.totalFrozenCost ?? 0), 0);
+			const catMap = new Map<string, { groupName: string; totalFrozenCost: number; itemCount: number }>();
+			for (const i of items) {
+				const gKey = i.groupName || "__none__";
+				const gName = i.groupName || "Без категории";
+				if (!catMap.has(gKey)) catMap.set(gKey, { groupName: gName, totalFrozenCost: 0, itemCount: 0 });
+				const cc = catMap.get(gKey)!;
+				cc.totalFrozenCost += i.totalFrozenCost ?? 0;
+				cc.itemCount += 1;
+			}
+			const categories = [...catMap.values()].map(c => ({
+				...c, totalFrozenCost: Math.round(c.totalFrozenCost * 100) / 100,
+			})).sort((a, b) => b.totalFrozenCost - a.totalFrozenCost);
+
+			const expiresAt = new Date(); expiresAt.setDate(expiresAt.getDate() + 30);
+			const html = generateDeadStockHtml({
+				generatedAt: new Date().toLocaleString("ru-RU"),
+				expiresAt: expiresAt.toLocaleDateString("ru-RU"),
+				periodLabel: body.title || `Мёртвые остатки ≥ ${daysWithoutSales} дн.`,
+				threshold: daysWithoutSales,
+				items, total: items.length,
+				totalFrozenCost: Math.round(totalFrozenCost * 100) / 100,
+				categories,
+			});
+
+			const id = crypto.randomBytes(12).toString("hex");
+			// Сохраняем локально (R2 используется только в production Cloudflare)
+			const fs = await import("fs");
+			const dir = "./data/storage/reports/dead-stock";
+			fs.mkdirSync(dir, { recursive: true });
+			fs.writeFileSync(`${dir}/${id}.html`, html, "utf-8");
+
+			const baseUrl = `http://localhost:${process.env.PORT || 3000}`;
+			return c.json({
+				url: `${baseUrl}/reports/dead-stock/${id}`,
+				expiresAt: expiresAt.toISOString().slice(0, 10),
+				size: html.length,
+			});
+		} catch (err) {
+			console.error("save-report error:", err);
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+
+	// Отдача сохранённых HTML-отчётов
+	.get("/reports/dead-stock/:id", async (c) => {
+		try {
+			const id = c.req.param("id");
+			const fs = await import("fs");
+			const filePath = `./data/storage/reports/dead-stock/${id}.html`;
+			if (!fs.existsSync(filePath)) return c.text("Отчёт не найден или истёк", 404);
+			const html = fs.readFileSync(filePath, "utf-8");
+			return new Response(html, {
+				headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+			});
+		} catch (err) {
+			return c.text("Ошибка загрузки отчёта", 500);
 		}
 	})
 
@@ -2322,7 +2742,6 @@ export const api = new Hono<IEnv>()
 			products: { label: "синхронизация товаров", run: updateProducts },
 			stock: { label: "синхронизация остатков", run: syncStock },
 			salary: { label: "расчёт ЗП", run: getDataForCurrentDate },
-			"dead-stock": { label: "кэш мёртвых остатков", run: refreshDeadStockTask },
 			"push-check": {
 				label: "push-уведомления",
 				run: async (e) => {
@@ -2906,7 +3325,7 @@ export const api = new Hono<IEnv>()
 
 			for (const a of actions) {
 				const item = await db.prepare(
-					"SELECT name, shopName, unitCost FROM dead_stock_cache WHERE itemId = ? AND shopId = ?"
+					"SELECT sp.name, s.name as shopName, pcp.costPrice as unitCost FROM shopProduct sp LEFT JOIN shops s ON s.uuid = sp.shopId LEFT JOIN product_cost_prices pcp ON pcp.productName = sp.name WHERE sp.uuid = ? AND sp.shopId = ? LIMIT 1"
 				).bind(a.itemId, a.shopId).first<{ name: string; shopName: string; unitCost: number | null }>();
 
 				let targetShop = "—";
@@ -2979,59 +3398,132 @@ export const api = new Hono<IEnv>()
 	})
 
 	// --- /api/analytics/dead-stock ---
-	// Параметры: daysWithoutSales (default 45), shopId (null/"all" = все), since, until
-	// Возвращает товары из кэша dead_stock_cache
+	// Параметры: daysWithoutSales (default 45), shopId (null/"all" = все)
+	// Работает напрямую с реальными таблицами — без кэша
 	.get("/api/analytics/dead-stock", async (c) => {
 		try {
 			const db = c.get("db");
 			const daysWithoutSales = parseInt(c.req.query("daysWithoutSales") || "45");
 			const shopIdRaw = c.req.query("shopId") || undefined;
-			const since = c.req.query("since") || undefined;
-			const until = c.req.query("until") || undefined;
-
-			// Нормализация: null, "all", "" → все магазины
 			const shopId = (shopIdRaw && shopIdRaw !== "all" && shopIdRaw !== "null") ? shopIdRaw : undefined;
 
-			await createDeadStockCacheTable(db);
-			const rows = await getDeadStockCache(db, daysWithoutSales, shopId, since, until);
+			// 1. Все товары с остатком > 0
+			let productQuery = `SELECT uuid, name, article, shopId, parentUuid, quantity, price, measureName
+			                    FROM shopProduct WHERE product_group = 0 AND quantity > 0`;
+			const binds: any[] = [];
+			if (shopId) {
+				productQuery += ` AND shopId = ?`;
+				binds.push(shopId);
+			}
+			const products = await db.prepare(productQuery).bind(...binds).all<{
+				uuid: string; name: string; article: string | null;
+				shopId: string; parentUuid: string | null;
+				quantity: number; price: number; measureName: string;
+			}>();
+			const productRows = products.results ?? [];
+			if (productRows.length === 0) {
+				return c.json({ items: [], total: 0, totalFrozenCost: 0, categories: [],
+					threshold: daysWithoutSales, shopId: shopId || null });
+			}
 
-			// Суммарный замороженный капитал (по всем товарам с известной себестоимостью)
-			const totalFrozenCost = rows.reduce(
-				(sum, r) => sum + (r.totalFrozenCost ?? 0),
-				0,
-			);
+			// 2. Имена магазинов
+			const shopRows = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+			const shopNames = new Map(shopRows.results?.map(r => [r.uuid, r.name]) ?? []);
 
-			// Группировка по категориям
-			const catMap = new Map<string, { groupName: string; totalFrozenCost: number; itemCount: number }>();
-			for (const r of rows) {
-				const gKey = r.parentUuid || "__none__";
-				const gName = r.groupName || "Без категории";
-				if (!catMap.has(gKey)) {
-					catMap.set(gKey, { groupName: gName, totalFrozenCost: 0, itemCount: 0 });
+			// 3. Имена групп
+			const groupRows = await db.prepare("SELECT uuid, name FROM shopProduct WHERE product_group = 1").all<{ uuid: string; name: string }>();
+			const groupNames = new Map(groupRows.results?.map(r => [r.uuid, r.name]) ?? []);
+
+			// 4. Себестоимость из 1С
+			const costRows = await db.prepare("SELECT productName, costPrice FROM product_cost_prices").all<{ productName: string; costPrice: number }>();
+			const costByName = new Map<string, number>();
+			for (const r of costRows.results ?? []) costByName.set(r.productName, r.costPrice);
+
+			// 5. Последние продажи — один проход по всем документам
+			const lastSaleByKey = new Map<string, string>(); // "uuid|shopId" → "YYYY-MM-DD"
+			const since90 = new Date(); since90.setDate(since90.getDate() - 90);
+			const sinceStr = since90.toISOString().slice(0, 10);
+
+			const shopIds = [...new Set(productRows.map(p => p.shopId))];
+			for (const sid of shopIds) {
+				const docs = await db.prepare(
+					`SELECT transactions, close_date FROM index_documents
+					 WHERE shop_id = ? AND close_date >= ? AND type IN ('SELL', 'PAYBACK')`
+				).bind(sid, sinceStr + "T00:00:00").all<{ transactions: string; close_date: string }>();
+
+				for (const doc of docs.results ?? []) {
+					const day = doc.close_date.slice(0, 10);
+					let txs: any[];
+					try { txs = JSON.parse(doc.transactions); } catch { continue; }
+					if (!Array.isArray(txs)) continue;
+					for (const tx of txs) {
+						if (tx.type !== "REGISTER_POSITION" || !tx.commodityUuid) continue;
+						const key = `${tx.commodityUuid}|${sid}`;
+						if (!lastSaleByKey.has(key) || day > lastSaleByKey.get(key)!) {
+							lastSaleByKey.set(key, day);
+						}
+					}
 				}
+			}
+
+			// 6. Собираем результат
+			const nowStr = new Date().toISOString().slice(0, 10);
+			const items: any[] = [];
+
+			for (const p of productRows) {
+				const key = `${p.uuid}|${p.shopId}`;
+				const lastSale = lastSaleByKey.get(key) || null;
+				const days = lastSale
+					? Math.floor((new Date(nowStr).getTime() - new Date(lastSale).getTime()) / 86400000)
+					: 999;
+				if (days < daysWithoutSales) continue;
+
+				const unitCost = costByName.get(p.name) ?? null;
+				const totalFrozenCost = (unitCost != null) ? Math.round(p.quantity * unitCost * 100) / 100 : null;
+
+				items.push({
+					itemId: p.uuid,
+					name: p.name,
+					article: p.article || "",
+					currentStock: p.quantity,
+					daysWithoutSales: days,
+					lastSaleDate: lastSale,
+					shopId: p.shopId,
+					shopName: shopNames.get(p.shopId) || p.shopId,
+					totalRevenueLast90Days: 0,
+					unitCost,
+					totalFrozenCost,
+					parentUuid: p.parentUuid || null,
+					groupName: p.parentUuid ? (groupNames.get(p.parentUuid) || null) : null,
+					updatedAt: nowStr,
+					price: p.price,
+					measureName: p.measureName,
+				});
+			}
+
+			items.sort((a, b) => b.daysWithoutSales - a.daysWithoutSales || a.name.localeCompare(b.name));
+
+			// 7. Итоги
+			const totalFrozenCost = items.reduce((s, i) => s + (i.totalFrozenCost ?? 0), 0);
+			const catMap = new Map<string, { groupName: string; totalFrozenCost: number; itemCount: number }>();
+			for (const i of items) {
+				const gKey = i.parentUuid || "__none__";
+				const gName = i.groupName || "Без категории";
+				if (!catMap.has(gKey)) catMap.set(gKey, { groupName: gName, totalFrozenCost: 0, itemCount: 0 });
 				const c = catMap.get(gKey)!;
-				c.totalFrozenCost += r.totalFrozenCost ?? 0;
+				c.totalFrozenCost += i.totalFrozenCost ?? 0;
 				c.itemCount += 1;
 			}
 			const categories = [...catMap.values()]
-				.map(c => ({
-					...c,
-					totalFrozenCost: Math.round(c.totalFrozenCost * 100) / 100,
-					share: totalFrozenCost > 0
-						? Math.round((c.totalFrozenCost / totalFrozenCost) * 10000) / 100
-						: 0,
-				}))
+				.map(c => ({ ...c, totalFrozenCost: Math.round(c.totalFrozenCost * 100) / 100,
+					share: totalFrozenCost > 0 ? Math.round((c.totalFrozenCost / totalFrozenCost) * 10000) / 100 : 0 }))
 				.sort((a, b) => b.totalFrozenCost - a.totalFrozenCost);
 
 			return c.json({
-				items: rows,
-				total: rows.length,
+				items, total: items.length,
 				totalFrozenCost: Math.round(totalFrozenCost * 100) / 100,
-				categories,
-				threshold: daysWithoutSales,
-				shopId: shopId || null,
-				since: since || null,
-				until: until || null,
+				categories, threshold: daysWithoutSales,
+				shopId: shopId || null, since: null, until: null,
 			});
 		} catch (err) {
 			console.error("dead-stock analytics error:", err);
@@ -3054,30 +3546,31 @@ export const api = new Hono<IEnv>()
 				return c.json({ error: "itemId и shopId обязательны" }, 400);
 			}
 
-			// 1. Данные из кэша
-			await createDeadStockCacheTable(db);
-			const cacheRow = await db.prepare(
-				"SELECT * FROM dead_stock_cache WHERE itemId = ? AND shopId = ?"
-			).bind(itemId, shopId).first<DeadStockCacheRow>();
+			// 1. Данные из реальных таблиц (shopProduct + product_cost_prices)
+			const productRow = await db.prepare(
+				`SELECT sp.uuid as itemId, sp.name, sp.article, sp.quantity as currentStock,
+				        sp.shopId, s.name as shopName, sp.parentUuid,
+				        pcp.costPrice as unitCost
+				 FROM shopProduct sp
+				 LEFT JOIN shops s ON s.uuid = sp.shopId
+				 LEFT JOIN product_cost_prices pcp ON pcp.productName = sp.name
+				 WHERE sp.uuid = ? AND sp.shopId = ?`
+			).bind(itemId, shopId).first<{
+				itemId: string; name: string; article: string | null;
+				currentStock: number | null; shopId: string; shopName: string;
+				parentUuid: string | null; unitCost: number | null;
+			}>();
 
-			if (!cacheRow) {
-				return c.json({ error: "Товар не найден в кэше" }, 404);
+			if (!productRow) {
+				return c.json({ error: "Товар не найден" }, 404);
 			}
 
-			const productName = cacheRow.name;
+			const productName = productRow.name;
 
-			// 2. Детальные продажи за последние 90 дней (по дням)
-			const since90 = new Date();
-			since90.setDate(since90.getDate() - 90);
-			const sinceStr = since90.toISOString().slice(0, 10);
-
-			const salesHistory: { date: string; qty: number; sum: number }[] = [];
-			const docs = await db.prepare(
-				`SELECT close_date, transactions, index_documents.type FROM index_documents
-				 WHERE shop_id = ? AND close_date >= ? AND index_documents.type IN ('SELL', 'PAYBACK')`
-			).bind(shopId, sinceStr + "T00:00:00").all<{
-				close_date: string; transactions: string; type: string;
-			}>();
+			// Найдём lastSaleDate и daysWithoutSales — из скана выше
+			let lastSaleDate: string | null = null;
+			let totalRevenueLast90Days = 0;
+			let daysWithoutSales = 999;
 
 			for (const doc of docs.results ?? []) {
 				const isRefund = doc.type === "PAYBACK";
@@ -3090,16 +3583,50 @@ export const api = new Hono<IEnv>()
 				for (const tx of txs) {
 					if (tx.type !== "REGISTER_POSITION") continue;
 					if (tx.commodityUuid !== itemId) continue;
+					// lastSaleDate
+					if (!lastSaleDate || day > lastSaleDate) lastSaleDate = day;
+					// revenue
+					if (!isRefund) totalRevenueLast90Days += (tx.sum ?? 0);
+				}
+			}
+
+			const nowStr = new Date().toISOString().slice(0, 10);
+			if (lastSaleDate) {
+				daysWithoutSales = Math.floor((new Date(nowStr).getTime() - new Date(lastSaleDate).getTime()) / 86400000);
+			}
+			totalRevenueLast90Days = Math.round(totalRevenueLast90Days);
+
+			// 2. Детальные продажи за последние 90 дней (по дням) — уже посчитаны выше,
+			//    перестраиваем salesHistory для совместимости
+			const since90 = new Date();
+			since90.setDate(since90.getDate() - 90);
+			const sinceStr = since90.toISOString().slice(0, 10);
+
+			const salesHistory: { date: string; qty: number; sum: number }[] = [];
+			// Повторно проходим для salesHistory
+			const docs2 = await db.prepare(
+				`SELECT close_date, transactions, index_documents.type FROM index_documents
+				 WHERE shop_id = ? AND close_date >= ? AND index_documents.type IN ('SELL', 'PAYBACK')`
+			).bind(shopId, sinceStr + "T00:00:00").all<{
+				close_date: string; transactions: string; type: string;
+			}>();
+
+			for (const doc of docs2.results ?? []) {
+				const isRefund = doc.type === "PAYBACK";
+				const sign = isRefund ? -1 : 1;
+				const day = doc.close_date.slice(0, 10);
+				let txs: any[];
+				try { txs = JSON.parse(doc.transactions); } catch { continue; }
+				if (!Array.isArray(txs)) continue;
+				for (const tx of txs) {
+					if (tx.type !== "REGISTER_POSITION") continue;
+					if (tx.commodityUuid !== itemId) continue;
 					const existing = salesHistory.find(s => s.date === day);
 					if (existing) {
 						existing.qty += (tx.quantity ?? 0) * sign;
 						existing.sum += (tx.sum ?? 0) * sign;
 					} else {
-						salesHistory.push({
-							date: day,
-							qty: (tx.quantity ?? 0) * sign,
-							sum: (tx.sum ?? 0) * sign,
-						});
+						salesHistory.push({ date: day, qty: (tx.quantity ?? 0) * sign, sum: (tx.sum ?? 0) * sign });
 					}
 				}
 			}
@@ -3242,14 +3769,14 @@ export const api = new Hono<IEnv>()
 
 			const system = `Ты — категорийный менеджер сети вейп-шопов. Твоя задача — проанализировать конкретный товар и дать чёткие, основанные на данных рекомендации. Будь конкретным, избегай общих фраз.`;
 
-			const user = `Товар: ${cacheRow.name}
-Артикул: ${cacheRow.article || "не указан"}
-Остаток: ${cacheRow.currentStock ?? "неизвестно"} шт.
-Дней без продаж: ${cacheRow.daysWithoutSales}
-Последняя продажа: ${cacheRow.lastSaleDate || "никогда"}
-Выручка за 90 дней: ${cacheRow.totalRevenueLast90Days} ₽
+			const user = `Товар: ${productRow.name}
+Артикул: ${productRow.article || "не указан"}
+Остаток: ${productRow.currentStock ?? "неизвестно"} шт.
+Дней без продаж: ${daysWithoutSales}
+Последняя продажа: ${lastSaleDate || "никогда"}
+Выручка за 90 дней: ${totalRevenueLast90Days} ₽
 Маржа: ${marginPct}%
-Магазин: ${cacheRow.shopName}
+Магазин: ${productRow.shopName}
 
 Продажи по дням (последние 10 дней с продажами):
 ${salesSummary}
@@ -3294,13 +3821,13 @@ ${otherShopsInfo}
 
 			return c.json({
 				item: {
-					itemId: cacheRow.itemId,
-					name: cacheRow.name,
-					shopId: cacheRow.shopId,
-					shopName: cacheRow.shopName,
-					daysWithoutSales: cacheRow.daysWithoutSales,
-					lastSaleDate: cacheRow.lastSaleDate,
-					totalRevenueLast90Days: cacheRow.totalRevenueLast90Days,
+					itemId: productRow.itemId,
+					name: productRow.name,
+					shopId: productRow.shopId,
+					shopName: productRow.shopName,
+					daysWithoutSales,
+					lastSaleDate,
+					totalRevenueLast90Days,
 					marginPct,
 				},
 				analysis,

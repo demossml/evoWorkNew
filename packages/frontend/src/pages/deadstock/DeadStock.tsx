@@ -11,7 +11,7 @@ import { DeadStockGrid, type DeadStockTileItem } from "@widgets/deadstock/ui/Dea
 import type { PlannedAction } from "@widgets/deadstock/ui/DeadStockDetailModal";
 import { GroupSelector } from "@widgets/reports";
 import { ShopFilter } from "@widgets/filters";
-import { FileDown } from "lucide-react";
+import { FileDown, Share2, Copy, Check } from "lucide-react";
 
 interface GroupOption {
   name: string;
@@ -101,6 +101,9 @@ export default function DeadSt() {
   const [isLoadingShops, setIsLoadingShops] = useState(false);
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
+  const [savingReport, setSavingReport] = useState(false);
+  const [savedUrl, setSavedUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Кэш себестоимостей (itemId|shopId → { unitCost, totalFrozenCost, groupName })
   const [costMap, setCostMap] = useState<Map<string, { unitCost: number | null; totalFrozenCost: number | null; groupName: string | null }>>(new Map());
@@ -468,10 +471,36 @@ export default function DeadSt() {
               )}
               <button
                 type="button"
+                onClick={async () => {
+                  setSavingReport(true);
+                  setSavedUrl(null);
+                  try {
+                    const res = await fetch("/api/dead-stocks/save-report", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        daysWithoutSales: 0,
+                        title: `Мёртвые остатки: ${formatPeriod(shopName, startDate, endDate)}`,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (data.url) setSavedUrl(data.url);
+                  } catch { /* ignore */ }
+                  finally { setSavingReport(false); }
+                }}
+                disabled={savingReport}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                {savingReport ? "..." : "Сохранить отчёт"}
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   manualReturnToFilters.current = true;
                   setReportData(null);
                   setPlannedActions([]);
+                  setSavedUrl(null);
                 }}
                 className="rounded-lg px-3 py-1.5 text-xs font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 transition"
               >
@@ -479,6 +508,25 @@ export default function DeadSt() {
               </button>
             </div>
           </div>
+
+          {/* Ссылка на сохранённый отчёт */}
+          {savedUrl && (
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3 flex items-center gap-2">
+              <span className="text-xs text-emerald-700 dark:text-emerald-300 flex-1 truncate">
+                Отчёт сохранён: <span className="font-mono">{savedUrl}</span>
+              </span>
+              <button
+                onClick={() => { navigator.clipboard.writeText(savedUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                className="shrink-0 p-1.5 rounded-lg bg-white dark:bg-gray-800 border border-border hover:bg-muted transition"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
+              </button>
+              <a href={savedUrl} target="_blank" rel="noopener noreferrer"
+                className="shrink-0 text-xs font-medium text-emerald-700 dark:text-emerald-300 hover:underline">
+                Открыть
+              </a>
+            </div>
+          )}
 
           {/* Categories summary */}
           {categories.length > 0 && (

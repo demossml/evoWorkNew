@@ -1,6 +1,5 @@
 import type { D1Database, D1PreparedStatement } from "@cloudflare/workers-types";
 import { Evotor } from "../evotor";
-import type { StockApiItem } from "../evotor/types";
 import {
   formatDate,
   formatDateWithTime,
@@ -243,7 +242,7 @@ export async function syncStock(env: SyncEnv): Promise<void> {
   const evo = new Evotor(token);
 
   try {
-    // Ensure stock table exists (detail table)
+    // Ensure stock table exists
     await env.DB.prepare(`
       CREATE TABLE IF NOT EXISTS stock (
         shop_id TEXT NOT NULL,
@@ -263,22 +262,13 @@ export async function syncStock(env: SyncEnv): Promise<void> {
 
     for (const shopId of shops) {
       try {
-        const items: StockApiItem[] = await evo.getStoreStock(shopId);
+        // getProducts возвращает ProductsResponse, но фактически API отдаёт массив.
+        // Безопасно извлекаем: проверяем .items, иначе сам ответ как массив.
+        const raw = await evo.getProducts(shopId);
+        const items: any[] = Array.isArray(raw) ? raw : (raw as any)?.items ?? [];
         console.log(`[syncStock] Магазин ${shopId}: получено ${items.length} позиций`);
 
-        if (!items || items.length === 0) continue;
-
-        // Get shop name for stock table
-        const shopRow = await env.DB.prepare(
-          "SELECT name FROM shops WHERE uuid = ?"
-        ).bind(shopId).first<{ name: string }>();
-        const shopName = shopRow?.name || shopId;
-
-        // Batch update both stock table and shopProduct.quantity
-        const stockStmt = env.DB.prepare(`
-          INSERT OR REPLACE INTO stock (shop_id, product_uuid, product_name, quantity, measure_name, purchase_price, selling_price, updated_at)
-          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))
-        `);
+        if (items.length === 0) continue;
 
         const productStmt = env.DB.prepare(`
           UPDATE shopProduct SET quantity = ?1, price = ?2, measureName = ?3
@@ -288,15 +278,14 @@ export async function syncStock(env: SyncEnv): Promise<void> {
         const batch: D1PreparedStatement[] = [];
 
         for (const item of items) {
-          const uuid = item.productUuid || item.uuid;
+          const uuid = item.uuid;
+          // quantity есть в ответе API как поле (не в типах TypeScript)
           const qty = item.quantity ?? 0;
-          const price = item.sellingPrice ?? item.price ?? 0;
-          const purchasePrice = item.purchasePrice ?? 0;
-          const measureName = item.measureName || "шт";
+          const price = item.price ?? 0;
+          const measureName = item.measure_name || "шт";
 
           if (!uuid) continue;
 
-          batch.push(stockStmt.bind(shopId, uuid, shopName, qty, measureName, purchasePrice, price));
           batch.push(productStmt.bind(qty, price, measureName, shopId, uuid));
         }
 
@@ -1162,15 +1151,4 @@ export async function sendDailyTopSellers(env: SyncEnv): Promise<void> {
     console.error("[top-sellers] Error:", err.message);
   }
 }
-
-// Task: refreshDeadStockCache — ночное обновление кэша мёртвых остатков
-export async function refreshDeadStockTask(env: SyncEnv): Promise<void> {
-  try {
-    console.log("[dead-stock-cache] Начало обновления кэша...");
-    await createDeadStockCacheTable(env.DB);
-    const count = await refreshDeadStockCache(env.DB);
-    console.log(`[dead-stock-cache] Обновлено ${count} записей`);
-  } catch (err: any) {
-    console.error("[dead-stock-cache] Error:", err.message);
-  }
-}
+// ============================================================================

@@ -1,5 +1,30 @@
 import type { LucideIcon } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 export type { LucideIcon };
+
+/** Единый компонент ошибки уровня тайла — используется во всех виджетах домашней страницы */
+export function WidgetErrorState({
+  title,
+  onRetry,
+}: {
+  title: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="rounded-xl bg-card border border-destructive/30 p-4 min-h-[120px] flex flex-col items-center justify-center gap-2 text-center">
+      <AlertTriangle className="w-5 h-5 text-destructive" />
+      <span className="text-xs text-muted-foreground">{title}</span>
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="inline-flex items-center gap-1 text-xs font-medium text-destructive hover:underline"
+        >
+          <RefreshCw className="w-3 h-3" /> Повторить
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function LoadingTile({ title, Icon, tone = "blue" }: {
   title: string;

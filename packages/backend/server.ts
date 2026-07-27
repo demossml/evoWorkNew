@@ -28,7 +28,7 @@ import { createProductsTableIfNotExists } from "./src/sync/db";
 import { createCostPricesTableIfNotExists } from "./src/evotor/utils";
 import { runMigrations } from "./src/db/migrations";
 
-import { syncDocuments, syncShops, syncEmployees, updateProductsShope, updatePlan_, getDataForCurrentDate, updateDataSaleByPlan, checkAndSendCriticalAlerts } from "./src/sync/cron";
+import { syncDocuments, syncShops, syncEmployees, updateProductsShope, updatePlan_, getDataForCurrentDate, updateDataSaleByPlan, checkAndSendCriticalAlerts, syncStock } from "./src/sync/cron";
 
 const DATA_DIR = process.env.DATA_DIR ?? "./data";
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
@@ -219,6 +219,11 @@ function setupCron() {
 		runSyncTask(() => updateProductsShope(env), "updateProductsShope");
 	});
 
+	// Каждые 30 минут — синхронизация остатков (stock + shopProduct.quantity)
+	cron.schedule("*/30 * * * *", () => {
+		runSyncTask(() => syncStock(env), "syncStock");
+	});
+
 	// Каждый день в 01:00 — планы, продажи по плану, зарплаты, алерты
 	cron.schedule("0 1 * * *", () => {
 		runSyncTask(() => updatePlan_(env), "updatePlans");
@@ -232,6 +237,7 @@ function setupCron() {
 	console.log("  syncShops           — каждые 20 минут");
 	console.log("  syncEmployees       — каждые 20 минут");
 	console.log("  updateProductsShope — каждые 25 минут");
+	console.log("  syncStock          — каждые 30 минут");
 	console.log("  updatePlans         — каждый день в 01:00");
 	console.log("  updateSalesByPlan   — каждый день в 01:00");
 	console.log("  calcSalary          — каждый день в 01:00");
