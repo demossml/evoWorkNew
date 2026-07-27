@@ -19,40 +19,30 @@ function trackInstall(outcome: "accepted" | "dismissed") {
 
 // ─── Ручное управление Service Worker (без useRegisterSW) ──────────────
 
-/** Один раз при монтировании — слушаем появление нового SW */
 function usePwaUpdate(onUpdateFound: () => void) {
-  const firedRef = useRef(false);
+  const cbRef = useRef(onUpdateFound);
+  cbRef.current = onUpdateFound; // всегда свежий колбек
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
+    let fired = false;
+
+    const fire = () => {
+      if (!fired) { fired = true; cbRef.current(); }
+    };
 
     const checkReg = async (reg: ServiceWorkerRegistration) => {
-      // Уже есть ожидающий → сразу показываем баннер
-      if (reg.waiting) {
-        if (!firedRef.current) { firedRef.current = true; onUpdateFound(); }
-        return;
-      }
-
-      // Слушаем появление нового SW
-      const onStateChange = (sw: ServiceWorker) => {
-        if (sw.state === "installed") {
-          // Новый SW установлен и ждёт активации
-          if (!firedRef.current) { firedRef.current = true; onUpdateFound(); }
-        }
-      };
+      if (reg.waiting) { fire(); return; }
 
       reg.addEventListener("updatefound", () => {
         const newSw = reg.installing;
-        if (newSw) {
-          newSw.addEventListener("statechange", () => onStateChange(newSw));
-          // Если уже installed к моменту слушателя
-          if (newSw.state === "installed") {
-            if (!firedRef.current) { firedRef.current = true; onUpdateFound(); }
-          }
-        }
+        if (!newSw) return;
+        newSw.addEventListener("statechange", () => {
+          if (newSw.state === "installed") fire();
+        });
+        if (newSw.state === "installed") fire();
       });
 
-      // Проверяем обновления при старте
       try { await reg.update(); } catch {}
     };
 
@@ -60,7 +50,6 @@ function usePwaUpdate(onUpdateFound: () => void) {
       if (reg) checkReg(reg);
     });
 
-    // Проверка обновлений каждые 30 минут
     const interval = setInterval(() => {
       navigator.serviceWorker.getRegistration().then(reg => {
         if (reg) reg.update().catch(() => {});
@@ -72,32 +61,30 @@ function usePwaUpdate(onUpdateFound: () => void) {
 }
 
 export function PWAInstall() {
-  if (import.meta.env.DEV) return null;
-
   const [showUpdate, setShowUpdate] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const dismissedRef = useRef(false);
 
-  // Коллбек, когда найден новый SW — показать баннер (если не dismissed)
   const onUpdateFound = useCallback(() => {
-    if (!dismissed) setShowUpdate(true);
-  }, [dismissed]);
+    if (!dismissedRef.current) setShowUpdate(true);
+  }, []);
 
   usePwaUpdate(onUpdateFound);
 
-  /** «Позже» — скрыть баннер до следующего обнаружения обновления */
   const handleLater = () => {
     setShowUpdate(false);
     setDismissed(true);
-    // Через час сбрасываем dismissed — если обновление всё ещё актуально, баннер появится снова
-    setTimeout(() => setDismissed(false), 60 * 60 * 1000);
+    dismissedRef.current = true;
+    setTimeout(() => {
+      setDismissed(false);
+      dismissedRef.current = false;
+    }, 60 * 60 * 1000);
   };
 
-  /** «Обновить» — очистить кэши, активировать новый SW, перезагрузить */
   const handleUpdate = async () => {
     setUpdating(true);
     try {
-      // 1. Очищаем контентные кэши
       const keys = await caches.keys();
       const contentCaches = keys.filter(k =>
         k.startsWith("static-assets") ||
@@ -109,10 +96,43 @@ export function PWAInstall() {
       );
       await Promise.all(contentCaches.map(k => caches.delete(k)));
 
-      // 2. Активируем ожидающий SW
       const reg = await navigator.serviceWorker.getRegistration();
       if (reg?.waiting) {
         reg.waiting.postMessage({ type: "SKIP_WAITING" });
+        await new Promise<void>((resolve) => {
+          const handler = () => {
+            navigator.serviceWorker.removeEventListener("controllerchange", handler);
+            resolve();
+          };
+          navigator.serviceWorker.addEventListener("controllerchange", handler);
+          setTimeout(resolve, 5000);
+        });
+      }
+
+      window.location.reload();
+    } catch {
+      window.location.reload();
+    }
+  };
+
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [installed, setInstalled] = useState(false);
+
+  useEffect(() => {
+    if (isPWAInstalled()) { setInstalled(true); return; }
+    const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e as BeforeInstallPromptEvent); };
+    window.addEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", () => { setInstalled(true); setDeferredPrompt(null); });
+    return () => { window.removeEventListener("beforeinstallprompt", handler); };
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    await deferredPrompt.prompt();
+    const result = await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
+    trackInstall(result.outcome as "accepted" | "dismissed");
+  };
 
         await new Promise<void>((resolve) => {
           const handler = () => {
