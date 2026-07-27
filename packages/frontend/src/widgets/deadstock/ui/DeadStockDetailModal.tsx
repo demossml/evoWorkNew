@@ -126,8 +126,9 @@ export const DeadStockDetailModal: React.FC<DeadStockDetailModalProps> = ({
   const [aiLoading, setAiLoading] = useState(false);
   const [actionTaken, setActionTaken] = useState(false);
   const [showShopPicker, setShowShopPicker] = useState(false);
-  // Multi-shop move: { shopId -> qty }
   const [moveMap, setMoveMap] = useState<Record<string, number>>({});
+  // Модалка выбора количества
+  const [qtyPicker, setQtyPicker] = useState<{ shopId: string; max: number } | null>(null);
 
   const heuristic = useMemo(() => getHeuristicAction(item), [item]);
 
@@ -352,13 +353,10 @@ export const DeadStockDetailModal: React.FC<DeadStockDetailModalProps> = ({
                         return (
                           <div key={s.uuid} className="flex items-center gap-2">
                             <span className="text-xs flex-1 truncate">{s.name}</span>
-                            <input type="number" min={0} max={maxForThis} value={qty}
-                              onChange={e => {
-                                const v = Math.max(0, Math.min(maxForThis, +e.target.value || 0));
-                                setMoveMap(prev => ({ ...prev, [s.uuid]: v }));
-                              }}
-                              onClick={e => e.stopPropagation()}
-                              className={`w-14 px-2 py-1.5 rounded-lg border text-xs text-center ${totalDistributed > item.quantity ? "border-red-400 bg-red-50" : "bg-card border-border"}`} />
+                            <button
+                              onClick={e => { e.stopPropagation(); setQtyPicker({ shopId: s.uuid, max: maxForThis }); }}
+                              className={`w-14 px-2 py-1.5 rounded-lg border text-xs font-semibold tabular-nums text-center transition ${totalDistributed > item.quantity ? "border-red-400 bg-red-50 text-red-600" : "bg-card border-border hover:border-primary/50 hover:bg-primary/5"}`}
+                            >{qty}</button>
                             <span className="text-[10px] text-muted-foreground w-8">шт.</span>
                           </div>
                         );
@@ -406,7 +404,7 @@ export const DeadStockDetailModal: React.FC<DeadStockDetailModalProps> = ({
                 {!analysis && !aiLoading && (
                   <button type="button" onClick={e => { e.stopPropagation(); fetchAiAnalysis(); }}
                     className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-medium border border-dashed border-violet-300 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition">
-                    🔮 Спросить AI
+                    AI анализ
                   </button>
                 )}
                 {aiLoading && (
@@ -421,7 +419,7 @@ export const DeadStockDetailModal: React.FC<DeadStockDetailModalProps> = ({
           {actionTaken && (
             <div className="sticky bottom-0 bg-card border-t border-border p-4">
               <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 border border-green-200 dark:border-green-800 text-center">
-                <p className="text-sm font-medium text-green-700 dark:text-green-400">✅ Действие запланировано</p>
+                <p className="text-sm font-medium text-green-700 dark:text-green-400">Действие запланировано</p>
                 <p className="text-[11px] text-muted-foreground mt-1">{item.name}</p>
               </div>
               <button onClick={onClose} className="w-full mt-2 py-2 rounded-xl text-sm border border-border hover:bg-secondary">Закрыть</button>
@@ -429,6 +427,44 @@ export const DeadStockDetailModal: React.FC<DeadStockDetailModalProps> = ({
           )}
         </motion.div>
       </motion.div>
+
+      {/* Модалка выбора количества */}
+      <AnimatePresence>
+        {qtyPicker && (
+          <motion.div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setQtyPicker(null)}>
+            <motion.div
+              className="bg-card w-48 max-h-[60vh] rounded-2xl shadow-xl overflow-hidden flex flex-col"
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              onClick={e => e.stopPropagation()}>
+              <div className="px-4 py-3 border-b border-border text-center">
+                <p className="text-sm font-semibold">Выберите количество</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">0 – {qtyPicker.max} шт.</p>
+              </div>
+              <div className="overflow-y-auto flex-1">
+                {Array.from({ length: qtyPicker.max + 1 }, (_, n) => {
+                  const current = moveMap[qtyPicker.shopId] || 0;
+                  return (
+                    <button
+                      key={n}
+                      onClick={() => {
+                        setMoveMap(prev => ({ ...prev, [qtyPicker.shopId]: n }));
+                        setQtyPicker(null);
+                      }}
+                      className={`w-full px-4 py-2.5 text-sm text-center transition ${n === current ? "bg-primary/10 text-primary font-bold" : "hover:bg-secondary/50 text-foreground"}`}
+                    >{n}</button>
+                  );
+                })}
+              </div>
+              <div className="px-4 py-2 border-t border-border">
+                <button onClick={() => setQtyPicker(null)}
+                  className="w-full py-2 rounded-lg text-xs text-muted-foreground hover:bg-secondary transition">Отмена</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   );
 };
