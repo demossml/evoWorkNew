@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { useRegisterSW } from "virtual:pwa-register/react";
+import { useEffect, useState, useRef, useCallback } from "react";
 
 export function isPWAInstalled(): boolean {
   return (
@@ -18,38 +17,87 @@ function trackInstall(outcome: "accepted" | "dismissed") {
   } catch { /* ignore */ }
 }
 
+// ─── Ручное управление Service Worker (без useRegisterSW) ──────────────
+
+/** Один раз при монтировании — слушаем появление нового SW */
+function usePwaUpdate(onUpdateFound: () => void) {
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+
+    const checkReg = async (reg: ServiceWorkerRegistration) => {
+      // Уже есть ожидающий → сразу показываем баннер
+      if (reg.waiting) {
+        if (!firedRef.current) { firedRef.current = true; onUpdateFound(); }
+        return;
+      }
+
+      // Слушаем появление нового SW
+      const onStateChange = (sw: ServiceWorker) => {
+        if (sw.state === "installed") {
+          // Новый SW установлен и ждёт активации
+          if (!firedRef.current) { firedRef.current = true; onUpdateFound(); }
+        }
+      };
+
+      reg.addEventListener("updatefound", () => {
+        const newSw = reg.installing;
+        if (newSw) {
+          newSw.addEventListener("statechange", () => onStateChange(newSw));
+          // Если уже installed к моменту слушателя
+          if (newSw.state === "installed") {
+            if (!firedRef.current) { firedRef.current = true; onUpdateFound(); }
+          }
+        }
+      });
+
+      // Проверяем обновления при старте
+      try { await reg.update(); } catch {}
+    };
+
+    navigator.serviceWorker.getRegistration().then(reg => {
+      if (reg) checkReg(reg);
+    });
+
+    // Проверка обновлений каждые 30 минут
+    const interval = setInterval(() => {
+      navigator.serviceWorker.getRegistration().then(reg => {
+        if (reg) reg.update().catch(() => {});
+      });
+    }, 30 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+}
+
 export function PWAInstall() {
   if (import.meta.env.DEV) return null;
 
-  const { needRefresh, offlineReady, updateServiceWorker } = useRegisterSW({
-    onRegisteredSW(swUrl, registration) {
-      if (registration) {
-        // Проверяем обновления каждые 30 минут
-        setInterval(() => {
-          registration.update().catch(() => {});
-        }, 30 * 60 * 1000);
-      }
-    },
-  });
-
   const [showUpdate, setShowUpdate] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
-    if (offlineReady) {
-      console.log("✅ Приложение готово к офлайн-работе");
-    }
-    if (needRefresh) {
-      console.log("♻️ Доступна новая версия");
-      setShowUpdate(true);
-    }
-  }, [offlineReady, needRefresh]);
+  // Коллбек, когда найден новый SW — показать баннер (если не dismissed)
+  const onUpdateFound = useCallback(() => {
+    if (!dismissed) setShowUpdate(true);
+  }, [dismissed]);
 
-  /** Очистить кэши, активировать новый SW и перезагрузить — один раз, без петли */
+  usePwaUpdate(onUpdateFound);
+
+  /** «Позже» — скрыть баннер до следующего обнаружения обновления */
+  const handleLater = () => {
+    setShowUpdate(false);
+    setDismissed(true);
+    // Через час сбрасываем dismissed — если обновление всё ещё актуально, баннер появится снова
+    setTimeout(() => setDismissed(false), 60 * 60 * 1000);
+  };
+
+  /** «Обновить» — очистить кэши, активировать новый SW, перезагрузить */
   const handleUpdate = async () => {
     setUpdating(true);
     try {
-      // 1. Очищаем контентные кэши (НЕ workbox-кеш самого SW)
+      // 1. Очищаем контентные кэши
       const keys = await caches.keys();
       const contentCaches = keys.filter(k =>
         k.startsWith("static-assets") ||
@@ -61,20 +109,17 @@ export function PWAInstall() {
       );
       await Promise.all(contentCaches.map(k => caches.delete(k)));
 
-      // 2. Ждём, пока новый SW возьмёт управление
+      // 2. Активируем ожидающий SW
       const reg = await navigator.serviceWorker.getRegistration();
-      if (reg && reg.waiting) {
-        // Сообщаем ожидающему SW: «активируйся»
+      if (reg?.waiting) {
         reg.waiting.postMessage({ type: "SKIP_WAITING" });
 
-        // Ждём смены контроллера
         await new Promise<void>((resolve) => {
-          const onControllerChange = () => {
-            navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+          const handler = () => {
+            navigator.serviceWorker.removeEventListener("controllerchange", handler);
             resolve();
           };
-          navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
-          // Таймаут 5 секунд — если не дождались, всё равно перезагружаем
+          navigator.serviceWorker.addEventListener("controllerchange", handler);
           setTimeout(resolve, 5000);
         });
       }
@@ -105,7 +150,7 @@ export function PWAInstall() {
     trackInstall(result.outcome as "accepted" | "dismissed");
   };
 
-  // ── Баннер обновления (показывается ВСЕГДА, когда есть обновление) ──
+  // ── Баннер обновления ──
   if (showUpdate) {
     return (
       <div className="fixed top-4 left-4 right-4 z-[100] rounded-xl bg-amber-500 p-4 text-white shadow-2xl animate-in slide-in-from-top-2">
@@ -120,7 +165,7 @@ export function PWAInstall() {
         </div>
         <div className="mt-3 flex gap-2">
           <button
-            onClick={() => setShowUpdate(false)}
+            onClick={handleLater}
             className="flex-1 rounded-lg bg-white/20 py-2.5 text-sm font-medium hover:bg-white/30 transition"
           >
             Позже
