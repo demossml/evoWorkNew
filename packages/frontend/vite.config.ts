@@ -15,7 +15,7 @@ export default defineConfig({
       workbox: {
         navigateFallback: "/offline.html",
         navigateFallbackAllowlist: [/^\//],
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/reports\//],
         runtimeCaching: [
           // Статика (JS/CSS) — Cache First
           {
