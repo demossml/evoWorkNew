@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate", // автообновление SW
+      registerType: "prompt", // баннер с кнопкой «Обновить» вместо автообновления
       devOptions: {
         enabled: true, // включено в dev для тестирования офлайн-режима
         type: "module",

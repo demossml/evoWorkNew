@@ -21,17 +21,48 @@ function trackInstall(outcome: "accepted" | "dismissed") {
 export function PWAInstall() {
   if (import.meta.env.DEV) return null;
 
-  const { needRefresh, offlineReady, updateServiceWorker } = useRegisterSW();
+  const { needRefresh, offlineReady, updateServiceWorker } = useRegisterSW({
+    onRegisteredSW(swUrl, registration) {
+      if (registration) {
+        // Проверяем обновления каждые 30 минут
+        setInterval(() => {
+          registration.update().catch(() => {});
+        }, 30 * 60 * 1000);
+      }
+    },
+  });
+
+  const [showUpdate, setShowUpdate] = useState(false);
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     if (offlineReady) {
       console.log("✅ Приложение готово к офлайн-работе");
     }
     if (needRefresh) {
-      console.log("♻️ Доступна новая версия, обновляем…");
-      updateServiceWorker();
+      console.log("♻️ Доступна новая версия");
+      setShowUpdate(true);
     }
-  }, [offlineReady, needRefresh, updateServiceWorker]);
+  }, [offlineReady, needRefresh]);
+
+  /** Очистить все кэши, обновить SW и перезагрузить */
+  const handleUpdate = async () => {
+    setUpdating(true);
+    try {
+      // 1. Очищаем все кэши
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+
+      // 2. Сообщаем SW пропустить ожидание и активироваться
+      await updateServiceWorker(true);
+
+      // 3. Перезагружаем страницу
+      window.location.reload();
+    } catch {
+      // Fallback: просто перезагрузить
+      window.location.reload();
+    }
+  };
 
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
@@ -52,8 +83,41 @@ export function PWAInstall() {
     trackInstall(result.outcome as "accepted" | "dismissed");
   };
 
+  // ── Баннер обновления (показывается ВСЕГДА, когда есть обновление) ──
+  if (showUpdate) {
+    return (
+      <div className="fixed top-4 left-4 right-4 z-[100] rounded-xl bg-amber-500 p-4 text-white shadow-2xl animate-in slide-in-from-top-2">
+        <div className="flex items-start gap-3">
+          <span className="text-2xl">🔄</span>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-base">Доступно обновление</h3>
+            <p className="mt-0.5 text-sm text-amber-100">
+              Новая версия приложения. Кэш будет очищен, данные обновятся.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={() => setShowUpdate(false)}
+            className="flex-1 rounded-lg bg-white/20 py-2.5 text-sm font-medium hover:bg-white/30 transition"
+          >
+            Позже
+          </button>
+          <button
+            onClick={handleUpdate}
+            disabled={updating}
+            className="flex-1 rounded-lg bg-white py-2.5 text-sm font-bold text-amber-700 hover:bg-amber-50 transition disabled:opacity-50"
+          >
+            {updating ? "Обновление..." : "Обновить"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (installed || !deferredPrompt) return null;
 
+  // ── Установочный баннер (для не-установленных) ──
   return (
     <div className="fixed bottom-20 left-4 right-4 z-50 rounded-xl bg-primary p-4 text-primary-foreground shadow-lg">
       <h3 className="font-semibold">Установите приложение</h3>
