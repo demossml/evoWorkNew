@@ -552,23 +552,47 @@ export default function DeadSt() {
             </div>
           )}
 
-          {/* Categories summary */}
+          {/* Categories summary — только выбранные группы */}
           {categories.length > 0 && (
-            <div className="bg-card border border-border rounded-xl p-3">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Заморожено по категориям
-              </h3>
-              <div className="space-y-1.5">
-                {categories.slice(0, 8).map(c => (
-                  <div key={c.groupName} className="flex items-center gap-2 text-xs">
-                    <span className="flex-1 truncate text-foreground">{c.groupName}</span>
-                    <span className="text-muted-foreground w-8 text-right">{c.itemCount}</span>
-                    <span className="text-amber-600 dark:text-amber-400 font-medium w-24 text-right tabular-nums">
-                      {c.totalFrozenCost.toLocaleString("ru-RU")} ₽
+            <div className="bg-card border border-border rounded-xl p-2.5">
+              <div className="flex items-center gap-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                <span>Заморожено по категориям</span>
+                <span className="font-normal normal-case text-[10px]">
+                  {selectedGroups.length === 0
+                    ? "(все)"
+                    : `(${selectedGroups.length} групп${selectedGroups.length > 1 ? 'ы' : 'а'})`}
+                </span>
+              </div>
+              <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-[11px]">
+                {categories
+                  .filter(c => {
+                    if (selectedGroups.length === 0) return true;
+                    const g = groupOptions.find(go => go.name === c.groupName);
+                    return g ? selectedGroups.includes(g.uuid) : false;
+                  })
+                  .slice(0, 6)
+                  .map(c => (
+                    <span key={c.groupName} className="inline-flex items-center gap-1 whitespace-nowrap">
+                      <span className="text-foreground font-medium truncate max-w-[120px]">{c.groupName}</span>
+                      <span className="text-muted-foreground">{c.itemCount}</span>
+                      <span className="text-amber-600 dark:text-amber-400 font-medium tabular-nums">
+                        {c.totalFrozenCost.toLocaleString("ru-RU")} ₽
+                      </span>
                     </span>
-                    <span className="text-muted-foreground w-10 text-right">{c.share.toFixed(0)}%</span>
-                  </div>
-                ))}
+                  ))}
+                {categories.filter(c => {
+                  if (selectedGroups.length === 0) return true;
+                  const g = groupOptions.find(go => go.name === c.groupName);
+                  return g ? selectedGroups.includes(g.uuid) : false;
+                }).length > 6 && (
+                  <span className="text-[10px] text-muted-foreground">
+                    + ещё {categories.filter(c => {
+                      if (selectedGroups.length === 0) return true;
+                      const g = groupOptions.find(go => go.name === c.groupName);
+                      return g ? selectedGroups.includes(g.uuid) : false;
+                    }).length - 6}
+                  </span>
+                )}
               </div>
             </div>
           )}
