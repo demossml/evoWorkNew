@@ -462,14 +462,14 @@ export default function DeadSt() {
               </h1>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {totalItems} товаров
-                {avgDays > 0 && ` · в среднем ${avgDays} дн.`}
-                {plannedActions.length > 0 && ` · ${plannedActions.length} запланировано`}
+                {avgDays > 0 && ` / в среднем ${avgDays} дн.`}
+                {plannedActions.length > 0 && ` / ${plannedActions.length} запланировано`}
               </p>
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                {catBadge("Мёртвый", "bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300", countA)}
-                {catBadge("Умирающий", "bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300", countB)}
-                {catBadge("Медленный", "bg-yellow-100 text-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-300", countC)}
-                {catBadge("Затоварен", "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300", countD)}
+                {countA > 0 && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300">Мертвый: {countA}</span>}
+                {countB > 0 && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300">Умирающий: {countB}</span>}
+                {countC > 0 && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-300">Медленный: {countC}</span>}
+                {countD > 0 && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">Затоварен: {countD}</span>}
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -486,15 +486,25 @@ export default function DeadSt() {
               <button
                 type="button"
                 onClick={async () => {
+                  if (plannedActions.length === 0) return;
                   setSavingReport(true);
                   setSavedUrl(null);
                   try {
+                    const actions = plannedActions.map(a => ({
+                      name: a.name,
+                      article: a.article || "",
+                      shopName: a.shopName,
+                      action: a.action,
+                      quantity: a.quantity,
+                      targetShop: a.targetShops?.map(t => `${t.shopName}:${t.qty}`).join(", ") || "",
+                      reason: a.reason || "",
+                    }));
                     const res = await fetch("/api/dead-stocks/save-report", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        daysWithoutSales: 0,
-                        title: `Мёртвые остатки: ${formatPeriod(shopName, startDate, endDate)}`,
+                        title: `План действий: ${formatPeriod(shopName, startDate, endDate)}`,
+                        plannedActions: actions,
                       }),
                     });
                     const data = await res.json();
@@ -502,7 +512,7 @@ export default function DeadSt() {
                   } catch { /* ignore */ }
                   finally { setSavingReport(false); }
                 }}
-                disabled={savingReport}
+                disabled={savingReport || plannedActions.length === 0}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50"
               >
                 <Share2 className="w-3.5 h-3.5" />

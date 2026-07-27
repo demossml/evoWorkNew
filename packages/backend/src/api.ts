@@ -2410,24 +2410,83 @@ export const api = new Hono<IEnv>()
 	.post("/api/dead-stocks/save-report", async (c) => {
 		try {
 			const db = c.get("db");
-			const { generateDeadStockHtml } = await import("./services/reportHtml");
 			const crypto = await import("crypto");
 			const body = await c.req.json<{
 				since?: string; until?: string;
 				daysWithoutSales?: number;
 				shopId?: string;
 				title?: string;
+				plannedActions?: Array<{
+					name: string; article?: string; shopName: string;
+					action: string; quantity: number;
+					targetShop?: string; reason?: string;
+				}>;
 			}>();
+			const title = body.title || "Отчёт";
+
+			let html: string;
+			let id: string;
+
+			if (body.plannedActions && body.plannedActions.length > 0) {
+				// ── Режим: страница с запланированными действиями ──
+				const actions = body.plannedActions;
+				const actionLabels: Record<string, string> = {
+					move: "Переместить", writeoff: "Списать", promo: "Промо", keep: "Оставить",
+				};
+				const moveCount = actions.filter(a => a.action === "move").length;
+				const writeoffCount = actions.filter(a => a.action === "writeoff").length;
+				const promoCount = actions.filter(a => a.action === "promo").length;
+				const keepCount = actions.filter(a => a.action === "keep").length;
+				const totalQty = actions.reduce((s, a) => s + a.quantity, 0);
+
+				const rows = actions.map(a => `
+					<tr>
+						<td>${a.name.replace(/&/g,"&amp;").replace(/</g,"&lt;")}</td>
+						<td>${(a.article || "").replace(/&/g,"&amp;")}</td>
+						<td>${actionLabels[a.action] || a.action}</td>
+						<td class="num">${a.quantity}</td>
+						<td>${a.shopName}</td>
+						<td>${a.targetShop || ""}</td>
+						<td>${(a.reason || "").replace(/&/g,"&amp;")}</td>
+					</tr>`).join("");
+
+				const now = new Date();
+				const exp = new Date(now); exp.setDate(exp.getDate() + 30);
+				let html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>План действий — ${title}</title>
+<style>:root{--bg:#fff;--fg:#111;--card:#f9fafb;--border:#e5e7eb;--muted:#6b7280}@media(prefers-color-scheme:dark){:root{--bg:#111827;--fg:#f9fafb;--card:#1f2937;--border:#374151;--muted:#9ca3af}}*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--fg);padding:24px;max-width:1200px;margin:0 auto;line-height:1.5}header{border-bottom:2px solid var(--border);padding-bottom:16px;margin-bottom:24px}h1{font-size:24px;font-weight:700}.meta{font-size:14px;color:var(--muted);margin-top:4px}.kpi{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px}.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;min-width:120px}.kpi-label{font-size:12px;color:var(--muted)}.kpi-value{font-size:20px;font-weight:700;margin-top:2px}table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;padding:8px 10px;background:var(--card);border-bottom:2px solid var(--border);font-weight:600;font-size:11px;text-transform:uppercase;color:var(--muted)}td{padding:6px 10px;border-bottom:1px solid var(--border)}.num{text-align:right;font-variant-numeric:tabular-nums}tr:hover td{background:var(--card)}footer{margin-top:32px;padding-top:16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}</style></head><body>
+<header><h1>План действий</h1><p class="meta">${title}</p><p class="meta">Сгенерировано: ${now.toLocaleString("ru-RU")} / Ссылка действительна до: ${exp.toLocaleDateString("ru-RU")}</p></header>
+<div class="kpi"><div class="kpi-card"><div class="kpi-label">Всего товаров</div><div class="kpi-value">${actions.length}</div></div><div class="kpi-card"><div class="kpi-label">Всего единиц</div><div class="kpi-value">${totalQty}</div></div><div class="kpi-card"><div class="kpi-label">Переместить</div><div class="kpi-value">${moveCount}</div></div><div class="kpi-card"><div class="kpi-label">Списать</div><div class="kpi-value">${writeoffCount}</div></div><div class="kpi-card"><div class="kpi-label">Промо</div><div class="kpi-value">${promoCount}</div></div><div class="kpi-card"><div class="kpi-label">Оставить</div><div class="kpi-value">${keepCount}</div></div></div>
+<table><thead><tr><th>Товар</th><th>Артикул</th><th>Действие</th><th class="num">Кол-во</th><th>Магазин</th><th>Куда</th><th>Причина</th></tr></thead><tbody>${rows}</tbody></table>
+<footer>Evo App / Ссылка действительна до ${exp.toLocaleDateString("ru-RU")}</footer></body></html>`;
+
+				id = crypto.randomBytes(12).toString("hex");
+
+				const fs = await import("fs");
+				const dir = "./data/storage/reports/dead-stock";
+				fs.mkdirSync(dir, { recursive: true });
+				fs.writeFileSync(`${dir}/${id}.html`, html, "utf-8");
+
+				const host = c.req.header("Host") || `localhost:${process.env.PORT || 3000}`;
+				const proto = host.startsWith("localhost") ? "http" : "https";
+				return c.json({
+					url: `${proto}://${host}/reports/dead-stock/${id}`,
+					expiresAt: exp.toISOString().slice(0, 10),
+					size: html.length,
+				});
+			}
+
+			// ── Режим: полный отчёт dead-stock ──
+			else {
+			const { generateDeadStockHtml } = await import("./services/reportHtml");
 			const daysWithoutSales = body.daysWithoutSales ?? 14;
 			const shopId = body.shopId || undefined;
 
-			// Собираем те же данные, что и GET /api/analytics/dead-stock
-			let prodQuery = `SELECT uuid, name, article, shopId, parentUuid, quantity, price, measureName
-			                 FROM shopProduct WHERE product_group = 0 AND quantity > 0`;
-			const binds: any[] = [];
-			if (shopId) { prodQuery += ` AND shopId = ?`; binds.push(shopId); }
-			const products = await db.prepare(prodQuery).bind(...binds).all<{
-				uuid: string; name: string; article: string | null; shopId: string;
+				let prodQuery = `SELECT uuid, name, article, shopId, parentUuid, quantity, price, measureName
+				                 FROM shopProduct WHERE product_group = 0 AND quantity > 0`;
+				const binds: any[] = [];
+				if (shopId) { prodQuery += ` AND shopId = ?`; binds.push(shopId); }
+				const products = await db.prepare(prodQuery).bind(...binds).all<{
+					uuid: string; name: string; article: string | null; shopId: string;
 				parentUuid: string | null; quantity: number; price: number; measureName: string;
 			}>();
 			const productRows = products.results ?? [];
@@ -2506,18 +2565,20 @@ export const api = new Hono<IEnv>()
 			});
 
 			const id = crypto.randomBytes(12).toString("hex");
-			// Сохраняем локально (R2 используется только в production Cloudflare)
 			const fs = await import("fs");
 			const dir = "./data/storage/reports/dead-stock";
 			fs.mkdirSync(dir, { recursive: true });
 			fs.writeFileSync(`${dir}/${id}.html`, html, "utf-8");
 
-			const baseUrl = `http://localhost:${process.env.PORT || 3000}`;
+			const host = c.req.header("Host") || `localhost:${process.env.PORT || 3000}`;
+			const proto = host.startsWith("localhost") ? "http" : "https";
+			const baseUrl = `${proto}://${host}`;
 			return c.json({
 				url: `${baseUrl}/reports/dead-stock/${id}`,
 				expiresAt: expiresAt.toISOString().slice(0, 10),
 				size: html.length,
 			});
+			} // end else (full report)
 		} catch (err) {
 			console.error("save-report error:", err);
 			return c.json({ error: String(err) }, 500);
@@ -3605,7 +3666,17 @@ export const api = new Hono<IEnv>()
 
 			const productName = productRow.name;
 
-			// Найдём lastSaleDate и daysWithoutSales — из скана выше
+			// Загружаем документы для поиска lastSaleDate
+			const since90 = new Date(); since90.setDate(since90.getDate() - 90);
+			const sinceStr = since90.toISOString().slice(0, 10);
+			const docs = await db.prepare(
+				`SELECT close_date, transactions, type FROM index_documents
+				 WHERE shop_id = ? AND close_date >= ? AND type IN ('SELL', 'PAYBACK')`
+			).bind(shopId, sinceStr + "T00:00:00").all<{
+				close_date: string; transactions: string; type: string;
+			}>();
+
+			// Найдём lastSaleDate и daysWithoutSales
 			let lastSaleDate: string | null = null;
 			let totalRevenueLast90Days = 0;
 			let daysWithoutSales = 999;
@@ -3634,12 +3705,7 @@ export const api = new Hono<IEnv>()
 			}
 			totalRevenueLast90Days = Math.round(totalRevenueLast90Days);
 
-			// 2. Детальные продажи за последние 90 дней (по дням) — уже посчитаны выше,
-			//    перестраиваем salesHistory для совместимости
-			const since90 = new Date();
-			since90.setDate(since90.getDate() - 90);
-			const sinceStr = since90.toISOString().slice(0, 10);
-
+			// 2. Детальные продажи за последние 90 дней — перестраиваем salesHistory
 			const salesHistory: { date: string; qty: number; sum: number }[] = [];
 			// Повторно проходим для salesHistory
 			const docs2 = await db.prepare(
