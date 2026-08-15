@@ -28,7 +28,8 @@ import { createProductsTableIfNotExists } from "./src/sync/db";
 import { createCostPricesTableIfNotExists } from "./src/evotor/utils";
 import { runMigrations } from "./src/db/migrations";
 
-import { syncDocuments, syncShops, syncEmployees, updateProductsShope, updatePlan_, getDataForCurrentDate, updateDataSaleByPlan, checkAndSendCriticalAlerts, syncStock } from "./src/sync/cron";
+import { updatePlan_, getDataForCurrentDate, updateDataSaleByPlan, checkAndSendCriticalAlerts } from "./src/sync/cron";
+import { ensureDefaultTenant, runAllTenants } from "./src/sync/syncEngine";
 
 const DATA_DIR = process.env.DATA_DIR ?? "./data";
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
@@ -189,10 +190,13 @@ async function runSyncTask(task: () => Promise<void>, label: string) {
 function setupCron() {
 	const env = { EVOTOR_API_TOKEN: EVOTOR_TOKEN, DB: db as any };
 
-	// Первичная синхронизация при старте
-	setTimeout(() => runSyncTask(() => syncDocuments(env), "первичная синхронизация"), 2000);
-	setTimeout(() => runSyncTask(() => syncShops(env), "syncShops"), 4000);
-	setTimeout(() => runSyncTask(() => syncEmployees(env), "syncEmployees"), 6000);
+	// Первичная синхронизация при старте: регистрируем дефолтного тенанта
+	// и прогоняем универсальный движок (магазины, сотрудники, терминалы,
+	// товары, остатки, все типы документов).
+	setTimeout(() => runSyncTask(async () => {
+		await ensureDefaultTenant(db as any, EVOTOR_TOKEN);
+		await runAllTenants(db as any);
+	}, "первичная синхронизация (syncEngine)"), 2000);
 
 	// После синхронизации — планы и зарплаты (через 15 сек)
 	setTimeout(() => initializePlansAndSalaries(), 15000);
@@ -203,25 +207,11 @@ function setupCron() {
 		"Telegram-алерты"
 	), 25000);
 
-	// Каждые 5 минут — синхронизация документов (чеки, продажи) из Эвотор
+	// Каждые 5 минут — универсальный движок синхронизации по всем тенантам.
+	// Внутри движка каждый ресурс соблюдает свой интервал:
+	// документы — 5 мин, meta — 20 мин, товары — 25 мин, остатки — 30 мин.
 	cron.schedule("*/5 * * * *", () => {
-		runSyncTask(() => syncDocuments(env), "syncDocuments");
-	});
-
-	// Каждые 20 минут — магазины и сотрудники
-	cron.schedule("*/20 * * * *", () => {
-		runSyncTask(() => syncShops(env), "syncShops");
-		runSyncTask(() => syncEmployees(env), "syncEmployees");
-	});
-
-	// Каждые 25 минут — обновление товаров (shopProduct)
-	cron.schedule("*/25 * * * *", () => {
-		runSyncTask(() => updateProductsShope(env), "updateProductsShope");
-	});
-
-	// Каждые 30 минут — синхронизация остатков (stock + shopProduct.quantity)
-	cron.schedule("*/30 * * * *", () => {
-		runSyncTask(() => syncStock(env), "syncStock");
+		runSyncTask(() => runAllTenants(db as any), "syncEngine");
 	});
 
 	// Каждый день в 01:00 — планы, продажи по плану, зарплаты, алерты
@@ -233,11 +223,8 @@ function setupCron() {
 	});
 
 	console.log("[cron] Планировщик запущен:");
-	console.log("  syncDocuments       — каждые 5 минут");
-	console.log("  syncShops           — каждые 20 минут");
-	console.log("  syncEmployees       — каждые 20 минут");
-	console.log("  updateProductsShope — каждые 25 минут");
-	console.log("  syncStock          — каждые 30 минут");
+	console.log("  syncEngine          — каждые 5 минут (все тенанты, все ресурсы)");
+	console.log("    documents — 5 мин | meta — 20 мин | products — 25 мин | stock — 30 мин");
 	console.log("  updatePlans         — каждый день в 01:00");
 	console.log("  updateSalesByPlan   — каждый день в 01:00");
 	console.log("  calcSalary          — каждый день в 01:00");

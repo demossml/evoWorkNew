@@ -17,39 +17,53 @@ export interface Employee {
 	updated_at: string; // Дата и время последнего обновления записи
 }
 
+/**
+ * Полный перечень типов документов Облака Эвотор (по официальной документации).
+ * https://developer.evotor.ru/docs/rest_api_scheme_documents.html
+ */
+export type EvotorDocumentType =
+	/** Открытие смены (кассовой сессии) */
+	| "OPEN_SESSION"
+	/** Открытие смены на смарт-терминале */
+	| "POS_OPEN_SESSION"
+	/** Закрытие смены (кассовой сессии) */
+	| "CLOSE_SESSION"
+	/** Внесение наличных в кассу */
+	| "CASH_INCOME"
+	/** Выплата наличных из кассы */
+	| "CASH_OUTCOME"
+	/** Приём товара на склад */
+	| "ACCEPT"
+	/** Возврат товара на склад */
+	| "RETURN"
+	/** Продажа товара */
+	| "SELL"
+	/** Возврат продажи (возврат денег покупателю) */
+	| "PAYBACK"
+	/** Покупка товара (закупка у поставщика) */
+	| "BUY"
+	/** Возврат закупки (возврат поставщику) */
+	| "BUYBACK"
+	/** X-отчёт (промежуточный отчёт без обнуления) */
+	| "X_REPORT"
+	/** Z-отчёт (итоговый отчёт с обнулением) */
+	| "Z_REPORT"
+	/** Фискальный отчёт (FPRINT) */
+	| "FPRINT"
+	/** Корректировка документа (исправление ошибок) */
+	| "CORRECTION"
+	/** Инвентаризация */
+	| "INVENTORY"
+	/** Переоценка */
+	| "REVALUATION"
+	/** Списание */
+	| "WRITE_OFF"
+	/** Вскрытие тары (маркированная продукция) */
+	| "OPEN_TARE";
+
 export interface Document {
 	shop_id: string;
-	type: /** Открытие смены (кассовой сессии) */
-	| "OPEN_SESSION"
-		/** Закрытие смены (кассовой сессии) */
-		| "CLOSE_SESSION"
-		/** Внесение наличных в кассу */
-		| "CASH_INCOME"
-		/** Приём товара на склад */
-		| "ACCEPT"
-		/** Продажа товара */
-		| "SELL"
-		/** Возврат продажи (возврат денег покупателю) */
-		| "PAYBACK"
-		/** Возврат товара (возврат на склад) */
-		| "RETURN"
-		/** Покупка товара (закупка) */
-		| "BUY"
-		/** Возврат закупки (возврат поставщику) */
-		| "BUYBACK"
-		/** X-отчёт (промежуточный отчёт без обнуления) */
-		| "X_REPORT"
-		/** Z-отчёт (итоговый отчёт с обнулением) */
-		| "Z_REPORT"
-		/** Корректировка документа (исправление ошибок) */
-		| "CORRECTION"
-		/** Операция оплаты (например, оплата по карте/наличными) */
-		| "PAYMENT"
-		/** Выплата наличных из кассы */
-		| "CASH_OUTCOME"
-		/** Внесение наличных в кассу (дублируется, возможно для разных сценариев) */
-		| "CASH_INCOME";
-
+	type: EvotorDocumentType;
 	id: string; // Уникальный идентификатор документа
 	extras: Record<string, unknown>; // Дополнительная информация о документе
 	number: number; // Порядковый номер документа
@@ -251,37 +265,12 @@ export interface IndexDocument {
 	number: number;
 	openUserUuid: string;
 	shop_id: string;
-	type:
-		| "OPEN_SESSION"
-		/** Закрытие смены (кассовой сессии) */
-		| "CLOSE_SESSION"
-		/** Внесение наличных в кассу */
-		| "CASH_INCOME"
-		/** Приём товара на склад */
-		| "ACCEPT"
-		/** Продажа товара */
-		| "SELL"
-		/** Возврат продажи (возврат денег покупателю) */
-		| "PAYBACK"
-		/** Возврат товара (возврат на склад) */
-		| "RETURN"
-		/** Покупка товара (закупка) */
-		| "BUY"
-		/** Возврат закупки (возврат поставщику) */
-		| "BUYBACK"
-		/** X-отчёт (промежуточный отчёт без обнуления) */
-		| "X_REPORT"
-		/** Z-отчёт (итоговый отчёт с обнулением) */
-		| "Z_REPORT"
-		/** Корректировка документа (исправление ошибок) */
-		| "CORRECTION"
-		/** Операция оплаты (например, оплата по карте/наличными) */
-		| "PAYMENT"
-		/** Выплата наличных из кассы */
-		| "CASH_OUTCOME"
-		/** Внесение наличных в кассу (дублируется, возможно для разных сценариев) */
-		| "CASH_INCOME"; // уточни типы, если они другие
-	transactions: Transaction[]; // нужно описать интерфейс Transaction
+	type: EvotorDocumentType;
+	transactions: Transaction[];
+	/** Сырой документ целиком (JSON-строка) — сохраняется без потерь */
+	rawJson?: string;
+	/** Тенант (клиент), которому принадлежит документ */
+	tenant_id?: string;
 }
 export interface ShopQuery {
 	shopId: string;
@@ -301,4 +290,19 @@ export interface StockApiItem {
 	measureName: string;
 	purchasePrice: number;
 	sellingPrice: number;
+}
+
+/** Смарт-терминал пользователя (GET /devices) */
+export interface Device {
+	id: string;
+	name: string;
+	store_id: string;
+	user_id: string;
+	timezone_offset: number;
+	model?: string;
+	imei?: string;
+	firmware_version?: string;
+	serial_number?: string;
+	created_at?: string;
+	updated_at?: string;
 }

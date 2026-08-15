@@ -2208,6 +2208,8 @@ export async function createIndexDocumentsTable(db: D1Database): Promise<void> {
           open_user_uuid TEXT,
           type TEXT,
           transactions TEXT,
+          raw_json TEXT,
+          tenant_id TEXT NOT NULL DEFAULT 'default',
           UNIQUE(number, shop_id)
         )
       `),
@@ -2220,6 +2222,10 @@ export async function createIndexDocumentsTable(db: D1Database): Promise<void> {
         ON index_documents (number)
       `),
 		]);
+
+		// Миграции для существующих таблиц: добавляем недостающие колонки
+		try { await db.prepare(`ALTER TABLE index_documents ADD COLUMN raw_json TEXT`).run(); } catch { /* уже есть */ }
+		try { await db.prepare(`ALTER TABLE index_documents ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default'`).run(); } catch { /* уже есть */ }
 
 		console.log("Таблица 'index_documents' успешно создана или уже существует");
 	} catch (err) {
@@ -2265,8 +2271,8 @@ export async function saveNewIndexDocuments(
 
 	const insertStmt = db.prepare(`
     INSERT OR IGNORE INTO index_documents 
-    (number, shop_id, close_date, open_user_uuid, type, transactions) 
-    VALUES (?, ?, ?, ?, ?, ?)
+    (number, shop_id, close_date, open_user_uuid, type, transactions, raw_json, tenant_id) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, 'default'))
   `);
 
 	try {
@@ -2294,6 +2300,8 @@ export async function saveNewIndexDocuments(
 					doc.openUserUuid ?? null,
 					doc.type ?? null,
 					doc.transactions ? JSON.stringify(doc.transactions) : null,
+					doc.rawJson ?? null,
+					doc.tenant_id ?? null,
 				);
 			})
 			.filter((stmt): stmt is D1PreparedStatement => stmt !== null);

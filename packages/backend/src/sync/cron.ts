@@ -355,6 +355,58 @@ export async function syncEmployees(env: SyncEnv): Promise<void> {
 }
 
 // ============================================================================
+// Task: syncDevices — синхронизация смарт-терминалов Эвотор → devices
+// ============================================================================
+
+export async function syncDevices(env: SyncEnv): Promise<void> {
+  const token = env.EVOTOR_API_TOKEN;
+  const evo = new Evotor(token);
+
+  try {
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS devices (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        imei TEXT,
+        store_id TEXT NOT NULL,
+        user_id TEXT,
+        model TEXT,
+        timezone_offset INTEGER DEFAULT 0,
+        tenant_id TEXT NOT NULL DEFAULT 'default',
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `).run();
+    try { await env.DB.prepare(`ALTER TABLE devices ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default'`).run(); } catch { /* уже есть */ }
+
+    const devices = await evo.getDevices();
+
+    const upsert = env.DB.prepare(`
+      INSERT INTO devices (id, name, imei, store_id, user_id, model, timezone_offset)
+      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        imei = excluded.imei,
+        store_id = excluded.store_id,
+        user_id = excluded.user_id,
+        model = excluded.model,
+        timezone_offset = excluded.timezone_offset,
+        updated_at = datetime('now')
+    `);
+
+    const batch: D1PreparedStatement[] = devices.map((d: any) =>
+      upsert.bind(d.id, d.name ?? "", d.imei ?? "", d.store_id ?? "", d.user_id ?? "", d.model ?? "", d.timezone_offset ?? 0),
+    );
+
+    if (batch.length > 0) {
+      await env.DB.batch(batch);
+    }
+    console.log(`[syncDevices] ${devices.length} терминалов синхронизировано`);
+  } catch (e) {
+    console.error("[syncDevices] Ошибка:", e);
+  }
+}
+
+// ============================================================================
 // Task: getDocuments (external API — demossml.cc, устаревшая)
 // ============================================================================
 

@@ -9,6 +9,7 @@ import {
 	getDocumentsBySales,
 } from "../utils";
 import type {
+	Device,
 	Document,
 	Employee,
 	IndexDocument,
@@ -36,6 +37,7 @@ export class Evotor {
 		getEmployees: string;
 		getShops: string;
 		getProducts: string;
+		getDevices: string;
 		getZReport: string;
 		getCashOutcome: string;
 		getSell: string;
@@ -58,6 +60,8 @@ export class Evotor {
 			getShops: "https://api.evotor.ru/api/v1/inventories/stores/search",
 			getProducts:
 				"https://api.evotor.ru/api/v1/inventories/stores/{}/products",
+			getDevices:
+				"https://api.evotor.ru/devices",
 			getZReport:
 				"https://api.evotor.ru/api/v1/inventories/stores/{}/documents?gtCloseDate={}&ltCloseDate={}&types=FPRINT",
 			getCashOutcome:
@@ -531,6 +535,8 @@ export class Evotor {
 				shop_id: doc?.storeUuid ?? "",
 				type: doc.type,
 				transactions: doc?.transactions ?? [],
+				// Сырой документ целиком (body, extras, payments — без потерь)
+				rawJson: JSON.stringify(doc),
 			}));
 		} catch (error) {
 			this._logError(`Failed to fetch documents for shop ID: ${shopId}`, error);
@@ -1714,6 +1720,21 @@ export class Evotor {
 			return shopUuids;
 		} catch (error) {
 			this._logError("Ошибка при получении списка uuid магазинов", error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Получает список всех смарт-терминалов пользователя.
+	 * GET /devices — ответ содержит items + paging.
+	 */
+	async getDevices(): Promise<Device[]> {
+		try {
+			const response = await this._fetchData(this.urls.getDevices);
+			if (Array.isArray(response)) return response;
+			return (response as any)?.items ?? [];
+		} catch (error) {
+			this._logError("Ошибка при получении смарт-терминалов", error);
 			throw error;
 		}
 	}
