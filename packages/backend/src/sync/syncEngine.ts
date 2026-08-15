@@ -416,7 +416,10 @@ async function minutesSinceLastSuccess(
 ): Promise<number> {
   const st = await getSyncState(db, tenantId, storeId, resource);
   if (!st?.last_success_at) return Infinity;
-  const ms = Date.now() - new Date(st.last_success_at.replace(" ", "T") + "Z").getTime();
+  const raw = st.last_success_at;
+  // Храним ISO или "YYYY-MM-DD HH:MM:SS" — нормализуем оба формата
+  const normalized = raw.includes(" ") ? `${raw.replace(" ", "T")}Z` : raw;
+  const ms = Date.now() - new Date(normalized).getTime();
   if (Number.isNaN(ms)) return Infinity;
   return ms / 60000;
 }
@@ -472,7 +475,7 @@ async function syncTenantInner(db: D1Database, tenant: TenantRow): Promise<void>
   // 1. Магазины (нужны для остальных ресурсов)
   let shops: string[] = [];
   try {
-    if (await minutesDue("meta")) {
+    if (await metaDue("shops")) {
       shops = await syncTenantShops(db, evo, tenantId);
 
       if (await metaDue("employees")) {
