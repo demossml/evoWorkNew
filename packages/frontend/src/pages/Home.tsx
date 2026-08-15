@@ -8,6 +8,7 @@ import {
   QuickActionsWidget,
   TodayAlertsWidget,
   StockHealthWidget,
+  SyncStatusWidget,
 } from "@widgets/home";
 import { buildHomeAccessModel } from "@features/dashboard/model/homePageModel";
 import { DailyBriefing } from "@widgets/home/DailyBriefing";
@@ -91,6 +92,12 @@ export default function Home() {
         <ErrorBoundary variant="widget" name="План по магазинам">
           <PlanStatusWidget date={since} />
         </ErrorBoundary>
+
+        {isSuperAdmin && (
+          <ErrorBoundary variant="widget" name="Синхронизация">
+            <SyncStatusWidget />
+          </ErrorBoundary>
+        )}
 
         <ErrorBoundary variant="widget" name="Акционные товары">
           <PromoEarningsWidget />

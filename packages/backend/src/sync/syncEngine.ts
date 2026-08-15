@@ -201,6 +201,7 @@ export async function setSyncState(
 // ---------------------------------------------------------------------------
 
 async function syncTenantShops(db: D1Database, evo: Evotor, tenantId: string): Promise<string[]> {
+  await setSyncState(db, tenantId, "*", "shops", { status: "running" });
   const shops = await evo.getShops();
   const shopsData = Array.isArray(shops)
     ? shops.map((s: any) => ({ uuid: s.uuid, name: s.name, address: s.address ?? "" }))
@@ -216,6 +217,7 @@ async function syncTenantShops(db: D1Database, evo: Evotor, tenantId: string): P
 }
 
 async function syncTenantEmployees(db: D1Database, evo: Evotor, tenantId: string): Promise<void> {
+  await setSyncState(db, tenantId, "*", "employees", { status: "running" });
   const employees = await evo.getEmployees();
   const employeesData = Array.isArray(employees)
     ? employees.map((e: any) => ({
@@ -241,6 +243,7 @@ async function syncTenantDevices(
   tenantId: string,
   _shops: string[],
 ): Promise<void> {
+  await setSyncState(db, tenantId, "*", "devices", { status: "running" });
   const upsert = db.prepare(`
     INSERT INTO devices (id, name, imei, store_id, user_id, model, timezone_offset, tenant_id)
     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
@@ -285,6 +288,7 @@ async function syncTenantProducts(
   shops: string[],
 ): Promise<void> {
   for (const shopId of shops) {
+    await setSyncState(db, tenantId, shopId, "products", { status: "running" });
     await delay(500);
     const products = await evo.getProductsUuid(shopId);
     await updateOrInsertData(products, db);
@@ -313,6 +317,7 @@ async function syncTenantStock(
   `);
 
   for (const shopId of shops) {
+    await setSyncState(db, tenantId, shopId, "stock", { status: "running" });
     const raw = await evo.getProducts(shopId);
     const items: any[] = Array.isArray(raw) ? raw : (raw as any)?.items ?? [];
     const batch = [];
@@ -355,6 +360,7 @@ async function syncTenantDocuments(
   const now = new Date();
 
   for (const shopId of shops) {
+    await setSyncState(db, tenantId, shopId, "documents", { status: "running" });
     const st = await getSyncState(db, tenantId, shopId, "documents");
     const hasHistory = Boolean(st?.last_success_at);
 
@@ -427,15 +433,20 @@ async function minutesSinceLastSuccess(
 /**
  * Синхронизирует все данные одного тенанта с Эвотор.
  * Каждый ресурс выполняется, только если подошёл его интервал.
+ * opts.force=true — игнорировать интервалы (для ручного запуска/отладки).
  */
-export async function syncTenant(db: D1Database, tenant: TenantRow): Promise<void> {
+export async function syncTenant(
+  db: D1Database,
+  tenant: TenantRow,
+  opts?: { force?: boolean },
+): Promise<void> {
   if (runningTenants.has(tenant.id)) {
     console.log(`[syncTenant:${tenant.id}] Уже выполняется, пропускаем`);
     return;
   }
   runningTenants.add(tenant.id);
   try {
-    await syncTenantInner(db, tenant);
+    await syncTenantInner(db, tenant, opts);
   } finally {
     runningTenants.delete(tenant.id);
   }
@@ -444,7 +455,11 @@ export async function syncTenant(db: D1Database, tenant: TenantRow): Promise<voi
 // Множество тенантов, которые сейчас синхронизируются (защита от гонок)
 const runningTenants = new Set<string>();
 
-async function syncTenantInner(db: D1Database, tenant: TenantRow): Promise<void> {
+async function syncTenantInner(
+  db: D1Database,
+  tenant: TenantRow,
+  opts?: { force?: boolean },
+): Promise<void> {
   const tenantId = tenant.id;
   if (!tenant.evotor_token) {
     console.error(`[syncTenant:${tenantId}] Нет токена, пропускаем`);
@@ -465,12 +480,17 @@ async function syncTenantInner(db: D1Database, tenant: TenantRow): Promise<void>
   const delayReq = await getNumberSetting(db, "sync_delay_requests", 2000);
 
   const intervals = await getNumberSetting(db, "sync_intervals_scale", 1);
+  const force = opts?.force === true;
   const minutesDue = (resource: string, storeId = "*") =>
-    minutesSinceLastSuccess(db, tenantId, storeId, resource)
-      .then((m) => m >= DEFAULT_INTERVALS_MIN[resource] * intervals);
+    force
+      ? Promise.resolve(true)
+      : minutesSinceLastSuccess(db, tenantId, storeId, resource)
+          .then((m) => m >= DEFAULT_INTERVALS_MIN[resource] * intervals);
   const metaDue = (resource: string) =>
-    minutesSinceLastSuccess(db, tenantId, "*", resource)
-      .then((m) => m >= DEFAULT_INTERVALS_MIN.meta * intervals);
+    force
+      ? Promise.resolve(true)
+      : minutesSinceLastSuccess(db, tenantId, "*", resource)
+          .then((m) => m >= DEFAULT_INTERVALS_MIN.meta * intervals);
 
   // 1. Магазины (нужны для остальных ресурсов)
   let shops: string[] = [];
@@ -563,14 +583,17 @@ async function syncTenantInner(db: D1Database, tenant: TenantRow): Promise<void>
  * Прогоняет синхронизацию по всем активным тенантам.
  * Безопасен для вызова каждые N минут: интервалы per-resource соблюдаются внутри.
  */
-export async function runAllTenants(db: D1Database): Promise<void> {
+export async function runAllTenants(
+  db: D1Database,
+  opts?: { force?: boolean },
+): Promise<void> {
   await createTenantsTable(db);
   await createSyncStateTable(db);
   const tenants = await getActiveTenants(db);
-  console.log(`[syncEngine] Тенантов активных: ${tenants.length}`);
+  console.log(`[syncEngine] Тенантов активных: ${tenants.length}${opts?.force ? " (force)" : ""}`);
   for (const tenant of tenants) {
     try {
-      await syncTenant(db, tenant);
+      await syncTenant(db, tenant, opts);
     } catch (e: any) {
       console.error(`[syncEngine] Тенант ${tenant.id} упал:`, e?.message ?? e);
     }

@@ -150,6 +150,100 @@ export const api = new Hono<IEnv>()
 		return c.json(c.var.user);
 	})
 
+	// Статус универсального движка синхронизации (плитка на главном экране).
+	// Включается/выключается настройкой sync_status_tile_enabled (1 — вкл, 0 — выкл).
+	.get("/api/sync/status", async (c) => {
+		const db = c.get("db");
+		try {
+			const { getNumberSetting } = await import("./services/settingsService.js");
+			const tileEnabled = (await getNumberSetting(db, "sync_status_tile_enabled", 1)) !== 0;
+
+			const tenants = await db
+				.prepare(`SELECT id, name, status FROM tenants ORDER BY id`)
+				.all<{ id: string; name: string; status: string }>();
+
+			const states = await db
+				.prepare(`
+					SELECT tenant_id, store_id, resource, last_success_at, last_close_date, status, error, updated_at
+					FROM sync_state
+					ORDER BY tenant_id, store_id, resource
+				`)
+				.all<{
+					tenant_id: string;
+					store_id: string;
+					resource: string;
+					last_success_at: string | null;
+					last_close_date: string | null;
+					status: string | null;
+					error: string | null;
+					updated_at: string | null;
+				}>();
+
+			const docsTotal = await db
+				.prepare(`SELECT COUNT(*) as n FROM index_documents`)
+				.first<{ n: number }>();
+
+			const docsByType = await db
+				.prepare(`
+					SELECT type, COUNT(*) as n
+					FROM index_documents
+					GROUP BY type
+					ORDER BY n DESC
+					LIMIT 25
+				`)
+				.all<{ type: string; n: number }>();
+
+			const shopsCount = await db
+				.prepare(`SELECT COUNT(*) as n FROM shops`)
+				.first<{ n: number }>();
+			const employeesCount = await db
+				.prepare(`SELECT COUNT(*) as n FROM employees`)
+				.first<{ n: number }>();
+			const devicesCount = await db
+				.prepare(`SELECT COUNT(*) as n FROM devices`)
+				.first<{ n: number }>();
+
+			return c.json({
+				tileEnabled,
+				tenants: tenants.results ?? [],
+				states: states.results ?? [],
+				docs: {
+					total: docsTotal?.n ?? 0,
+					byType: docsByType.results ?? [],
+				},
+				counts: {
+					shops: shopsCount?.n ?? 0,
+					employees: employeesCount?.n ?? 0,
+					devices: devicesCount?.n ?? 0,
+				},
+			});
+		} catch (e: any) {
+			// Таблицы могут ещё не существовать (движок не запускался)
+			return c.json({
+				tileEnabled: true,
+				tenants: [],
+				states: [],
+				docs: { total: 0, byType: [] },
+				counts: { shops: 0, employees: 0, devices: 0 },
+				initError: e?.message ?? String(e),
+			});
+		}
+	})
+
+	// Ручной запуск движка синхронизации (только админ) — для отладки.
+	// ?force=1 — игнорировать интервалы и прогнать все ресурсы сразу.
+	.post("/api/sync/run", requireAdmin, async (c) => {
+		const db = c.get("db");
+		const force =
+			c.req.query("force") === "1" || c.req.query("force") === "true";
+		const { runAllTenants } = await import("./sync/syncEngine.js");
+		// Не ждём завершения: движок сам поставит status=running, фронт увидит прогресс.
+		runAllTenants(db, { force }).catch((e) =>
+			console.error("[api] sync/run ошибка:", e?.message ?? e),
+		);
+		return c.json({ ok: true, force });
+	})
+
 	// get currently logged in evo toremployee
 
 	.get("/api/employee-name", async (c) => {
