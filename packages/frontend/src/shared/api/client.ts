@@ -1,8 +1,10 @@
 import { hc } from "hono/client";
 import { telegram } from "../../helpers/telegram";
-import { createTraceId, getOrCreateTraceId, trackEvent } from "../../helpers/analytics";
+import { createTraceId, trackEvent } from "../../helpers/analytics";
 
-console.log("telegram.WebApp.initData:", telegram.WebApp.initData);
+if (import.meta.env.DEV) {
+  console.log("telegram.WebApp.initData:", telegram.WebApp.initData);
+}
 
 // Dev-only: авто-логин под супер-админом, если браузер «чистый»
 // (встроенный браузер VS Code не имеет Telegram initData и localStorage).
@@ -45,18 +47,22 @@ export function getAuthHeaders(): Record<string, string> {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const client = hc<any>("", {
-  init: {
-    headers: {
-      // Приоритет: Bearer-сессия (login/connect-token), потом legacy Telegram
-      ...getAuthHeaders(),
-      "x-trace-id": getOrCreateTraceId(),
-    },
-  },
   fetch: (input: RequestInfo | URL, init?: RequestInit) => {
     const DEFAULT_TIMEOUT_MS = 15000;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
     const traceId = createTraceId();
+
+    // Свежие auth-заголовки на КАЖДЫЙ запрос:
+    // после login (sessionId в localStorage) заголовки обновляются без reload.
+    const auth = getAuthHeaders();
+    const isFormData =
+      typeof FormData !== "undefined" && init?.body instanceof FormData;
+    if (isFormData) {
+      // Для FormData браузер сам выставит multipart boundary
+      delete auth["Content-Type"];
+    }
+
     const url = typeof input === "string" ? input : input.toString();
     const endpoint = (() => {
       try {
@@ -89,6 +95,7 @@ export const client = hc<any>("", {
     const nextInit: RequestInit = {
       ...init,
       headers: {
+        ...auth,
         ...(init?.headers || {}),
         "x-trace-id": traceId,
       },

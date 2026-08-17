@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Share2, Copy, Check, Loader2, X } from "lucide-react";
+import { getAuthHeaders } from "@shared/api";
 
 interface ShareReportButtonProps {
 	/** Дата-фильтр: since, until */
@@ -29,7 +30,7 @@ export function ShareReportButton({ since, until, reportType = "revenue", shopId
 		try {
 			const res = await fetch("/api/reports/share", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: getAuthHeaders(),
 				body: JSON.stringify({
 					reportType,
 					params: { since, until, shopId: shopId || "all" },

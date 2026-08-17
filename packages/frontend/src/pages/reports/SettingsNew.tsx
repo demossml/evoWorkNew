@@ -19,6 +19,7 @@ import {
   useBatchUpdateSettings,
   type AppSetting,
 } from "../../hooks/useSettings";
+import { getAuthHeaders } from "@shared/api";
 import { subscribeToPush, unsubscribeFromPush } from "../../pwa";
 import {
   Settings2, Gift, Gauge, RefreshCcw, Upload, Globe, Bell,
@@ -332,7 +333,7 @@ function GroupPickerCard({
     const load = async () => {
       try {
         const res = await fetch("/api/evotor/settings-config", {
-          headers: { initData: "guest" },
+          headers: getAuthHeaders(),
         });
         if (!res.ok) throw new Error(String(res.status));
         const data = await res.json();
@@ -434,8 +435,8 @@ function GroupPickerCard({
                            placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 mb-3"
               />
 
-              {/* Кнопки выбрать/снять */}
-              <div className="flex gap-2 mb-2">
+              {/* Кнопки выбрать/снять — липкие внутри карточки */}
+              <div className="sticky top-0 z-10 bg-card pt-1 pb-2 flex gap-2">
                 <button
                   onClick={selectAll}
                   className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground hover:bg-muted"
@@ -450,12 +451,13 @@ function GroupPickerCard({
                 </button>
               </div>
 
-              {/* Список групп */}
-              <div className="max-h-48 overflow-y-auto space-y-0.5 mb-3">
+              {/* Список групп: высокий, с запасом снизу, чтобы последний пункт
+                  не уезжал под панель кнопок / bottom navigation */}
+              <div className="max-h-[min(50vh,20rem)] overflow-y-auto overscroll-contain space-y-0.5 mb-3 pb-3 scroll-pb-4">
                 {filtered.map((group) => (
                   <label
                     key={group.uuid}
-                    className="flex items-center gap-2 py-1 cursor-pointer hover:bg-muted rounded px-1"
+                    className="flex items-center gap-2 min-h-11 py-2 px-1 cursor-pointer hover:bg-muted rounded"
                   >
                     <input
                       type="checkbox"
@@ -544,7 +546,7 @@ function PromoProductsCard() {
     const load = async () => {
       try {
         const res = await fetch("/api/evotor/settings-config", {
-          headers: { initData: "guest" },
+          headers: getAuthHeaders(),
         });
         const data = await res.json();
         setGroups(data.groupOptions ?? []);
@@ -560,7 +562,7 @@ function PromoProductsCard() {
       setLoading(true);
       try {
         const res = await fetch(`/api/shop-products?group_uuid=${encodeURIComponent(selectedGroupUuid)}`, {
-          headers: { initData: "guest" },
+          headers: getAuthHeaders(),
         });
         const data = await res.json();
         setProducts(data.products ?? []);
@@ -574,7 +576,7 @@ function PromoProductsCard() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch("/api/promo/products", { headers: { initData: "guest" } });
+        const res = await fetch("/api/promo/products", { headers: getAuthHeaders() });
         const data = await res.json();
         const activeMap: PromoState = {};
         for (const p of (data.products ?? [])) {
@@ -610,7 +612,7 @@ function PromoProductsCard() {
       const group = groups.find((g) => g.uuid === selectedGroupUuid);
       const res = await fetch("/api/promo/toggle", {
         method: "POST",
-        headers: { "Content-Type": "application/json", initData: "guest" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           product_uuid: product.uuid,
           product_name: product.name,
@@ -702,7 +704,7 @@ function PromoProductsCard() {
           )}
 
           {!loading && products.length > 0 && (
-            <div className="max-h-64 overflow-y-auto space-y-1">
+            <div className="max-h-[min(50vh,20rem)] overflow-y-auto overscroll-contain space-y-1 pb-3 scroll-pb-4">
               {products.map((product) => {
                 const state = promoState[product.uuid];
                 const isActive = state?.isActive ?? false;
@@ -711,7 +713,7 @@ function PromoProductsCard() {
                 return (
                   <div
                     key={product.uuid}
-                    className={`flex items-center gap-2 py-1.5 px-2 rounded transition-colors ${
+                    className={`flex items-center gap-2 min-h-11 py-1.5 px-2 rounded transition-colors ${
                       isActive ? "bg-amber-500/10" : "hover:bg-muted"
                     }`}
                   >
@@ -785,7 +787,7 @@ function SellersCard() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch("/api/sellers/settings", { headers: { initData: "guest" } });
+        const res = await fetch("/api/sellers/settings", { headers: getAuthHeaders() });
         const data = await res.json();
         setSellers(data.sellers ?? []);
       } catch { /* ignore */ }
@@ -801,7 +803,7 @@ function SellersCard() {
     try {
       const res = await fetch(`/api/sellers/${seller.uuid}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", initData: "guest" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           employee_name: seller.name,
           salary_mode: updated.salary_mode,
@@ -940,14 +942,14 @@ function ScheduleCard() {
   useEffect(() => {
     (async () => {
       try {
-        const sr = await fetch("/api/shops", { headers: { initData: "guest" } });
+        const sr = await fetch("/api/shops", { headers: getAuthHeaders() });
         const sd = await sr.json();
         const shops: { uuid: string; name: string }[] = sd.shopsNameAndUuid ?? [];
         const names: Record<string, string> = {};
         const empty: typeof schedules = {};
         for (const s of shops) { names[s.uuid] = s.name; empty[s.uuid] = {}; for (const d of weekdays) empty[s.uuid][d] = { ...defDay }; }
         setShopNames(names);
-        const rr = await fetch("/api/evotor/settings/shop-schedules", { headers: { initData: "guest" } });
+        const rr = await fetch("/api/evotor/settings/shop-schedules", { headers: getAuthHeaders() });
         const rd = await rr.json();
         for (const r of (rd.rows ?? [])) {
           if (!empty[r.shop_id]) { empty[r.shop_id] = {}; for (const d of weekdays) empty[r.shop_id][d] = { ...defDay }; }
@@ -986,7 +988,7 @@ function ScheduleCard() {
       for (const [sid, days] of Object.entries(schedules))
         for (const [d, v] of Object.entries(days))
           rows.push({ shop_id: sid, weekday: Number(d), open_time: v.open, close_time: v.close, is_working_day: v.working });
-      const res = await fetch("/api/evotor/settings/shop-schedules", { method: "POST", headers: { "Content-Type": "application/json", initData: "guest" }, body: JSON.stringify({ rows }) } as any);
+      const res = await fetch("/api/evotor/settings/shop-schedules", { method: "POST", headers: getAuthHeaders(), body: JSON.stringify({ rows }) } as any);
       if (!res.ok) throw new Error(String(res.status));
       setMessage("Расписание сохранено");
     } catch (e) { setMessage(`Ошибка: ${e}`); }
@@ -1270,7 +1272,7 @@ export default function SettingsNew() {
   // ─── Render ─────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-20">
+    <div className="min-h-screen bg-background text-foreground pb-[calc(5rem+env(safe-area-inset-bottom,0px))]">
       {/* Header */}
       <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-xl border-b border-border">
         <div className="max-w-2xl mx-auto px-4 py-2 flex items-center justify-between">
@@ -1350,7 +1352,7 @@ export default function SettingsNew() {
             borderColor="border-l-4 border-l-indigo-500"
             description="Товары этих групп участвуют в расчёте плана продаж. Выберите нужные товарные группы."
             loadSelected={async () => {
-              const res = await fetch("/api/settings", { headers: { initData: "guest" } });
+              const res = await fetch("/api/settings", { headers: getAuthHeaders() });
               const all: AppSetting[] = await res.json();
               const setting = all.find(s => s.key === "vape_group_uuids");
               if (!setting) return [];
@@ -1359,7 +1361,7 @@ export default function SettingsNew() {
             saveSelected={async (uuids) => {
               const res = await fetch("/api/settings/vape_group_uuids", {
                 method: "PUT",
-                headers: { "Content-Type": "application/json", initData: "guest" },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ value: JSON.stringify(uuids) }),
               });
               if (!res.ok) throw new Error(String(res.status));
@@ -1376,7 +1378,7 @@ export default function SettingsNew() {
             description="Товары этих групп считаются аксессуарами. Участвуют в расчёте бонуса с аксессуаров."
             loadSelected={async () => {
               const res = await fetch("/api/evotor/settings-config", {
-                headers: { initData: "guest" },
+                headers: getAuthHeaders(),
               });
               const data = await res.json();
               return (data.selectedGroupUuids ?? []) as string[];
@@ -1384,7 +1386,7 @@ export default function SettingsNew() {
             saveSelected={async (uuids) => {
               const res = await fetch("/api/evotor/settings/accessory-groups", {
                 method: "POST",
-                headers: { "Content-Type": "application/json", initData: "guest" },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ groups: uuids }),
               } as any);
               if (!res.ok) throw new Error(String(res.status));

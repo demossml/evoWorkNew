@@ -1,5 +1,6 @@
 import { useState, useCallback, type RefObject } from "react";
 import { Copy, Check, Loader, Share } from "lucide-react";
+import { getAuthHeaders } from "@shared/api";
 
 interface ReportShareButtonProps {
   targetRef: RefObject<HTMLDivElement | null>;
@@ -12,11 +13,13 @@ export function ReportShareButton({ targetRef, filename = "report" }: ReportShar
   const [state, setState] = useState<ShareState>("idle");
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleShare = useCallback(async () => {
     if (!targetRef.current) return;
     setState("generating");
     setShareUrl(null);
+    setErrorMsg(null);
 
     try {
       const { toJpeg } = await import("html-to-image");
@@ -33,24 +36,40 @@ export function ReportShareButton({ targetRef, filename = "report" }: ReportShar
       const formData = new FormData();
       formData.append("file", blob, `${filename}.jpg`);
 
+      // auth-заголовки; для FormData — без Content-Type (boundary сам)
+      const h = getAuthHeaders();
+      delete h["Content-Type"];
+
       const res = await fetch("/api/evotor/share-report", {
         method: "POST",
+        headers: h,
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
       const data = await res.json();
       const fullUrl = `${window.location.origin}${data.url}`;
       setShareUrl(fullUrl);
       setState("done");
-    } catch {
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Ошибка загрузки");
       setState("error");
     }
   }, [targetRef, filename]);
 
   const handleCopy = useCallback(async () => {
     if (!shareUrl) return;
-    await navigator.clipboard.writeText(shareUrl);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {
+      // fallback без clipboard API
+      const ta = document.createElement("textarea");
+      ta.value = shareUrl;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
   }, [shareUrl]);
@@ -58,7 +77,9 @@ export function ReportShareButton({ targetRef, filename = "report" }: ReportShar
   return (
     <div className="flex flex-col items-center gap-2 w-full">
       {state === "error" && (
-        <div className="text-xs text-red-500">Ошибка, попробуй ещё раз</div>
+        <div className="text-xs text-red-500">
+          Ошибка: {errorMsg || "попробуй ещё раз"}
+        </div>
       )}
 
       {state === "done" && shareUrl ? (
