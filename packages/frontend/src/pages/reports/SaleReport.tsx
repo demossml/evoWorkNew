@@ -524,7 +524,7 @@ export default function SalesReport() {
           {/* Share + AI Buttons */}
           {!showAiInsights && (
             <div className="space-y-2 mt-4">
-              <ReportShareButton targetRef={reportRef} filename={`sales-report-${startDate}`} />
+              <ReportShareButton targetRef={reportRef} filename={`sales-report-${startDate}`} label="Поделиться картинкой" />
               <motion.button
                 onClick={runAiAnalysis}
                 className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-medium hover:shadow-lg transition-all"

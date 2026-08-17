@@ -2,7 +2,7 @@ import { ErrorState } from "@shared/ui/states";
 import { ErrorBoundary } from "@shared/ui/states/ErrorBoundary";
 import { RegisterUserCard } from "@features/employees";
 import { useEmployeeRole } from "../hooks/useApi";
-import { useIsFetching } from "@tanstack/react-query";
+import { useIsFetching, useQuery } from "@tanstack/react-query";
 import {
   PlanStatusWidget,
   QuickActionsWidget,
@@ -169,9 +169,65 @@ export default function Home() {
           <QuickActionsWidget employeeRole={data.employeeRole} />
         </ErrorBoundary>
         <LastUpdated />
+        <SyncStatusLine />
       </div>
     </div>
   );
+}
+
+/**
+ * Одна muted-строка статуса синхронизации (read-only, /api/sync/status).
+ * Если API недоступен — блок просто не показывается (home не ломается).
+ */
+function SyncStatusLine() {
+  const { data } = useQuery<{
+    states?: { resource: string; last_success_at: string | null; status: string | null }[];
+  }>({
+    queryKey: ["sync-status-line"],
+    queryFn: async () => {
+      const res = await fetch("/api/sync/status");
+      if (!res.ok) throw new Error(String(res.status));
+      return res.json();
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    retry: false,
+  });
+
+  const states = data?.states ?? [];
+  if (states.length === 0) return null;
+
+  const hasError = states.some((s) => s.status === "error");
+  const lastOk = states
+    .map((s) => s.last_success_at)
+    .filter(Boolean)
+    .sort()
+    .pop();
+
+  if (hasError) {
+    return (
+      <div className="text-center mt-1">
+        <span className="text-xs text-destructive">Синхронизация: ошибка</span>
+      </div>
+    );
+  }
+
+  if (lastOk) {
+    const t = new Date(lastOk.includes(" ") ? `${lastOk.replace(" ", "T")}Z` : lastOk);
+    const timeStr = Number.isNaN(t.getTime())
+      ? ""
+      : t.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    return (
+      <div className="text-center mt-1">
+        <span className="text-xs text-muted-foreground">
+          Данные: обновлено {timeStr}
+        </span>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function LastUpdated() {

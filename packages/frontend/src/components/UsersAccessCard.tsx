@@ -260,6 +260,22 @@ export function UsersAccessCard() {
     );
   };
 
+  const copyCredentials = async (login: string, password: string) => {
+    const text = `Логин: ${login}\nПароль: ${password}`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // fallback без clipboard API
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setMessage("Скопировано в буфер обмена");
+  };
+
   const logout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST", headers: apiHeaders() });
@@ -514,6 +530,12 @@ export function UsersAccessCard() {
               className="mt-4 w-full py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium"
             >
               Готово
+            </button>
+            <button
+              onClick={() => copyCredentials(createdCreds.login, createdCreds.password)}
+              className="mt-2 w-full py-2 rounded-lg bg-muted text-foreground text-xs font-medium hover:bg-muted/70 transition"
+            >
+              Скопировать логин и пароль
             </button>
           </div>
         </div>

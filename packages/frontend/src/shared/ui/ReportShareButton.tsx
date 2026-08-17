@@ -5,11 +5,13 @@ import { getAuthHeaders } from "@shared/api";
 interface ReportShareButtonProps {
   targetRef: RefObject<HTMLDivElement | null>;
   filename?: string;
+  /** Подпись кнопки (по умолчанию «Поделиться отчётом») */
+  label?: string;
 }
 
 type ShareState = "idle" | "generating" | "uploading" | "done" | "error";
 
-export function ReportShareButton({ targetRef, filename = "report" }: ReportShareButtonProps) {
+export function ReportShareButton({ targetRef, filename = "report", label = "Поделиться отчётом" }: ReportShareButtonProps) {
   const [state, setState] = useState<ShareState>("idle");
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -120,7 +122,7 @@ export function ReportShareButton({ targetRef, filename = "report" }: ReportShar
           ) : (
             <>
               <Share className="w-4 h-4" />
-              Поделиться отчётом
+              {label}
             </>
           )}
         </button>

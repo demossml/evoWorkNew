@@ -5570,15 +5570,14 @@ async function generateRevenueShareHtml(
 ): Promise<string> {
 	const since = params.since + "T00:00:00";
 	const until = params.until + "T23:59:59";
-	const shopFilter = params.shopId && params.shopId !== "all"
-		? `AND shop_id = '${params.shopId.replace(/'/g, "''")}'`
-		: "";
+	const hasShop = !!(params.shopId && params.shopId !== "all");
+	const shopFilter = hasShop ? "AND shop_id = ?" : "";
 
 	const docs = await db
 		.prepare(`SELECT transactions, type, shop_id FROM index_documents
 		          WHERE close_date >= ? AND close_date <= ? ${shopFilter}
 		            AND type IN ('SELL', 'PAYBACK')`)
-		.bind(since, until)
+		.bind(...(hasShop ? [since, until, params.shopId as string] : [since, until]))
 		.all<{ transactions: string; type: string; shop_id: string }>();
 
 	const byProduct = new Map<string, { qty: number; sum: number }>();
