@@ -65,7 +65,9 @@ export async function saveAccessoryGroups(
   rawDb: D1Database,
   uuids: string[]
 ): Promise<void> {
-  const json = JSON.stringify(uuids);
+  // Дедупликация: одна группа не может быть выбрана дважды
+  const unique = [...new Set((uuids ?? []).map((u) => String(u).trim()).filter(Boolean))];
+  const json = JSON.stringify(unique);
 
   // Save to settings table (for settings page) via Drizzle
   const existing = await drizzleDb
@@ -86,8 +88,8 @@ export async function saveAccessoryGroups(
 
   // Also save to accessories table (used by getAllUuid for sales calculation)
   await rawDb.prepare("DELETE FROM accessories").run();
-  const stmt = rawDb.prepare("INSERT INTO accessories (uuid) VALUES (?)");
-  for (const uuid of uuids) {
+  const stmt = rawDb.prepare("INSERT OR IGNORE INTO accessories (uuid) VALUES (?)");
+  for (const uuid of unique) {
     await stmt.bind(uuid).run();
   }
 }
