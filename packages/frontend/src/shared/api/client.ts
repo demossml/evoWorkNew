@@ -4,6 +4,14 @@ import { createTraceId, getOrCreateTraceId, trackEvent } from "../../helpers/ana
 
 console.log("telegram.WebApp.initData:", telegram.WebApp.initData);
 
+// Dev-only: авто-логин под супер-админом, если браузер «чистый»
+// (встроенный браузер VS Code не имеет Telegram initData и localStorage).
+if (import.meta.env.DEV && window.location.hostname === "localhost") {
+  if (!localStorage.getItem("sessionId") && !localStorage.getItem("telegramId")) {
+    localStorage.setItem("telegramId", "5700958253"); // SUPERADMIN (legacy)
+  }
+}
+
 let initData = telegram.WebApp.initData || "";
 
 if (!initData) {
@@ -17,6 +25,8 @@ if (!initData) {
 export const client = hc<any>("", {
   init: {
     headers: {
+      // Приоритет: Bearer-сессия (login/connect-token), потом legacy Telegram
+      Authorization: `Bearer ${localStorage.getItem("sessionId") || ""}`,
       initData: initData || "guest",
       "telegram-id": localStorage.getItem("telegramId") || "",
       "x-trace-id": getOrCreateTraceId(),

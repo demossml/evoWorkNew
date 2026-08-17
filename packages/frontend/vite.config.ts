@@ -9,7 +9,10 @@ export default defineConfig({
     VitePWA({
       registerType: "prompt", // баннер с кнопкой «Обновить» вместо автообновления
       devOptions: {
-        enabled: true, // включено в dev для тестирования офлайн-режима
+        // В dev SW ОТКЛЮЧЁН: он перехватывает страницы во встроенном браузере
+        // VS Code и показывает «Нет соединения». Для теста PWA включить:
+        //   ENABLE_DEV_SW=1 pnpm dev
+        enabled: process.env.ENABLE_DEV_SW === "1",
         type: "module",
       },
       workbox: {
