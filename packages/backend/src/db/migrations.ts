@@ -308,6 +308,7 @@ export async function runMigrations(db: D1Database): Promise<void> {
 	await createIndexIfMissing(db, "app_users", "idx_app_users_tenant", "tenant_id");
 	await createIndexIfMissing(db, "app_users", "idx_app_users_employee", "employee_uuid");
 	await createIndexIfMissing(db, "app_users", "idx_app_users_active", "tenant_id, is_active");
+	await createIndexIfMissing(db, "app_users", "idx_app_users_tenant_employee", "tenant_id, employee_uuid");
 
 	await db.prepare(`
 		CREATE TABLE IF NOT EXISTS app_user_shops (

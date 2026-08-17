@@ -31,6 +31,7 @@ interface AppUser {
   display_name: string;
   role: string;
   employee_uuid: string | null;
+  employee_name?: string | null;
   is_active: number;
   shopIds: string[];
 }
@@ -38,6 +39,17 @@ interface AppUser {
 interface TenantShop {
   uuid: string;
   name: string;
+}
+
+interface EvotorEmployee {
+  uuid: string;
+  name: string;
+  last_name: string;
+  role: string;
+  stores: string[];
+  has_account: boolean;
+  account_id: string | null;
+  account_active: boolean;
 }
 
 // Единые auth-заголовки: Bearer-сессия + legacy telegram-id + initData
@@ -53,13 +65,14 @@ export function UsersAccessCard() {
 
   const [users, setUsers] = useState<AppUser[]>([]);
   const [shops, setShops] = useState<TenantShop[]>([]);
+  const [employees, setEmployees] = useState<EvotorEmployee[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   // Модалка создания
   const [showCreate, setShowCreate] = useState(false);
-  const [formName, setFormName] = useState("");
+  const [formEmployeeUuid, setFormEmployeeUuid] = useState("");
   const [formRole, setFormRole] = useState<"CASHIER" | "ADMIN">("CASHIER");
   const [formShops, setFormShops] = useState<string[]>([]);
   const [createdCreds, setCreatedCreds] = useState<{ login: string; password: string } | null>(null);
@@ -67,9 +80,10 @@ export function UsersAccessCard() {
   const load = async () => {
     setLoading(true);
     try {
-      const [usersRes, shopsRes] = await Promise.all([
+      const [usersRes, shopsRes, employeesRes] = await Promise.all([
         fetch("/api/users", { headers: apiHeaders() }),
         fetch("/api/tenant/shops", { headers: apiHeaders() }),
+        fetch("/api/users/evotor-employees", { headers: apiHeaders() }),
       ]);
       if (usersRes.ok) {
         const data = await usersRes.json();
@@ -78,6 +92,10 @@ export function UsersAccessCard() {
       if (shopsRes.ok) {
         const data = await shopsRes.json();
         setShops(data.shops ?? []);
+      }
+      if (employeesRes.ok) {
+        const data = await employeesRes.json();
+        setEmployees(data.employees ?? []);
       }
     } catch {
       /* ignore */
@@ -145,27 +163,50 @@ export function UsersAccessCard() {
 
   const shopName = (uuid: string) => shops.find((s) => s.uuid === uuid)?.name ?? uuid.slice(0, 8);
 
+  const selectedEmployee = employees.find((e) => e.uuid === formEmployeeUuid) ?? null;
+
+  const selectEmployee = (uuid: string) => {
+    const emp = employees.find((e) => e.uuid === uuid);
+    if (!emp) return;
+    setFormEmployeeUuid(uuid);
+    // Магазины по умолчанию — из Evotor (employees.stores), только tenant-магазины
+    const tenantUuids = new Set(shops.map((s) => s.uuid));
+    setFormShops(emp.stores.filter((s) => tenantUuids.has(s)));
+    // Если в Evotor роль ADMIN — предложить ADMIN
+    setFormRole(emp.role === "ADMIN" ? "ADMIN" : "CASHIER");
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
+    if (!formEmployeeUuid) {
+      setMessage("Выберите сотрудника из Evotor");
+      return;
+    }
     try {
       const res = await fetch("/api/users", {
         method: "POST",
         headers: apiHeaders(),
         body: JSON.stringify({
-          display_name: formName,
+          employee_uuid: formEmployeeUuid,
           role: formRole,
           shop_ids: formShops,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setMessage(data.error === "invalid_shop" ? "Ошибка: магазин не принадлежит сети" : "Ошибка создания");
+        const errMap: Record<string, string> = {
+          employee_uuid_required: "Выберите сотрудника из Evotor",
+          employee_not_found: "Сотрудник не найден в Evotor",
+          account_already_exists: "У этого сотрудника уже есть активная учётка",
+          invalid_shop: "Магазин не принадлежит сети",
+        };
+        setMessage(errMap[data.error] ?? "Ошибка создания");
         return;
       }
       setCreatedCreds({ login: data.user.login, password: data.password });
       setShowCreate(false);
-      setFormName("");
+      setFormEmployeeUuid("");
       setFormShops([]);
       await load();
     } catch {
@@ -293,6 +334,17 @@ export function UsersAccessCard() {
                 </span>
               </div>
 
+              {/* Привязка к сотруднику Evotor */}
+              <div className="mt-1 text-[10px] text-muted-foreground">
+                {user.employee_uuid ? (
+                  <>Evotor: {user.employee_name || user.employee_uuid.slice(0, 8)}</>
+                ) : user.role === "SUPERADMIN" ? (
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400">Владелец</span>
+                ) : (
+                  <span className="px-1.5 py-0.5 rounded bg-red-500/15 text-red-400">нет привязки к Evotor</span>
+                )}
+              </div>
+
               <div className="flex flex-wrap gap-1 mt-1.5">
                 {user.role === "SUPERADMIN" ? (
                   <span className="text-[10px] text-muted-foreground">все магазины</span>
@@ -353,16 +405,39 @@ export function UsersAccessCard() {
           <div className="w-full max-w-sm rounded-2xl bg-card border border-border p-5 shadow-xl">
             <h4 className="text-sm font-semibold text-foreground mb-3">Новый пользователь</h4>
             <form onSubmit={handleCreate} className="space-y-3">
-              <div>
-                <label className="text-xs text-muted-foreground">Имя</label>
-                <input
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  className="w-full mt-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none"
-                  placeholder="Иван"
-                  required
-                />
-              </div>
+              {employees.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Нет сотрудников. Запустите синхронизацию с Evotor (сотрудники).
+                </p>
+              ) : (
+                <div>
+                  <label className="text-xs text-muted-foreground">Сотрудник из Evotor</label>
+                  <select
+                    value={formEmployeeUuid}
+                    onChange={(e) => selectEmployee(e.target.value)}
+                    className="w-full mt-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none"
+                  >
+                    <option value="">— выберите сотрудника —</option>
+                    {employees.map((emp) => (
+                      <option
+                        key={emp.uuid}
+                        value={emp.uuid}
+                        disabled={emp.has_account && emp.account_active}
+                      >
+                        {emp.name}
+                        {emp.last_name ? ` ${emp.last_name}` : ""}
+                        {emp.has_account && emp.account_active ? " — уже есть доступ" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedEmployee && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Имя: {selectedEmployee.name}
+                      {selectedEmployee.last_name ? ` ${selectedEmployee.last_name}` : ""}
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="text-xs text-muted-foreground">Роль</label>
                 <select
@@ -400,7 +475,8 @@ export function UsersAccessCard() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium"
+                  disabled={!formEmployeeUuid}
+                  className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium disabled:opacity-50"
                 >
                   Создать
                 </button>

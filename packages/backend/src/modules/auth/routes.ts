@@ -25,6 +25,10 @@ import {
   createSession,
   deleteSession,
   deleteUserSessions,
+  findEmployeeByUuid,
+  listEmployeesByTenant,
+  findUserByEmployee,
+  findActiveUserByEmployee,
 } from "./repo";
 import {
   hashPassword,
@@ -249,17 +253,53 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
     const enriched = [];
     for (const u of users) {
       const shopIds = u.role === "SUPERADMIN" ? [] : await getUserShopIds(db, u.id);
-      enriched.push({ ...u, shopIds });
+      let employeeName: string | null = null;
+      if (u.employee_uuid) {
+        const emp = await db
+          .prepare("SELECT name FROM employees WHERE uuid = ?")
+          .bind(u.employee_uuid)
+          .first<{ name: string }>();
+        employeeName = emp?.name ?? null;
+      }
+      enriched.push({ ...u, shopIds, employee_name: employeeName });
     }
     return c.json({ success: true, users: enriched });
+  });
+
+  // Сотрудники Evotor для формы выдачи доступа (только синхронизированные)
+  app.get("/api/users/evotor-employees", requireSuperAdmin, async (c) => {
+    const tenantId = c.get("tenantId");
+    const db = c.get("db");
+    const emps = await listEmployeesByTenant(db, tenantId);
+    const enriched = [];
+    for (const e of emps) {
+      const acc = await findUserByEmployee(db, tenantId, e.uuid);
+      let stores: string[] = [];
+      try {
+        const parsed = JSON.parse(e.stores || "[]");
+        if (Array.isArray(parsed)) stores = parsed.map(String);
+      } catch {
+        /* невалидный JSON — пусто */
+      }
+      enriched.push({
+        uuid: e.uuid,
+        name: e.name,
+        last_name: e.last_name ?? "",
+        role: e.role ?? "",
+        stores,
+        has_account: !!acc,
+        account_id: acc?.id ?? null,
+        account_active: acc ? acc.is_active === 1 : false,
+      });
+    }
+    return c.json({ success: true, employees: enriched });
   });
 
   app.post("/api/users", requireSuperAdmin, async (c) => {
     const body = await c.req
       .json<{
-        display_name?: string;
+        employee_uuid?: string;
         role?: string;
-        employee_uuid?: string | null;
         shop_ids?: string[];
       }>()
       .catch(() => ({}));
@@ -272,10 +312,46 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
       return c.json({ success: false, error: "invalid_role" }, 400);
     }
 
-    // shop_ids должны принадлежать текущему tenant
-    const requestedShops = Array.isArray(body.shop_ids) ? body.shop_ids : [];
-    const validShops = await filterTenantShopIds(db, tenantId, requestedShops);
-    if (validShops.length !== new Set(requestedShops).size) {
+    // 1) employee_uuid обязателен — доступ выдаём только продавцам из Evotor
+    const employeeUuid = (body.employee_uuid || "").trim();
+    if (!employeeUuid) {
+      return c.json({ success: false, error: "employee_uuid_required" }, 400);
+    }
+
+    // 2) Сотрудник должен существовать в employees (текущего tenant)
+    const employee = await findEmployeeByUuid(db, tenantId, employeeUuid);
+    if (!employee) {
+      return c.json({ success: false, error: "employee_not_found" }, 404);
+    }
+
+    // 3) Одна активная учётка на сотрудника
+    const existing = await findActiveUserByEmployee(db, tenantId, employeeUuid);
+    if (existing) {
+      return c.json(
+        { success: false, error: "account_already_exists", user_id: existing.id },
+        409,
+      );
+    }
+
+    // 4) display_name — из Evotor
+    const displayName = employee.name || employeeUuid;
+
+    // 5) shop_ids: явный override — строгая валидация; иначе из employees.stores
+    let requested: string[];
+    let strict = false;
+    if (Array.isArray(body.shop_ids) && body.shop_ids.length > 0) {
+      requested = body.shop_ids.map(String);
+      strict = true;
+    } else {
+      try {
+        const parsed = JSON.parse(employee.stores || "[]");
+        requested = Array.isArray(parsed) ? parsed.map(String) : [];
+      } catch {
+        requested = [];
+      }
+    }
+    const validShops = await filterTenantShopIds(db, tenantId, requested);
+    if (strict && validShops.length !== new Set(requested).size) {
       return c.json({ success: false, error: "invalid_shop" }, 400);
     }
 
@@ -289,9 +365,9 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
       tenant_id: tenantId,
       login,
       password_hash: hash,
-      display_name: body.display_name || login,
+      display_name: displayName,
       role,
-      employee_uuid: body.employee_uuid ?? null,
+      employee_uuid: employeeUuid,
     });
     await setUserShops(db, id, validShops);
 
@@ -300,10 +376,10 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
       user: {
         id,
         login,
-        display_name: body.display_name || login,
+        display_name: displayName,
         role,
         shop_ids: validShops,
-        employee_uuid: body.employee_uuid ?? null,
+        employee_uuid: employeeUuid,
       },
       // plaintext пароль — единственный раз
       password,
@@ -337,6 +413,19 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
       }
     }
 
+    // employee_uuid неизменяем после создания
+    if (body.employee_uuid !== undefined && body.employee_uuid !== user.employee_uuid) {
+      return c.json({ success: false, error: "employee_uuid_immutable" }, 400);
+    }
+    // Нельзя отвязать учётку от сотрудника у CASHIER/ADMIN
+    const targetRole = body.role ?? user.role;
+    if (
+      body.employee_uuid === null &&
+      (targetRole === "CASHIER" || targetRole === "ADMIN")
+    ) {
+      return c.json({ success: false, error: "employee_uuid_required" }, 400);
+    }
+
     if (body.shop_ids !== undefined) {
       const requested = Array.isArray(body.shop_ids) ? body.shop_ids : [];
       const valid = await filterTenantShopIds(db, tenantId, requested);
@@ -349,7 +438,6 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
     await updateUserMeta(db, userId, {
       display_name: body.display_name,
       role: body.role,
-      employee_uuid: body.employee_uuid,
       is_active: body.is_active,
     });
 

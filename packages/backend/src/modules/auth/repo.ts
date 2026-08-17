@@ -286,6 +286,79 @@ export async function filterTenantShopIds(
 	return (res.results ?? []).map((r) => r.uuid);
 }
 
+// --- employees (Evotor) ---
+
+export type EmployeeRow = {
+	uuid: string;
+	name: string;
+	last_name: string | null;
+	role: string | null;
+	stores: string | null;
+	tenant_id: string | null;
+};
+
+export async function findEmployeeByUuid(
+	db: D1Database,
+	tenantId: string,
+	uuid: string,
+): Promise<EmployeeRow | null> {
+	return (
+		(await db
+			.prepare(
+				`SELECT uuid, name, last_name, role, stores, tenant_id FROM employees
+         WHERE uuid = ? AND (tenant_id = ? OR tenant_id = 'default')`,
+			)
+			.bind(uuid, tenantId)
+			.first<EmployeeRow>()) ?? null
+	);
+}
+
+export async function listEmployeesByTenant(
+	db: D1Database,
+	tenantId: string,
+): Promise<EmployeeRow[]> {
+	const res = await db
+		.prepare(
+			`SELECT uuid, name, last_name, role, stores, tenant_id FROM employees
+       WHERE tenant_id = ? ORDER BY name`,
+		)
+		.bind(tenantId)
+		.all<EmployeeRow>();
+	return res.results ?? [];
+}
+
+/** Любая учётка (active или нет) для сотрудника в рамках tenant. */
+export async function findUserByEmployee(
+	db: D1Database,
+	tenantId: string,
+	employeeUuid: string,
+): Promise<{ id: string; is_active: number } | null> {
+	return (
+		(await db
+			.prepare(
+				`SELECT id, is_active FROM app_users WHERE tenant_id = ? AND employee_uuid = ? LIMIT 1`,
+			)
+			.bind(tenantId, employeeUuid)
+			.first<{ id: string; is_active: number }>()) ?? null
+	);
+}
+
+/** Активная учётка сотрудника (для запрета дублей). */
+export async function findActiveUserByEmployee(
+	db: D1Database,
+	tenantId: string,
+	employeeUuid: string,
+): Promise<{ id: string } | null> {
+	return (
+		(await db
+			.prepare(
+				`SELECT id FROM app_users WHERE tenant_id = ? AND employee_uuid = ? AND is_active = 1 LIMIT 1`,
+			)
+			.bind(tenantId, employeeUuid)
+			.first<{ id: string }>()) ?? null
+	);
+}
+
 // --- sessions ---
 
 const SESSION_TTL_DAYS = 30;
