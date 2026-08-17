@@ -26,6 +26,7 @@ import {
   Wallet, Clock, Store, ChevronDown, ChevronRight,
   Zap, Package, Search, DollarSign, X, Users,
 } from "lucide-react";
+import { UsersAccessCard, EvotorTokenCard } from "../../components/UsersAccessCard";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -1393,6 +1394,10 @@ export default function SettingsNew() {
 
         {/* Продавцы */}
         {!isLoading && !error && <SellersCard />}
+
+        {/* Пользователи и доступ (только SUPERADMIN — компоненты сами проверяют роль) */}
+        {!isLoading && !error && <UsersAccessCard />}
+        {!isLoading && !error && <EvotorTokenCard />}
 
         {/* Акционные товары */}
         {!isLoading && !error && <PromoProductsCard />}

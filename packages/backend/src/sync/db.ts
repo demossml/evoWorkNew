@@ -415,23 +415,28 @@ export async function createShopsTable(db: D1Database): Promise<void> {
       `CREATE TABLE IF NOT EXISTS shops (
         uuid TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        address TEXT DEFAULT ''
+        address TEXT DEFAULT '',
+        tenant_id TEXT NOT NULL DEFAULT 'default'
       )`
     )
     .run();
+  try {
+    await db.prepare(`ALTER TABLE shops ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default'`).run();
+  } catch { /* уже есть */ }
   console.log("Таблица 'shops' успешно создана или уже существует.");
 }
 
 export async function upsertShops(
   db: D1Database,
-  shops: { uuid: string; name: string; address?: string }[]
+  shops: { uuid: string; name: string; address?: string }[],
+  tenantId = "default",
 ): Promise<void> {
   const stmt = db.prepare(
-    `INSERT INTO shops (uuid, name, address) VALUES (?, ?, ?)
-     ON CONFLICT(uuid) DO UPDATE SET name = excluded.name, address = excluded.address`
+    `INSERT INTO shops (uuid, name, address, tenant_id) VALUES (?, ?, ?, ?)
+     ON CONFLICT(uuid) DO UPDATE SET name = excluded.name, address = excluded.address, tenant_id = excluded.tenant_id`
   );
   for (const s of shops) {
-    await stmt.bind(s.uuid, s.name, s.address ?? "").run();
+    await stmt.bind(s.uuid, s.name, s.address ?? "", tenantId).run();
   }
   console.log(`Синхронизировано магазинов: ${shops.length}`);
 }
@@ -463,23 +468,28 @@ export async function createEmployeesTable(db: D1Database): Promise<void> {
         name TEXT NOT NULL,
         last_name TEXT DEFAULT '',
         role TEXT DEFAULT '',
-        stores TEXT DEFAULT '[]'
+        stores TEXT DEFAULT '[]',
+        tenant_id TEXT NOT NULL DEFAULT 'default'
       )`
     )
     .run();
+  try {
+    await db.prepare(`ALTER TABLE employees ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'default'`).run();
+  } catch { /* уже есть */ }
   console.log("Таблица 'employees' успешно создана или уже существует.");
 }
 
 export async function upsertEmployees(
   db: D1Database,
-  employees: { uuid: string; name: string; lastName?: string; role?: string; stores?: string[] }[]
+  employees: { uuid: string; name: string; lastName?: string; role?: string; stores?: string[] }[],
+  tenantId = "default",
 ): Promise<void> {
   const stmt = db.prepare(
-    `INSERT INTO employees (uuid, name, last_name, role, stores) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(uuid) DO UPDATE SET name = excluded.name, last_name = excluded.last_name, role = excluded.role, stores = excluded.stores`
+    `INSERT INTO employees (uuid, name, last_name, role, stores, tenant_id) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(uuid) DO UPDATE SET name = excluded.name, last_name = excluded.last_name, role = excluded.role, stores = excluded.stores, tenant_id = excluded.tenant_id`
   );
   for (const e of employees) {
-    await stmt.bind(e.uuid, e.name, e.lastName ?? "", e.role ?? "", JSON.stringify(e.stores ?? [])).run();
+    await stmt.bind(e.uuid, e.name, e.lastName ?? "", e.role ?? "", JSON.stringify(e.stores ?? []), tenantId).run();
   }
   console.log(`Синхронизировано сотрудников: ${employees.length}`);
 }

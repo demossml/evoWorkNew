@@ -104,6 +104,7 @@ const app = new Hono()
 			TELEGRAM_STORAGE_BOT_TOKEN: BOT_TOKEN,
 			TELEGRAM_STORAGE_CHAT_ID: process.env.TELEGRAM_STORAGE_CHAT_ID ?? "",
 			DEEPSEEK_API_KEY: DEEPSEEK_KEY,
+			AUTH_SECRET: process.env.AUTH_SECRET ?? "dev-auth-secret-change-me-32chars",
 		} as any;
 
 		c.set("evotor", evotor);
@@ -118,29 +119,8 @@ const app = new Hono()
 		await next();
 	})
 	.use("/*", async (c, next) => {
-		// Адаптированный authenticate (берём из helpers, но без crypto.subtle)
-		const initData = c.req.header("initData") || "guest";
-
-		if (initData === "guest") {
-			const manualId = c.req.header("telegram-id");
-			c.set("user", {
-				id: manualId ?? "",
-				first_name: "",
-				last_name: "",
-				username: "",
-				photo_url: "",
-			});
-			c.set("userId", manualId ?? "");
-		} else {
-			const payload = Object.fromEntries(new URLSearchParams(initData));
-			const valid = await isValidSign(BOT_TOKEN, payload);
-			assert(valid, "invalid signature");
-			const user = JSON.parse(payload.user);
-			c.set("user", user);
-			c.set("userId", user.id.toString());
-		}
-
-		return next();
+		// Единый dual-mode authenticate (Bearer-сессия + legacy Telegram)
+		await authenticate(c, next);
 	})
 	.get("/health", (c) => c.json({ status: "ok", uptime: process.uptime(), ts: Date.now() }))
 	.route("/", api)

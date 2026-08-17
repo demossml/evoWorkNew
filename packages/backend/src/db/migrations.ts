@@ -284,5 +284,70 @@ export async function runMigrations(db: D1Database): Promise<void> {
 		)
 	`).run();
 
+	// ══════════════════════════════════════════════════════════
+	// app_users / app_user_shops / app_sessions (auth)
+	// ══════════════════════════════════════════════════════════
+	await db.prepare(`
+		CREATE TABLE IF NOT EXISTS app_users (
+			id            TEXT PRIMARY KEY,
+			tenant_id     TEXT NOT NULL,
+			login         TEXT NOT NULL,
+			password_hash TEXT NOT NULL,
+			display_name  TEXT NOT NULL DEFAULT '',
+			role          TEXT NOT NULL DEFAULT 'CASHIER',
+			employee_uuid TEXT,
+			is_active     INTEGER NOT NULL DEFAULT 1,
+			must_change_password INTEGER NOT NULL DEFAULT 0,
+			last_login_at TEXT,
+			created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+			updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+			UNIQUE(login)
+		)
+	`).run();
+
+	await createIndexIfMissing(db, "app_users", "idx_app_users_tenant", "tenant_id");
+	await createIndexIfMissing(db, "app_users", "idx_app_users_employee", "employee_uuid");
+	await createIndexIfMissing(db, "app_users", "idx_app_users_active", "tenant_id, is_active");
+
+	await db.prepare(`
+		CREATE TABLE IF NOT EXISTS app_user_shops (
+			user_id TEXT NOT NULL,
+			shop_id TEXT NOT NULL,
+			PRIMARY KEY (user_id, shop_id)
+		)
+	`).run();
+	await createIndexIfMissing(db, "app_user_shops", "idx_app_user_shops_shop", "shop_id");
+
+	await db.prepare(`
+		CREATE TABLE IF NOT EXISTS app_sessions (
+			id         TEXT PRIMARY KEY,
+			user_id    TEXT NOT NULL,
+			tenant_id  TEXT NOT NULL,
+			expires_at TEXT NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			user_agent TEXT DEFAULT ''
+		)
+	`).run();
+	await createIndexIfMissing(db, "app_sessions", "idx_app_sessions_user", "user_id");
+	await createIndexIfMissing(db, "app_sessions", "idx_app_sessions_expires", "expires_at");
+
+	await addColumnIfMissing(db, "employees", "tenant_id", "TEXT NOT NULL DEFAULT 'default'");
+	await addColumnIfMissing(db, "shops", "tenant_id", "TEXT NOT NULL DEFAULT 'default'");
+	await createIndexIfMissing(db, "employees", "idx_employees_tenant", "tenant_id");
+	await createIndexIfMissing(db, "shops", "idx_shops_tenant", "tenant_id");
+
+	// tenants table (если syncEngine ещё не создал)
+	await db.prepare(`
+		CREATE TABLE IF NOT EXISTS tenants (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			evotor_token TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'active',
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+		)
+	`).run();
+	await addColumnIfMissing(db, "tenants", "updated_at", "TEXT NOT NULL DEFAULT (datetime('now'))");
+
 	console.log("[migration] Миграции завершены.");
 }

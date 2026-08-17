@@ -321,7 +321,7 @@ export async function syncShops(env: SyncEnv): Promise<void> {
       name: s.name,
       address: s.address ?? "",
     })) : [];
-    await upsertShops(env.DB, shopsData);
+    await upsertShops(env.DB, shopsData, "default");
     console.log(`[syncShops] ${shopsData.length} магазинов синхронизировано`);
   } catch (e) {
     console.error("[syncShops] Ошибка:", e);
@@ -347,7 +347,7 @@ export async function syncEmployees(env: SyncEnv): Promise<void> {
       role: e.role ?? "",
       stores: e.stores ?? [],
     })) : [];
-    await upsertEmployees(env.DB, employeesData);
+    await upsertEmployees(env.DB, employeesData, "default");
     console.log(`[syncEmployees] ${employeesData.length} сотрудников синхронизировано`);
   } catch (e) {
     console.error("[syncEmployees] Ошибка:", e);

@@ -15,6 +15,14 @@ export function errorHandler(err: Error, c: Context): Response {
     );
   }
 
+  // Доступ к чужому магазину → 403 без утечки деталей
+  if (err.message === "FORBIDDEN_SHOP") {
+    return c.json(
+      { success: false, error: { code: "FORBIDDEN_SHOP", message: "Forbidden" } },
+      403,
+    );
+  }
+
   // Неизвестная ошибка — логируем полностью, клиенту отдаём общее сообщение
   logger.error(err.message, { stack: err.stack, name: err.name });
 

@@ -36,90 +36,186 @@ export const initialize = async (c: IContext, next: Next) => {
 
   await ensureTables(c.env.DB);
 
+  // Гарантируем наличие дефолтного тенанта (токен из env) —
+  // чтобы универсальный движок мог работать сразу после старта.
+  try {
+    const { ensureDefaultTenant } = await import("./sync/syncEngine");
+    await ensureDefaultTenant(c.env.DB, c.env.EVOTOR_API_TOKEN);
+  } catch (e: any) {
+    console.warn("[initialize] ensureDefaultTenant:", e?.message ?? e);
+  }
+
   return next();
 };
 
+/**
+ * authenticate — dual-mode:
+ *   1) Bearer-сессия (app_sessions) — приоритет;
+ *   2) Legacy Telegram (initData / telegram-id) — как раньше.
+ * Источник истины tenant/shopIds/role — сессия, а не body/query клиента.
+ */
 export const authenticate = async (c: IContext, next: Next) => {
-	const initData = c.req.header("initData") || "guest";
+  const db = c.env.DB;
+  // Defaults
+  c.set("tenantId", "default");
+  c.set("role", "");
+  c.set("shopIds", []);
+  c.set("authSource", "guest");
+  c.set("appUserId", undefined);
 
-	// режим "гость"
-	if (initData === "guest") {
-		const manualId = c.req.header("telegram-id");
+  // 1) Bearer session
+  const authHeader = c.req.header("Authorization") || "";
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  const sessionFromHeader = bearer || c.req.header("X-Session-Id") || "";
 
-		if (manualId) {
-			// пользователь ввёл Telegram ID вручную
-			c.set("user", {
-				id: manualId,
-				first_name: "",
-				last_name: "",
-				username: "",
-				photo_url: "",
-			});
-			c.set("userId", manualId);
-		} else {
-			// гость без ID
-			c.set("user", {
-				id: "",
-				first_name: "",
-				last_name: "",
-				username: "",
-				photo_url: "",
-			});
-			c.set("userId", "");
-		}
-	} else {
-		// проверка WebApp initData
-		const payload = Object.fromEntries(new URLSearchParams(initData));
-		const isValid = await isValidSign(c.env.BOT_TOKEN, payload);
-		assert(isValid, "invalid signature");
+  if (sessionFromHeader) {
+    const { getSession, findUserById, getUserShopIds, getTenantById } = await import(
+      "./modules/auth/repo"
+    );
+    const session = await getSession(db, sessionFromHeader);
+    if (session && session.expires_at >= new Date().toISOString()) {
+      const user = await findUserById(db, session.user_id);
+      if (user && user.is_active === 1 && user.tenant_id === session.tenant_id) {
+        const shopIds =
+          user.role === "SUPERADMIN" ? [] : await getUserShopIds(db, user.id);
+        const tenant = await getTenantById(db, user.tenant_id);
 
-		const user = JSON.parse(payload.user);
-		c.set("user", user);
-		c.set("userId", user.id.toString());
-	}
+        c.set("appUserId", user.id);
+        c.set("userId", user.id);
+        c.set("tenantId", user.tenant_id);
+        c.set("role", user.role);
+        c.set("shopIds", shopIds);
+        c.set("authSource", "session");
+        c.set("user", {
+          id: user.id,
+          first_name: user.display_name,
+          last_name: "",
+          username: user.login,
+          photo_url: "",
+        });
 
-	return next();
+        // Evotor из токена ТЕНАНТА (не из env)
+        if (tenant?.evotor_token) {
+          c.set("evotor", new Evotor(tenant.evotor_token));
+        }
+
+        return next();
+      }
+    }
+    // невалидная сессия — падаем в telegram/guest
+  }
+
+  // 2) Legacy Telegram (как было)
+  const initData = c.req.header("initData") || "guest";
+
+  if (initData === "guest") {
+    const manualId = c.req.header("telegram-id");
+    if (manualId) {
+      c.set("user", {
+        id: manualId,
+        first_name: "",
+        last_name: "",
+        username: "",
+        photo_url: "",
+      });
+      c.set("userId", manualId);
+      c.set("authSource", "telegram");
+    } else {
+      c.set("user", {
+        id: "",
+        first_name: "",
+        last_name: "",
+        username: "",
+        photo_url: "",
+      });
+      c.set("userId", "");
+      c.set("authSource", "guest");
+    }
+  } else {
+    const payload = Object.fromEntries(new URLSearchParams(initData));
+    const isValid = await isValidSign(c.env.BOT_TOKEN, payload);
+    assert(isValid, "invalid signature");
+    const user = JSON.parse(payload.user);
+    c.set("user", user);
+    c.set("userId", user.id.toString());
+    c.set("authSource", "telegram");
+  }
+
+  return next();
 };
 
-// SUPERADMIN Telegram IDs (hardcoded)
-const SUPERADMIN_IDS = new Set(["5700958253", "475039971"]);
+// SUPERADMIN Telegram IDs (legacy, hardcoded)
+export const SUPERADMIN_IDS = new Set(["5700958253", "475039971"]);
 
 /**
- * requireAdmin — middleware that checks the user has Admin or SuperAdmin rights.
+ * requireAdmin — middleware, проверяющий права Admin/SuperAdmin.
  * Must be placed AFTER authenticate and initialize in the middleware chain.
- *
- * Logic:
- *   1. SuperAdmin → hardcoded by Telegram user ID
- *   2. Admin        → check employee role in DB (ADMIN)
- *   3. Any other    → 403 Forbidden
  */
 export const requireAdmin = async (c: IContext, next: Next) => {
-	const userId = c.get("userId") as string;
+  const role = (c.get("role") as string) || "";
+  const userId = c.get("userId") as string;
+  const authSource = c.get("authSource") as string;
 
-	// SuperAdmin: hardcoded list
-	if (SUPERADMIN_IDS.has(userId)) {
-		return next();
-	}
+  if (role === "SUPERADMIN" || role === "ADMIN") {
+    return next();
+  }
 
-	// Check DB for employee role
-	try {
-		const db = c.get("db") as D1Database;
-		const role = await getEmployeeRoleFromDBSimple(db, userId);
-		if (role === "ADMIN" || role === "SUPERADMIN") {
-			return next();
-		}
-	} catch {
-		// fall through to 403
-	}
+  // legacy telegram hardcoded
+  if (authSource === "telegram" && SUPERADMIN_IDS.has(userId)) {
+    c.set("role", "SUPERADMIN");
+    return next();
+  }
 
-	return c.json(
-		{
-			success: false,
-			message: "Forbidden: требуется роль Admin или SuperAdmin",
-		},
-		403,
-	);
+  // legacy DB role by telegram id / last_name
+  if (authSource === "telegram") {
+    try {
+      const db = c.get("db") as D1Database;
+      const r = await getEmployeeRoleFromDBSimple(db, userId);
+      if (r === "ADMIN" || r === "SUPERADMIN") {
+        c.set("role", r);
+        return next();
+      }
+    } catch {
+      /* fallthrough */
+    }
+  }
+
+  return c.json(
+    {
+      success: false,
+      message: "Forbidden: требуется роль Admin или SuperAdmin",
+    },
+    403,
+  );
 };
+
+/** Только SUPERADMIN (для управления пользователями и токеном) */
+export const requireSuperAdmin = async (c: IContext, next: Next) => {
+  const role = (c.get("role") as string) || "";
+  const userId = c.get("userId") as string;
+  const authSource = c.get("authSource") as string;
+
+  if (role === "SUPERADMIN") return next();
+  if (authSource === "telegram" && SUPERADMIN_IDS.has(userId)) {
+    c.set("role", "SUPERADMIN");
+    return next();
+  }
+  return c.json({ success: false, message: "Forbidden: только SUPERADMIN" }, 403);
+};
+
+/**
+ * Проверка доступа к магазину.
+ * Вызывать внутри handler: assertShopAccess(c, shopId).
+ * SUPERADMIN проходит всегда (tenant filter отдельно).
+ */
+export function assertShopAccess(c: IContext, shopId: string): void {
+  const role = c.get("role") as string;
+  const shopIds = (c.get("shopIds") as string[]) || [];
+  if (role === "SUPERADMIN") return; // все магазины своего tenant
+  if (!shopId || !shopIds.includes(shopId)) {
+    throw new Error("FORBIDDEN_SHOP"); // error-handler → 403
+  }
+}
 
 /** Lightweight version — doesn't require import from sync/db */
 async function getEmployeeRoleFromDBSimple(

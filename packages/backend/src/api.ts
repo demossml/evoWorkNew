@@ -18,7 +18,8 @@ import { hashMetrics, getCachedAnalysis, saveCachedAnalysis, saveConversation, g
 import { computeSellerAdvancedStats, computeWeekdayComparison, computeWeekdayBreakdown } from "./services/sellerAdvancedStats";
 import { generateSellerInsights } from "./services/sellerInsights";
 import { computeHourlyCompare } from "./services/sellerHourlyCompare";
-import { requireAdmin } from "./helpers";
+import { requireAdmin, assertShopAccess } from "./helpers";
+import { registerAuthRoutes } from "./modules/auth/routes";
 import type { ShopUuidName } from "./evotor/types";
 import {
 	assert,
@@ -463,7 +464,13 @@ export const api = new Hono<IEnv>()
 
 	.get("/api/shops", async (c) => {
 		const db = c.get("db");
-		const shopsNameAndUuid = await getShopNameUuidsFromDB(db);
+		const tenantId = c.get("tenantId");
+		// TODO(tenant): все запросы к shops — строго с tenant_id
+		const result = await db
+			.prepare("SELECT uuid, name FROM shops WHERE tenant_id = ?")
+			.bind(tenantId)
+			.all<{ uuid: string; name: string }>();
+		const shopsNameAndUuid = result.results ?? [];
 		assert(shopsNameAndUuid, "not an shopsNameAndUuid");
 		return c.json({ shopsNameAndUuid });
 	})
@@ -554,6 +561,15 @@ export const api = new Hono<IEnv>()
 	})
 
 	.get("/api/employee-role", async (c) => {
+		const authSource = c.get("authSource");
+
+		// Session auth: роль уже определена в middleware из app_users
+		if (authSource === "session") {
+			const role = c.get("role");
+			assert(role, "not an employee");
+			return c.json({ employeeRole: role });
+		}
+
 		const userId = c.var.user.id.toString();
 
 		const db = c.get("db");
@@ -824,7 +840,19 @@ export const api = new Hono<IEnv>()
 		const db = c.get("db"); // Получаем подключение к базе данных
 		const evo = c.var.evotor;
 
-		const shopUuids = await getShopUuidsFromDB(db);
+		// Только магазины своего tenant; не-SUPERADMIN — только назначенные
+		const tenantId = c.get("tenantId");
+		const role = c.get("role");
+		const shopIds = c.get("shopIds");
+		const tenantRows = await db
+			.prepare("SELECT uuid FROM shops WHERE tenant_id = ?")
+			.bind(tenantId)
+			.all<{ uuid: string }>();
+		const tenantUuids = (tenantRows.results ?? []).map((r) => r.uuid);
+		const shopUuids =
+			role === "SUPERADMIN"
+				? tenantUuids
+				: tenantUuids.filter((u) => shopIds.includes(u));
 
 		const nowDate = new Date(); // Получаем текущую дату
 		const sevenDaysAgo = new Date(nowDate.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -1272,7 +1300,11 @@ export const api = new Hono<IEnv>()
 	.post("/api/evotor/shops", async (c) => {
 		// Используем D1 вместо Evotor API — быстрее и надёжнее
 		const db = c.get("db");
-		const result = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+		const tenantId = c.get("tenantId");
+		const result = await db
+			.prepare("SELECT uuid, name FROM shops WHERE tenant_id = ?")
+			.bind(tenantId)
+			.all<{ uuid: string; name: string }>();
 		const shopOptions: Record<string, string> = {};
 		for (const row of result.results ?? []) {
 			shopOptions[row.uuid] = row.name;
@@ -1282,14 +1314,22 @@ export const api = new Hono<IEnv>()
 
 	.get("/api/evotor/shops-names", async (c) => {
 		const db = c.get("db");
-		const result = await db.prepare("SELECT name FROM shops").all<{ name: string }>();
+		const tenantId = c.get("tenantId");
+		const result = await db
+			.prepare("SELECT name FROM shops WHERE tenant_id = ?")
+			.bind(tenantId)
+			.all<{ name: string }>();
 		const shopsName = (result.results ?? []).map(r => r.name);
 		return c.json({ shopsName });
 	})
 
 	.get("/api/evotor/sales-report", async (c) => {
 		const db = c.get("db");
-		const shopsResult = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+		const tenantId = c.get("tenantId");
+		const shopsResult = await db
+			.prepare("SELECT uuid, name FROM shops WHERE tenant_id = ?")
+			.bind(tenantId)
+			.all<{ uuid: string; name: string }>();
 		const shopOptions: Record<string, string> = {};
 		for (const row of shopsResult.results ?? []) {
 			shopOptions[row.uuid] = row.name;
@@ -1306,10 +1346,21 @@ export const api = new Hono<IEnv>()
 			const data = await c.req.json();
 			const { startDate, endDate, shopUuid, groups } = data;
 
+			// Доступ к магазину: только назначенные (SUPERADMIN — все своего tenant)
+			try {
+				assertShopAccess(c, shopUuid);
+			} catch {
+				return c.json({ success: false, error: "Forbidden" }, 403);
+			}
+
 			const since = formatDateWithTime(new Date(startDate), false);
 			const until = formatDateWithTime(new Date(endDate), true);
 
-			const shopRow = await c.get("db").prepare("SELECT name FROM shops WHERE uuid = ?").bind(shopUuid).first<{ name: string }>();
+			const tenantId = c.get("tenantId");
+			const shopRow = await c.get("db")
+				.prepare("SELECT name FROM shops WHERE uuid = ? AND tenant_id = ?")
+				.bind(shopUuid, tenantId)
+				.first<{ name: string }>();
 			const shopName = shopRow?.name || shopUuid;
 
 			// Получаем названия товаров по группам из D1 (shopProduct)
@@ -5713,8 +5764,10 @@ api
 	.get("/api/sellers/settings", async (c) => {
 		try {
 			const db = c.get("db");
+			const tenantId = c.get("tenantId");
 			const empRows = await db
-				.prepare("SELECT uuid, name FROM employees ORDER BY name")
+				.prepare("SELECT uuid, name FROM employees WHERE tenant_id = ? ORDER BY name")
+				.bind(tenantId)
 				.all<{ uuid: string; name: string }>();
 			const setRows = await db
 				.prepare("SELECT * FROM seller_settings")
@@ -5947,4 +6000,6 @@ api
 		}
 	});
 
-export type IAPI = typeof api;
+// Auth / Users / Tenants (modules/auth)
+registerAuthRoutes(api);
+

@@ -206,7 +206,7 @@ async function syncTenantShops(db: D1Database, evo: Evotor, tenantId: string): P
   const shopsData = Array.isArray(shops)
     ? shops.map((s: any) => ({ uuid: s.uuid, name: s.name, address: s.address ?? "" }))
     : [];
-  await upsertShops(db, shopsData);
+  await upsertShops(db, shopsData, tenantId);
   await setSyncState(db, tenantId, "*", "shops", {
     lastSuccessAt: new Date().toISOString(),
     status: "ok",
@@ -228,7 +228,7 @@ async function syncTenantEmployees(db: D1Database, evo: Evotor, tenantId: string
         stores: e.stores ?? [],
       }))
     : [];
-  await upsertEmployees(db, employeesData);
+  await upsertEmployees(db, employeesData, tenantId);
   await setSyncState(db, tenantId, "*", "employees", {
     lastSuccessAt: new Date().toISOString(),
     status: "ok",

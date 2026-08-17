@@ -26,6 +26,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { AuthCard } from "../components/AuthCard";
 
 type WidgetKey = "revenue" | "tempo" | "finance" | "best" | "products" | "accessories";
 
@@ -58,16 +59,23 @@ export default function Home() {
 
   // Auth error (401) or no role → show login form
   if (error || !data?.employeeRole || data.employeeRole === "null") {
-    // Always show manual login when unauthenticated — even in Telegram
-    // context, because initData may be from a different bot than the one
-    // configured for backend validation.
+    // Вход доступен двумя путями: login/password (новый) и legacy Telegram ID.
+    // Telegram-контекст может давать initData другого бота, поэтому форма входа
+    // показывается всегда, когда роли нет.
     const shouldShowManualIdInput = true;
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4 sm:p-6">
-        <h1 className="mb-4 text-lg sm:text-xl md:text-2xl text-foreground font-bold">
-          {shouldShowManualIdInput ? "Введите Telegram ID для входа" : "У вас нет прав доступа."}
-        </h1>
-        {shouldShowManualIdInput && <RegisterUserCard onRegister={(id) => console.log("Новый пользователь Telegram ID:", id)} />}
+      <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4 sm:p-6 space-y-4">
+        <AuthCard />
+        {shouldShowManualIdInput && (
+          <>
+            <div className="flex items-center gap-3 w-full max-w-sm text-[11px] text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              или legacy
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <RegisterUserCard onRegister={(id) => console.log("Новый пользователь Telegram ID:", id)} />
+          </>
+        )}
       </div>
     );
   }

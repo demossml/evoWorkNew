@@ -14,6 +14,8 @@ export type IEnv = {
 		R2: R2Bucket;
 		R2_PUBLIC_URL: string;
 		R2_ACCOUNT_ID?: string;
+		/** Секрет для хеширования паролей (pepper). Обязателен в prod. */
+		AUTH_SECRET: string;
 	};
 	Variables: {
 		userId: string;
@@ -25,6 +27,16 @@ export type IEnv = {
 			username: string;
 			photo_url: string;
 		};
+		/** App-user id (из app_users), если login-сессия */
+		appUserId?: string;
+		/** Tenant текущего запроса */
+		tenantId: string;
+		/** Роль: SUPERADMIN | ADMIN | CASHIER | (legacy telegram roles) */
+		role: string;
+		/** Разрешённые магазины; пустой массив у SUPERADMIN = все магазины tenant */
+		shopIds: string[];
+		/** Откуда пришла auth: 'session' | 'telegram' | 'guest' */
+		authSource: "session" | "telegram" | "guest";
 		evotor: Evotor;
 		db: D1Database;
 		ai: Ai;
