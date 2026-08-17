@@ -28,6 +28,7 @@ import {
   Zap, Package, Search, DollarSign, X, Users,
 } from "lucide-react";
 import { UsersAccessCard, EvotorTokenCard } from "../../components/UsersAccessCard";
+import { AiProviderCard } from "../../components/AiProviderCard";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -1400,6 +1401,9 @@ export default function SettingsNew() {
         {/* Пользователи и доступ (только SUPERADMIN — компоненты сами проверяют роль) */}
         {!isLoading && !error && <UsersAccessCard />}
         {!isLoading && !error && <EvotorTokenCard />}
+
+        {/* ИИ-провайдер (только SUPERADMIN) */}
+        {!isLoading && !error && <AiProviderCard />}
 
         {/* Акционные товары */}
         {!isLoading && !error && <PromoProductsCard />}

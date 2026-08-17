@@ -349,6 +349,8 @@ export async function runMigrations(db: D1Database): Promise<void> {
 		)
 	`).run();
 	await addColumnIfMissing(db, "tenants", "updated_at", "TEXT NOT NULL DEFAULT (datetime('now'))");
+	// API-ключ DeepSeek тенанта (для ИИ-отчётов этой сети)
+	await addColumnIfMissing(db, "tenants", "deepseek_api_key", "TEXT");
 
 	console.log("[migration] Миграции завершены.");
 }

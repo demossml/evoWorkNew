@@ -2,6 +2,7 @@ import type { ZodSchema } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
 import type { IContext } from "../types";
 import { type ITool, tools } from "./tools";
+import { resolveDeepseekKey } from "../services/deepseek";
 
 export type RoleScopedChatInput = {
 	role: "system" | "user" | "assistant" | "tool";
@@ -95,7 +96,7 @@ export const runWithTools = async (
 		tools?: ITool[];
 	},
 ): Promise<string | undefined> => {
-	const apiKey = c.env.DEEPSEEK_API_KEY;
+	const apiKey = (await resolveDeepseekKey(c.get("db"), c.get("tenantId"), c.env.DEEPSEEK_API_KEY)) || "";
 	if (!apiKey) {
 		throw new Error("DEEPSEEK_API_KEY not configured");
 	}

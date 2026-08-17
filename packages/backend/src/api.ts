@@ -20,6 +20,8 @@ import { generateSellerInsights } from "./services/sellerInsights";
 import { computeHourlyCompare } from "./services/sellerHourlyCompare";
 import { requireAdmin, assertShopAccess } from "./helpers";
 import { registerAuthRoutes } from "./modules/auth/routes";
+import { registerAiProviderRoutes } from "./modules/ai/providerRoutes";
+import { resolveDeepseekKey } from "./services/deepseek";
 import type { ShopUuidName } from "./evotor/types";
 import {
 	assert,
@@ -2750,7 +2752,7 @@ export const api = new Hono<IEnv>()
 	.post("/api/dead-stocks/ai-analysis", async (c) => {
 		try {
 			const db = c.get("db");
-			const apiKey = c.env.DEEPSEEK_API_KEY as string;
+			const apiKey = (await resolveDeepseekKey(c.get("db"), c.get("tenantId"), c.env.DEEPSEEK_API_KEY)) || "";
 			const { shopUuid, items } = await c.req.json<{
 				shopUuid: string;
 				items: { name: string; quantity: number }[];
@@ -3781,7 +3783,7 @@ export const api = new Hono<IEnv>()
 	.get("/api/analytics/dead-stock/analyze", async (c) => {
 		try {
 			const db = c.get("db");
-			const apiKey = c.env.DEEPSEEK_API_KEY as string;
+			const apiKey = (await resolveDeepseekKey(c.get("db"), c.get("tenantId"), c.env.DEEPSEEK_API_KEY)) || "";
 			const itemId = c.req.query("itemId");
 			const shopId = c.req.query("shopId");
 			const fast = c.req.query("fast");
@@ -4582,7 +4584,7 @@ ${otherShopsInfo}
 		const since = c.req.query("since") || "";
 		const until = c.req.query("until") || "";
 		const shopId = c.req.query("shopId") || undefined;
-		const apiKey = c.env.DEEPSEEK_API_KEY as string;
+		const apiKey = (await resolveDeepseekKey(db, c.get("tenantId"), c.env.DEEPSEEK_API_KEY)) || "";
 
 		if (!sellerId || !since || !until) return c.json({ insights: [] });
 
@@ -4685,11 +4687,11 @@ ${otherShopsInfo}
 		const until = c.req.query("until") || "";
 		const minSlotMinutesQ = c.req.query("minSlotMinutes") || "25";
 		const minSlotMinutes = parseInt(minSlotMinutesQ) || 25;
-		const apiKey = c.env.DEEPSEEK_API_KEY as string;
+			const apiKey = (await resolveDeepseekKey(c.get("db"), c.get("tenantId"), c.env.DEEPSEEK_API_KEY)) || "";
 
-		if (!sellerId || !since || !until) {
-			return c.json({ error: "sellerId, since, until required" }, 400);
-		}
+			if (!sellerId || !since || !until) {
+				return c.json({ error: "sellerId, since, until required" }, 400);
+			}
 
 		try {
 			await createSellerAbsenceEventsTable(db);
@@ -5041,7 +5043,7 @@ ${otherShopsInfo}
 				return c.json({ transfers: [], message: "Нет товаров для переброски" });
 			}
 
-			const apiKey = c.env.DEEPSEEK_API_KEY;
+			const apiKey = (await resolveDeepseekKey(c.get("db"), c.get("tenantId"), c.env.DEEPSEEK_API_KEY)) || "";
 			if (!apiKey) {
 				return c.json({ error: "DEEPSEEK_API_KEY not configured" }, 500);
 			}
@@ -6001,4 +6003,6 @@ api
 
 // Auth / Users / Tenants (modules/auth)
 registerAuthRoutes(api);
+// ИИ-провайдер (DeepSeek) — ключ тенанта
+registerAiProviderRoutes(api);
 

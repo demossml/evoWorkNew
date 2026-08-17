@@ -73,6 +73,9 @@ export async function createTenantsTable(db: D1Database): Promise<void> {
   try {
     await db.prepare(`ALTER TABLE tenants ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'))`).run();
   } catch { /* уже есть */ }
+  try {
+    await db.prepare(`ALTER TABLE tenants ADD COLUMN deepseek_api_key TEXT`).run();
+  } catch { /* уже есть */ }
 }
 
 export async function createSyncStateTable(db: D1Database): Promise<void> {

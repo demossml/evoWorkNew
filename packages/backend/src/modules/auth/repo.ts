@@ -34,6 +34,8 @@ export type TenantRow = {
 	name: string;
 	evotor_token: string;
 	status: string;
+	/** API-ключ DeepSeek тенанта (опционально) */
+	deepseek_api_key?: string | null;
 };
 
 // --- tenants ---
@@ -64,7 +66,7 @@ export async function getTenantById(
 ): Promise<TenantRow | null> {
 	return (
 		(await db
-			.prepare(`SELECT id, name, evotor_token, status FROM tenants WHERE id = ?`)
+			.prepare(`SELECT id, name, evotor_token, status, deepseek_api_key FROM tenants WHERE id = ?`)
 			.bind(id)
 			.first<TenantRow>()) ?? null
 	);
@@ -76,7 +78,7 @@ export async function findTenantByToken(
 ): Promise<TenantRow | null> {
 	return (
 		(await db
-			.prepare(`SELECT id, name, evotor_token, status FROM tenants WHERE evotor_token = ?`)
+			.prepare(`SELECT id, name, evotor_token, status, deepseek_api_key FROM tenants WHERE evotor_token = ?`)
 			.bind(token)
 			.first<TenantRow>()) ?? null
 	);
