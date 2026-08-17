@@ -220,10 +220,19 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
 
     if (authSource === "telegram") {
       const userId = c.get("userId");
-      const role = c.get("role") || (SUPERADMIN_IDS.has(userId) ? "SUPERADMIN" : null);
+      const role =
+        (c.get("role") as string) ||
+        (SUPERADMIN_IDS.has(userId) ? "SUPERADMIN" : "CASHIER");
       return c.json({
         authSource: "telegram",
-        user: { id: userId, role },
+        user: {
+          id: userId,
+          login: null,
+          display_name: "",
+          role,
+          tenant_id: (c.get("tenantId") as string) || "default",
+          shopIds: [],
+        },
       });
     }
 

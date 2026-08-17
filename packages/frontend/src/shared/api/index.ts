@@ -1,4 +1,4 @@
-export { client } from "./client";
+export { client, getAuthHeaders } from "./client";
 export { queryClient } from "./queryClient";
 export { queryKeys } from "./queryKeys";
 export {

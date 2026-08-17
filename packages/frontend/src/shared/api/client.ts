@@ -12,13 +12,35 @@ if (import.meta.env.DEV && window.location.hostname === "localhost") {
   }
 }
 
-let initData = telegram.WebApp.initData || "";
+/**
+ * Единые auth-заголовки для всех fetch:
+ *  1) Bearer-сессия (login/connect-token);
+ *  2) legacy Telegram (telegram-id);
+ *  3) initData: реальный WebApp initData, иначе "guest".
+ * Использовать везде: AuthCard, UsersAccessCard, Settings.
+ */
+export function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
 
-if (!initData) {
-  const storedId = localStorage.getItem("telegramId");
-  if (storedId) {
-    initData = "guest"; // чтобы пройти auth
+  const sessionId = localStorage.getItem("sessionId");
+  if (sessionId) {
+    headers["Authorization"] = `Bearer ${sessionId}`;
   }
+
+  const telegramId = localStorage.getItem("telegramId");
+  if (telegramId) {
+    headers["telegram-id"] = telegramId;
+  }
+
+  const tgInit =
+    typeof window !== "undefined" &&
+    (window as any).Telegram?.WebApp?.initData;
+  headers["initData"] =
+    tgInit && String(tgInit).length > 0 ? String(tgInit) : "guest";
+
+  return headers;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -26,9 +48,7 @@ export const client = hc<any>("", {
   init: {
     headers: {
       // Приоритет: Bearer-сессия (login/connect-token), потом legacy Telegram
-      Authorization: `Bearer ${localStorage.getItem("sessionId") || ""}`,
-      initData: initData || "guest",
-      "telegram-id": localStorage.getItem("telegramId") || "",
+      ...getAuthHeaders(),
       "x-trace-id": getOrCreateTraceId(),
     },
   },

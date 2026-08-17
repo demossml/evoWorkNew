@@ -17,10 +17,12 @@ import {
   Plug,
   ShieldCheck,
 } from "lucide-react";
+import { getAuthHeaders } from "@shared/api";
+import { AuthCard } from "./AuthCard";
 
 interface MeResponse {
   authSource: string;
-  user: { id: string; login?: string; role: string; tenant_id?: string; shopIds?: string[] };
+  user: { id: string; login?: string | null; role: string; tenant_id?: string; shopIds?: string[] };
 }
 
 interface AppUser {
@@ -38,14 +40,9 @@ interface TenantShop {
   name: string;
 }
 
+// Единые auth-заголовки: Bearer-сессия + legacy telegram-id + initData
 function apiHeaders(): Record<string, string> {
-  return {
-    "Content-Type": "application/json",
-    // Bearer-сессия (login) + legacy Telegram fallback
-    Authorization: `Bearer ${localStorage.getItem("sessionId") || ""}`,
-    "telegram-id": localStorage.getItem("telegramId") || "",
-    initData: "guest",
-  };
+  return getAuthHeaders();
 }
 
 // ─── Пользователи ──────────────────────────────────────────────────────
@@ -108,8 +105,43 @@ export function UsersAccessCard() {
     void init();
   }, []);
 
-  if (checking) return null;
-  if (!me || me.user.role !== "SUPERADMIN") return null;
+  if (checking) {
+    return (
+      <div className="mb-4 rounded-xl bg-card border border-border border-l-4 border-l-indigo-500 p-4 animate-pulse">
+        <div className="h-4 w-40 bg-muted rounded mb-2" />
+        <div className="h-3 w-64 bg-muted rounded" />
+      </div>
+    );
+  }
+
+  // Нет SUPERADMIN-доступа: показываем вход, а не пустоту
+  if (!me || me.user.role !== "SUPERADMIN") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-card border border-border rounded-xl border-l-4 border-l-indigo-500 overflow-hidden"
+      >
+        <div className="px-4 py-3 border-b border-border">
+          <div className="flex items-center gap-3">
+            <span className="text-muted-foreground"><Users className="w-5 h-5" /></span>
+            <div>
+              <h3 className="text-foreground font-semibold text-sm">Пользователи и доступ</h3>
+              <p className="text-[11px] text-muted-foreground">
+                Логины и пароли сотрудников, магазины, роли
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="px-4 py-4 space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Войдите как владелец (login/password), чтобы управлять доступом сотрудников.
+          </p>
+          <AuthCard redirectTo="/evotor/settings" />
+        </div>
+      </motion.div>
+    );
+  }
 
   const shopName = (uuid: string) => shops.find((s) => s.uuid === uuid)?.name ?? uuid.slice(0, 8);
 
@@ -208,7 +240,12 @@ export function UsersAccessCard() {
         onClick={() => setExpanded(!expanded)}
       >
         <span className="text-muted-foreground"><Users className="w-5 h-5" /></span>
-        <h3 className="text-foreground font-semibold text-sm">Пользователи</h3>
+        <div>
+          <h3 className="text-foreground font-semibold text-sm">Пользователи и доступ</h3>
+          <p className="text-[11px] text-muted-foreground">
+            Логины и пароли сотрудников, магазины, роли
+          </p>
+        </div>
         <span className="text-muted-foreground text-xs">{users.length} чел.</span>
         <span className="ml-auto flex items-center gap-2 text-muted-foreground">
           <button
@@ -230,6 +267,12 @@ export function UsersAccessCard() {
           {loading && (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {!loading && users.length === 0 && (
+            <div className="text-xs text-muted-foreground py-2">
+              Нет пользователей. Создайте первого продавца.
             </div>
           )}
 

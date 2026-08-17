@@ -8,12 +8,7 @@ import { KeyRound, Link2, Loader2, Eye, EyeOff, Copy } from "lucide-react";
 
 type Mode = "login" | "connect";
 
-function saveSession(sessionId: string) {
-  localStorage.setItem("sessionId", sessionId);
-  window.location.replace("/");
-}
-
-export function AuthCard() {
+export function AuthCard({ redirectTo = "/" }: { redirectTo?: string }) {
   const [mode, setMode] = useState<Mode>("login");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +38,9 @@ export function AuthCard() {
         setError("Неверный логин или пароль");
         return;
       }
-      saveSession(data.sessionId);
+      localStorage.setItem("sessionId", data.sessionId);
+      // Полная перезагрузка на целевой странице — me и карточки перечитаются
+      window.location.assign(redirectTo);
     } catch {
       setError("Ошибка сети");
     } finally {
@@ -71,7 +68,8 @@ export function AuthCard() {
         setCreated({ login: data.user.login, password: data.generatedPassword });
         return; // ждём, пока владелец сохранит пароль
       }
-      saveSession(data.sessionId);
+      localStorage.setItem("sessionId", data.sessionId);
+      window.location.assign(redirectTo);
     } catch {
       setError("Ошибка сети");
     } finally {

@@ -141,6 +141,21 @@ export const authenticate = async (c: IContext, next: Next) => {
     c.set("authSource", "telegram");
   }
 
+  // Legacy Telegram: роль сразу (нужна /api/auth/me, UsersAccessCard, requireAdmin)
+  if (c.get("authSource") === "telegram") {
+    const uid = c.get("userId") as string;
+    if (SUPERADMIN_IDS.has(uid)) {
+      c.set("role", "SUPERADMIN");
+    } else {
+      try {
+        const r = await getEmployeeRoleFromDBSimple(c.env.DB, uid);
+        if (r && r !== "null") c.set("role", r);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   return next();
 };
 
