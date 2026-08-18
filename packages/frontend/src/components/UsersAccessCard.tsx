@@ -283,6 +283,9 @@ export function UsersAccessCard() {
       /* ignore */
     }
     localStorage.removeItem("sessionId");
+    localStorage.removeItem("telegramId");
+    // Маркер выхода: в dev не включать авто-логин после logout
+    localStorage.setItem("evo_logged_out", "1");
     // Очищаем персист кэш, чтобы не светить данные предыдущего пользователя
     try {
       queryClient.clear();

@@ -8,8 +8,13 @@ if (import.meta.env.DEV) {
 
 // Dev-only: авто-логин под супер-админом, если браузер «чистый»
 // (встроенный браузер VS Code не имеет Telegram initData и localStorage).
+// После logout (маркер evo_logged_out) авто-логин не включаем.
 if (import.meta.env.DEV && window.location.hostname === "localhost") {
-  if (!localStorage.getItem("sessionId") && !localStorage.getItem("telegramId")) {
+  if (
+    !localStorage.getItem("evo_logged_out") &&
+    !localStorage.getItem("sessionId") &&
+    !localStorage.getItem("telegramId")
+  ) {
     localStorage.setItem("telegramId", "5700958253"); // SUPERADMIN (legacy)
   }
 }

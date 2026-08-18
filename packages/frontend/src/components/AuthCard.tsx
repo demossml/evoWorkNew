@@ -38,6 +38,7 @@ export function AuthCard({ redirectTo = "/" }: { redirectTo?: string }) {
         setError("Неверный логин или пароль");
         return;
       }
+      localStorage.removeItem("evo_logged_out");
       localStorage.setItem("sessionId", data.sessionId);
       // Полная перезагрузка на целевой странице — me и карточки перечитаются
       window.location.assign(redirectTo);
@@ -72,6 +73,7 @@ export function AuthCard({ redirectTo = "/" }: { redirectTo?: string }) {
         });
         return; // ждём, пока владелец сохранит пароль
       }
+      localStorage.removeItem("evo_logged_out");
       localStorage.setItem("sessionId", data.sessionId);
       window.location.assign(redirectTo);
     } catch {
