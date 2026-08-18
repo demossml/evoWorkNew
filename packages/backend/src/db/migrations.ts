@@ -358,6 +358,8 @@ export async function runMigrations(db: D1Database): Promise<void> {
 
 	// app_settings → per-tenant (PRIMARY KEY (tenant_id, key))
 	await migrateAppSettingsToTenantScope(db);
+	// legacy settings → per-tenant (PRIMARY KEY (tenant_id, id))
+	await migrateSettingsToTenantScope(db);
 
 	console.log("[migration] Миграции завершены.");
 }
@@ -403,5 +405,44 @@ async function migrateAppSettingsToTenantScope(db: D1Database): Promise<void> {
 		console.log("[migration] app_settings → tenant-scoped (PK tenant_id+key)");
 	} catch (e: any) {
 		console.warn("[migration] app_settings tenant-scope:", e?.message);
+	}
+}
+
+/**
+ * legacy settings (id=1 accessory groups, id=2 salary, id=3 bonus) → tenant-scoped.
+ * PRIMARY KEY становится (tenant_id, id); существующие строки → 'default'.
+ */
+async function migrateSettingsToTenantScope(db: D1Database): Promise<void> {
+	try {
+		const exists = await db
+			.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'settings'")
+			.first<{ name: string }>();
+		if (!exists) return;
+
+		const cols = await db
+			.prepare("PRAGMA table_info(settings)")
+			.all<{ name: string }>();
+		const hasTenant = (cols.results ?? []).some((r) => r.name === "tenant_id");
+		if (hasTenant) return;
+
+		await db.batch([
+			db.prepare(`
+				CREATE TABLE IF NOT EXISTS settings_new (
+					tenant_id TEXT NOT NULL DEFAULT 'default',
+					id INTEGER NOT NULL,
+					value TEXT,
+					PRIMARY KEY (tenant_id, id)
+				)
+			`),
+			db.prepare(`
+				INSERT OR IGNORE INTO settings_new (tenant_id, id, value)
+				SELECT 'default', id, value FROM settings
+			`),
+		]);
+		await db.prepare("DROP TABLE settings").run();
+		await db.prepare("ALTER TABLE settings_new RENAME TO settings").run();
+		console.log("[migration] settings → tenant-scoped (PK tenant_id+id)");
+	} catch (e: any) {
+		console.warn("[migration] settings tenant-scope:", e?.message);
 	}
 }

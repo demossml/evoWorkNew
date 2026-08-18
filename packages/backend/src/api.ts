@@ -5259,7 +5259,7 @@ ${storesList}
 	.get("/api/evotor/settings-config", async (c) => {
 		try {
 			const db = c.get("db");
-			const drizzle = c.get("drizzle");
+			const tenantId = c.get("tenantId") || "default";
 			const { getSettings } = await import("./db/repositories/settings.js");
 
 			// Загружаем группы из shopProduct (D1)
@@ -5278,7 +5278,7 @@ ${storesList}
 				groupOptions = [];
 			}
 
-			const settings = await getSettings(drizzle);
+			const settings = await getSettings(db, tenantId);
 
 			return c.json({
 				groupOptions,
@@ -5300,13 +5300,13 @@ ${storesList}
 	.post("/api/evotor/settings/accessory-groups", async (c) => {
 		try {
 			const body = await c.req.json<{ groups: string[] }>();
-			const drizzle = c.get("drizzle");
-			const db = c.get("db"); // raw D1Database for accessories table
+			const db = c.get("db"); // raw D1Database
+			const tenantId = c.get("tenantId") || "default";
 			const { saveAccessoryGroups } = await import("./db/repositories/settings.js");
 
 			const uuids = Array.isArray(body.groups) ? body.groups : [];
-			// Save to settings via drizzle + accessories via raw D1
-			await saveAccessoryGroups(drizzle, db, uuids);
+			// Save to settings + accessories (tenant-scoped settings)
+			await saveAccessoryGroups(null, db, uuids, tenantId);
 
 			// Разрешаем UUID в имена через shopProduct (D1)
 			let groupsName: string[] = [];
@@ -5337,10 +5337,11 @@ ${storesList}
 	.post("/api/evotor/settings/salary-bonus", async (c) => {
 		try {
 			const body = await c.req.json<{ salary: number; bonus: number }>();
-			const drizzle = c.get("drizzle");
+			const db = c.get("db");
+			const tenantId = c.get("tenantId") || "default";
 			const { saveSalaryBonus } = await import("./db/repositories/settings.js");
 
-			await saveSalaryBonus(drizzle, body.salary ?? 0, body.bonus ?? 0);
+			await saveSalaryBonus(db, body.salary ?? 0, body.bonus ?? 0, tenantId);
 
 			return c.json({ ok: true });
 		} catch (err) {
