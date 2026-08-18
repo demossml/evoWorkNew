@@ -356,5 +356,52 @@ export async function runMigrations(db: D1Database): Promise<void> {
 	// Фокус-группы товаров (JSON array of uuid strings) — универсальный KPI
 	await addColumnIfMissing(db, "tenants", "focus_group_uuids", "TEXT");
 
+	// app_settings → per-tenant (PRIMARY KEY (tenant_id, key))
+	await migrateAppSettingsToTenantScope(db);
+
 	console.log("[migration] Миграции завершены.");
+}
+
+/**
+ * app_settings становится tenant-scoped: PRIMARY KEY (tenant_id, key).
+ * Существующие строки переносятся в tenant 'default' (ваша сеть не теряет настройки).
+ */
+async function migrateAppSettingsToTenantScope(db: D1Database): Promise<void> {
+	try {
+		const exists = await db
+			.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'app_settings'")
+			.first<{ name: string }>();
+		if (!exists) return;
+
+		const cols = await db
+			.prepare("PRAGMA table_info(app_settings)")
+			.all<{ name: string }>();
+		const hasTenant = (cols.results ?? []).some((r) => r.name === "tenant_id");
+		if (hasTenant) return;
+
+		await db.batch([
+			db.prepare(`
+				CREATE TABLE IF NOT EXISTS app_settings_new (
+					tenant_id TEXT NOT NULL DEFAULT 'default',
+					key TEXT NOT NULL,
+					value TEXT NOT NULL,
+					type TEXT NOT NULL DEFAULT 'string',
+					category TEXT NOT NULL DEFAULT 'general',
+					label TEXT NOT NULL DEFAULT '',
+					description TEXT DEFAULT '',
+					updated_at TEXT DEFAULT (datetime('now')),
+					PRIMARY KEY (tenant_id, key)
+				)
+			`),
+			db.prepare(`
+				INSERT OR IGNORE INTO app_settings_new (tenant_id, key, value, type, category, label, description, updated_at)
+				SELECT 'default', key, value, type, category, label, description, updated_at FROM app_settings
+			`),
+		]);
+		await db.prepare("DROP TABLE app_settings").run();
+		await db.prepare("ALTER TABLE app_settings_new RENAME TO app_settings").run();
+		console.log("[migration] app_settings → tenant-scoped (PK tenant_id+key)");
+	} catch (e: any) {
+		console.warn("[migration] app_settings tenant-scope:", e?.message);
+	}
 }

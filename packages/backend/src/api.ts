@@ -6002,8 +6002,9 @@ api
 	.get("/api/settings", async (c) => {
 		try {
 			const db = c.get("db");
+			const tenantId = c.get("tenantId") || "default";
 			const { getAllSettings } = await import("./services/settingsService.js");
-			const settings = await getAllSettings(db);
+			const settings = await getAllSettings(db, tenantId);
 			return c.json(settings);
 		} catch (err) {
 			return c.json({ error: String(err) }, 500);
@@ -6012,10 +6013,11 @@ api
 	.put("/api/settings/:key", async (c) => {
 		try {
 			const db = c.get("db");
+			const tenantId = c.get("tenantId") || "default";
 			const key = c.req.param("key");
 			const body = await c.req.json<{ value: string }>();
 			const { updateSetting } = await import("./services/settingsService.js");
-			await updateSetting(db, key, body.value);
+			await updateSetting(db, key, body.value, tenantId);
 			return c.json({ ok: true });
 		} catch (err) {
 			return c.json({ error: String(err) }, 500);
@@ -6024,9 +6026,10 @@ api
 	.post("/api/settings/batch", async (c) => {
 		try {
 			const db = c.get("db");
+			const tenantId = c.get("tenantId") || "default";
 			const body = await c.req.json<Array<{ key: string; value: string }>>();
 			const { batchUpdateSettings } = await import("./services/settingsService.js");
-			await batchUpdateSettings(db, body);
+			await batchUpdateSettings(db, body, tenantId);
 			return c.json({ ok: true });
 		} catch (err) {
 			return c.json({ error: String(err) }, 500);
