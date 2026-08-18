@@ -263,6 +263,7 @@ export const api = new Hono<IEnv>()
 		const employeeNameAndUuid = await getEmployeeByLastNameDB(
 			db,
 			c.var.user.id.toString(),
+			c.get("tenantId") || "default",
 		);
 		// console.log(employeeNameAndUuid);
 		assert(employeeNameAndUuid, "not an employee");
@@ -323,7 +324,7 @@ export const api = new Hono<IEnv>()
 	.get("/api/employee/name-uuid", async (c) => {
 		const db = c.get("db");
 		const employeeNameAndUuid =
-			await getEmployeesLastNameAndUuidFromDB(db);
+			await getEmployeesLastNameAndUuidFromDB(db, c.get("tenantId") || "default");
 		// console.log("employeeNameAndUuid:", employeeNameAndUuid);
 
 		assert(employeeNameAndUuid, "not an employee");
@@ -335,7 +336,11 @@ export const api = new Hono<IEnv>()
 		const data = await c.req.json();
 		const { shop } = data;
 
-		const employeeNameAndUuid = await getEmployeesByShopIdDB(db, shop);
+		const employeeNameAndUuid = await getEmployeesByShopIdDB(
+			db,
+			shop,
+			c.get("tenantId") || "default",
+		);
 		// console.log("employeeNameAndUuid:", employeeNameAndUuid);
 
 		assert(employeeNameAndUuid, "not an employee");
@@ -1746,7 +1751,7 @@ export const api = new Hono<IEnv>()
 			}
 
 			// Список магазинов
-			const allUuids = await getShopUuidsFromDB(db);
+			const allUuids = await getTenantShopUuids(db, c.get("tenantId") || "default");
 			const uuids = shopUuid ? [shopUuid] : allUuids;
 			const totalShops = allUuids.length;
 
@@ -1874,7 +1879,7 @@ export const api = new Hono<IEnv>()
 				until = today + "T23:59:59";
 			}
 
-			const allUuids = await getShopUuidsFromDB(db);
+			const allUuids = await getTenantShopUuids(db, c.get("tenantId") || "default");
 			const uuids = shopUuid ? [shopUuid] : allUuids;
 			const totalShops = allUuids.length;
 
@@ -1891,7 +1896,7 @@ export const api = new Hono<IEnv>()
 			const grandTotalCashOutcome = calculateTotalSum(cashOutcomeData);
 
 			// 3. Остатки наличных
-			const cashBalanceByShop = await getCashByShopsFromD1(db);
+			const cashBalanceByShop = await getCashByShopsFromD1(db, uuids);
 			const totalCashBalance = Object.values(cashBalanceByShop).reduce((s, v) => s + v, 0);
 
 			// 4. Валовая прибыль (как в gross-profit-today)
@@ -2180,7 +2185,7 @@ export const api = new Hono<IEnv>()
 			const since = formatDateWithTime(now, false);
 			const until = formatDateWithTime(now, true);
 
-			const shopUuids = await getShopUuidsFromDB(db);
+			const shopUuids = await getTenantShopUuids(db, c.get("tenantId") || "default");
 
 			const { salesDataByShopName, grandTotalSell, grandTotalRefund, dailySell } =
 				await getSalesgardenReportData(db, shopUuids, since, until);
@@ -2193,9 +2198,9 @@ export const api = new Hono<IEnv>()
 			);
 
 			const grandTotalCashOutcome = calculateTotalSum(cashOutcomeData);
-			const cash = await getCashByShopsFromD1(db);
+			const cash = await getCashByShopsFromD1(db, shopUuids);
 
-			const salesByGroup = await getSalesByProductGroup(db, since, until);
+			const salesByGroup = await getSalesByProductGroup(db, since, until, shopUuids);
 
 			return c.json({
 				salesDataByShopName,
@@ -2247,6 +2252,8 @@ export const api = new Hono<IEnv>()
 				c.env.DB,
 				since,
 				until,
+				10,
+				shopUuids,
 			);
 
 			// const aiWithRun = c.var.ai as any;
@@ -2274,7 +2281,7 @@ export const api = new Hono<IEnv>()
 			// const response = await analyzeSalesDocuments(f, aiWithRun);
 			// console.log("Результат анализа:", response);
 
-			const cashBalanceByShop = await getCashByShopsFromD1(db);
+			const cashBalanceByShop = await getCashByShopsFromD1(db, shopUuids);
 			const totalCashBalance = Object.values(cashBalanceByShop).reduce((s, v) => s + v, 0);
 
 			const grandTotalCashOutcome = calculateTotalSum(cashOutcomeData);
@@ -4311,8 +4318,9 @@ ${otherShopsInfo}
 				weekUntil = formatDateWithTime(today, true);
 			}
 
-			// Get shops from D1
-			const shopsResult = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
+			// Get shops from D1 (только текущего tenant)
+			const tenantId = c.get("tenantId") || "default";
+			const shopsResult = await db.prepare("SELECT uuid, name FROM shops WHERE tenant_id = ?").bind(tenantId).all<{ uuid: string; name: string }>();
 			const allShopUuids = shopUuid
 				? [shopUuid]
 				: (shopsResult.results ?? []).map(r => r.uuid);
@@ -4330,16 +4338,20 @@ ${otherShopsInfo}
 					db, allShopUuids, since, until,
 				);
 
-				// Count SELL documents per shop for checks count
+				// Count SELL documents per shop for checks count (scope tenant shops)
+				const shopInClauseSql = allShopUuids.length > 0
+					? allShopUuids.map(() => "?").join(",")
+					: "'__none__'";
 				const checksResult = await db
 					.prepare(`
 						SELECT shop_id, COUNT(*) as cnt
 						FROM index_documents
 						WHERE close_date >= ? AND close_date <= ?
+						  AND shop_id IN (${shopInClauseSql})
 						  AND type = 'SELL'
 						GROUP BY shop_id
 					`)
-					.bind(since, until)
+					.bind(since, until, ...allShopUuids)
 					.all<{ shop_id: string; cnt: number }>();
 
 				const checksByShop: Record<string, number> = {};

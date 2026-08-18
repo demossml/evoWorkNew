@@ -428,6 +428,7 @@ export async function getTopProductsFromD1(
 	since: string,
 	until: string,
 	limit = 10,
+	shopUuids?: string[],
 ): Promise<{
 	productName: string;
 	revenue: number;
@@ -443,14 +444,24 @@ export async function getTopProductsFromD1(
 	dailyNetRevenue7: number[];
 }[]> {
 	try {
+		// Scope по магазинам tenant (если передан). Пустой список → нет данных.
+		let shopFilter = "";
+		const bindParams: string[] = [since, until];
+		if (shopUuids && shopUuids.length === 0) return [];
+		if (shopUuids && shopUuids.length > 0) {
+			shopFilter = `AND shop_id IN (${shopUuids.map(() => "?").join(",")})`;
+			bindParams.push(...shopUuids);
+		}
+
 		const docs = await db
 			.prepare(`
 				SELECT type, close_date, transactions
 				FROM index_documents
 				WHERE close_date >= ?1 AND close_date <= ?2
 				  AND type IN ('SELL', 'PAYBACK')
+				  ${shopFilter}
 			`)
-			.bind(since, until)
+			.bind(...bindParams)
 			.all();
 
 		if (!docs || !docs.results || docs.results.length === 0) {
@@ -1046,13 +1057,14 @@ export async function extractSalesInfoFromD1(
  */
 export async function getCashByShopsFromD1(
 	db: D1Database,
+	shopUuids?: string[],
 ): Promise<Record<string, number>> {
 	const { getShopNameUuidsFromDB, getShopUuidsFromDB } = await import("../sync/db.js");
-	const shopUuids = await getShopUuidsFromDB(db);
+	const shopUuidsList = shopUuids ?? (await getShopUuidsFromDB(db));
 
 	const reportData: Record<string, number> = {};
 
-	for (const shopId of shopUuids) {
+	for (const shopId of shopUuidsList) {
 		try {
 			// 1. Найти последний FPRINT_Z_REPORT
 			const fprint = await db

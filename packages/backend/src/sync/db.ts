@@ -504,13 +504,17 @@ export async function getEmployeeNameByUuid(db: D1Database, uuid: string): Promi
   return result?.name ?? null;
 }
 
-export async function getEmployeeByLastNameDB(db: D1Database, lastName: string): Promise<{ uuid: string; name: string }[]> {
-  const result = await db.prepare("SELECT uuid, name FROM employees WHERE last_name = ?").bind(lastName).all<{ uuid: string; name: string }>();
+export async function getEmployeeByLastNameDB(db: D1Database, lastName: string, tenantId?: string): Promise<{ uuid: string; name: string }[]> {
+  const result = tenantId
+    ? await db.prepare("SELECT uuid, name FROM employees WHERE last_name = ? AND (tenant_id = ? OR tenant_id = 'default')").bind(lastName, tenantId).all<{ uuid: string; name: string }>()
+    : await db.prepare("SELECT uuid, name FROM employees WHERE last_name = ?").bind(lastName).all<{ uuid: string; name: string }>();
   return result.results ?? [];
 }
 
-export async function getEmployeesByShopIdDB(db: D1Database, shopId: string): Promise<{ uuid: string; name: string }[]> {
-  const result = await db.prepare("SELECT uuid, name, stores FROM employees").all<{ uuid: string; name: string; stores: string }>();
+export async function getEmployeesByShopIdDB(db: D1Database, shopId: string, tenantId?: string): Promise<{ uuid: string; name: string }[]> {
+  const result = tenantId
+    ? await db.prepare("SELECT uuid, name, stores, tenant_id FROM employees WHERE (tenant_id = ? OR tenant_id = 'default')").bind(tenantId).all<{ uuid: string; name: string; stores: string; tenant_id: string }>()
+    : await db.prepare("SELECT uuid, name, stores FROM employees").all<{ uuid: string; name: string; stores: string }>();
   return (result.results ?? [])
     .filter((r) => {
       try { const s = JSON.parse(r.stores); return s.includes(shopId); } catch { return false; }
@@ -523,8 +527,10 @@ export async function getEmployeeRoleFromDB(db: D1Database, lastName: string): P
   return result?.role ?? "null";
 }
 
-export async function getEmployeesLastNameAndUuidFromDB(db: D1Database): Promise<{ uuid: string; name: string }[]> {
-  const result = await db.prepare("SELECT uuid, name FROM employees").all<{ uuid: string; name: string }>();
+export async function getEmployeesLastNameAndUuidFromDB(db: D1Database, tenantId?: string): Promise<{ uuid: string; name: string }[]> {
+  const result = tenantId
+    ? await db.prepare("SELECT uuid, name FROM employees WHERE (tenant_id = ? OR tenant_id = 'default')").bind(tenantId).all<{ uuid: string; name: string }>()
+    : await db.prepare("SELECT uuid, name FROM employees").all<{ uuid: string; name: string }>();
   return result.results ?? [];
 }
 
