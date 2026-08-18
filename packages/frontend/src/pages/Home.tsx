@@ -2,6 +2,7 @@ import { ErrorState } from "@shared/ui/states";
 import { ErrorBoundary } from "@shared/ui/states/ErrorBoundary";
 import { RegisterUserCard } from "@features/employees";
 import { useEmployeeRole } from "../hooks/useApi";
+import { useProductProfile } from "../hooks/useProductProfile";
 import { useIsFetching, useQuery } from "@tanstack/react-query";
 import {
   PlanStatusWidget,
@@ -38,6 +39,7 @@ function getTodayRange(): DateFilterValue {
 
 export default function Home() {
   const { data, error, isLoading } = useEmployeeRole();
+  const { isUniversal } = useProductProfile();
   const miniApp = isTelegramMiniApp();
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getTodayRange);
   const [expanded, setExpanded] = useState<WidgetKey | null>(null);
@@ -93,6 +95,11 @@ export default function Home() {
         <ErrorBoundary variant="widget" name="Ежедневный брифинг">
           <DailyBriefing />
         </ErrorBoundary>
+        {isUniversal && (
+          <p className="text-[10px] text-muted-foreground px-1 -mt-1">
+            Режим: универсальная розница
+          </p>
+        )}
         <div className="flex items-center gap-2">
           <DateFilter value={dateFilter} onChange={setDateFilter} />
           <ShareReportButton since={since} until={until} reportType="revenue" />
@@ -148,11 +155,13 @@ export default function Home() {
             </ErrorBoundary>
           </div>
 
-          <div className={isExpanded("accessories") ? "col-span-2" : ""}>
-            <ErrorBoundary variant="widget" name="Продажи">
-              <AccessoriesWidget since={since} until={until} expanded={isExpanded("accessories")} onToggle={() => toggle("accessories")} />
-            </ErrorBoundary>
-          </div>
+          {!isUniversal && (
+            <div className={isExpanded("accessories") ? "col-span-2" : ""}>
+              <ErrorBoundary variant="widget" name="Продажи">
+                <AccessoriesWidget since={since} until={until} expanded={isExpanded("accessories")} onToggle={() => toggle("accessories")} />
+              </ErrorBoundary>
+            </div>
+          )}
         </div>
 
         {isSuperAdmin && (

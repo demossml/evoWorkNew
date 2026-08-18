@@ -25,6 +25,7 @@ type RevenueTempoDetailsProps = {
   previousData: SalesData | null;
   accessoriesData?: AccessoriesSalesData | null;
   formatCurrency?: (amount: number) => string;
+  showAccessories?: boolean;
 };
 
 type ShopTempoMetrics = {
@@ -124,6 +125,7 @@ export function RevenueTempoDetails({
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount),
+  showAccessories = true,
 }: RevenueTempoDetailsProps) {
   const [shopFilter, setShopFilter] = useState<string>("all");
   const [hourlyRows, setHourlyRows] = useState<HourlyPlanFactRow[]>([]);
@@ -392,6 +394,7 @@ export function RevenueTempoDetails({
           </div>
         </div>
         <div className="mt-2 text-xs text-muted-foreground">Причина: {mainReason}</div>
+        {showAccessories && (
         <div className="mt-3 rounded bg-indigo-50 p-2 text-xs dark:bg-indigo-900/30">
           <div className="font-semibold text-indigo-800 dark:text-indigo-200">
             Высокомаржинальные аксессуары
@@ -439,6 +442,7 @@ export function RevenueTempoDetails({
             ))}
           </div>
         </div>
+        )}
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-600 dark:bg-gray-800">
@@ -518,6 +522,7 @@ export function RevenueTempoDetails({
           >
             Показать Gap
           </button>
+          {showAccessories && (
           <button
             type="button"
             className={`rounded border px-2 py-1 text-xs ${
@@ -529,6 +534,7 @@ export function RevenueTempoDetails({
           >
             Показать аксессуары
           </button>
+          )}
         </div>
         {hourlyLoading && <div className="text-xs text-gray-500">Загрузка...</div>}
         {hourlyError && <div className="text-xs text-red-500">{hourlyError}</div>}
@@ -536,7 +542,7 @@ export function RevenueTempoDetails({
           <div className="text-xs text-gray-500">Нет данных за выбранную дату.</div>
         )}
         {!hourlyLoading && !hourlyError && hourlyRows.length > 0 && tempoViewMode === "summary" && (
-          <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+          <div className={`grid grid-cols-2 gap-2 text-xs ${showAccessories ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
             <div className="rounded bg-blue-50 p-2 dark:bg-blue-900/30">
               <div className="text-gray-500">Факт</div>
               <div className="font-semibold">{formatCurrency(actualNet)} ₽</div>
@@ -552,6 +558,7 @@ export function RevenueTempoDetails({
                 {formatCurrency(focusGapValue)} ₽
               </div>
             </div>
+            {showAccessories && (
             <div className="rounded bg-fuchsia-50 p-2 dark:bg-fuchsia-900/30">
               <div className="text-fuchsia-700 dark:text-fuchsia-300">Аксессуары (доля)</div>
               <div
@@ -564,6 +571,7 @@ export function RevenueTempoDetails({
                 {accessoriesSharePct.toFixed(1)}%
               </div>
             </div>
+            )}
           </div>
         )}
         {!hourlyLoading &&
@@ -587,7 +595,7 @@ export function RevenueTempoDetails({
                     Gap
                   </span>
                 )}
-                {showAccessoriesSeries && (
+                {showAccessories && showAccessoriesSeries && (
                   <span className="inline-flex items-center gap-1">
                     <span className="h-2 w-2 rounded-full bg-fuchsia-500" />
                     Аксессуары факт
@@ -622,7 +630,7 @@ export function RevenueTempoDetails({
                           style={{ height: `${actualHeight}px` }}
                           title={`${row.label} факт: ${formatCurrency(row.actualDisplay)} ₽`}
                         />
-                        {showAccessoriesSeries && (
+                        {showAccessories && showAccessoriesSeries && (
                           <div
                             className="w-[5px] rounded-t bg-fuchsia-500"
                             style={{ height: `${accessoriesHeight}px` }}
@@ -654,31 +662,35 @@ export function RevenueTempoDetails({
               </div>
             </div>
             <div className="space-y-1">
-              <div className="grid grid-cols-6 gap-2 border-b border-gray-200 pb-1 text-xs font-semibold text-gray-500 dark:border-border dark:text-muted-foreground">
+              <div className={`grid gap-2 border-b border-gray-200 pb-1 text-xs font-semibold text-gray-500 dark:border-border dark:text-muted-foreground ${showAccessories ? "grid-cols-6" : "grid-cols-4"}`}>
                 <div>Час</div>
                 <div className="text-blue-600 dark:text-blue-300">Факт</div>
                 <div className="text-slate-600 dark:text-slate-300">План общий</div>
-                <div className="text-fuchsia-600 dark:text-fuchsia-300">Акс.</div>
-                <div className="text-fuchsia-600 dark:text-fuchsia-300">Доля акс.</div>
+                {showAccessories && <div className="text-fuchsia-600 dark:text-fuchsia-300">Акс.</div>}
+                {showAccessories && <div className="text-fuchsia-600 dark:text-fuchsia-300">Доля акс.</div>}
                 <div className="text-red-600 dark:text-red-300">Gap</div>
               </div>
               {(tempoViewMode === "hours" ? shortRows : displayRowsWithAccessories).map((row) => (
-                <div key={`row-${row.hour}`} className="grid grid-cols-6 gap-2 text-xs">
+                <div key={`row-${row.hour}`} className={`grid gap-2 text-xs ${showAccessories ? "grid-cols-6" : "grid-cols-4"}`}>
                   <div className="text-gray-500">{row.label}</div>
                   <div className="text-blue-700 dark:text-blue-300">{formatCurrency(row.actualDisplay)} ₽</div>
                   <div className="text-slate-700 dark:text-slate-300">{formatCurrency(row.expectedDisplay)} ₽</div>
-                  <div className="text-fuchsia-600 dark:text-fuchsia-300">
-                    {formatCurrency(row.accessoriesEstimated)} ₽
-                  </div>
-                  <div
-                    className={
-                      row.accessoriesRowSharePct >= accessoryShareTargetPct
-                        ? "text-emerald-600 dark:text-emerald-300"
-                        : "text-red-600 dark:text-red-300"
-                    }
-                  >
-                    {row.accessoriesRowSharePct.toFixed(1)}%
-                  </div>
+                  {showAccessories && (
+                    <div className="text-fuchsia-600 dark:text-fuchsia-300">
+                      {formatCurrency(row.accessoriesEstimated)} ₽
+                    </div>
+                  )}
+                  {showAccessories && (
+                    <div
+                      className={
+                        row.accessoriesRowSharePct >= accessoryShareTargetPct
+                          ? "text-emerald-600 dark:text-emerald-300"
+                          : "text-red-600 dark:text-red-300"
+                      }
+                    >
+                      {row.accessoriesRowSharePct.toFixed(1)}%
+                    </div>
+                  )}
                   <div className={row.gapDisplay < 0 ? "text-red-600" : "text-green-600"}>
                     {row.gapDisplay >= 0 ? "+" : ""}
                     {formatCurrency(row.gapDisplay)} ₽

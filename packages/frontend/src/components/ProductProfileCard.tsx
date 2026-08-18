@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { LayoutGrid, Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { getAuthHeaders } from "@shared/api";
 
 type Profile = "vape" | "universal";
@@ -43,6 +44,7 @@ export function ProductProfileCard() {
   const [profile, setProfile] = useState<Profile>("vape");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const init = async () => {
@@ -87,6 +89,7 @@ export function ProductProfileCard() {
       }
       setProfile(data.product_profile === "universal" ? "universal" : "vape");
       setMessage("Сохранено");
+      queryClient.invalidateQueries({ queryKey: ["product-profile"] });
     } catch {
       setMessage("Ошибка сети");
     } finally {

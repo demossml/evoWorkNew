@@ -67,10 +67,13 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-7c651d78'], (function (workbox) { 'use strict';
+define(['./workbox-b28ef865'], (function (workbox) { 'use strict';
 
-  self.skipWaiting();
-  workbox.clientsClaim();
+  self.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+      self.skipWaiting();
+    }
+  });
 
   /**
    * The precacheAndRoute() method efficiently caches and responds to
@@ -78,17 +81,61 @@ define(['./workbox-7c651d78'], (function (workbox) { 'use strict';
    * See https://goo.gl/S9QRab
    */
   workbox.precacheAndRoute([{
-    "url": "index.html",
-    "revision": "0.b175kv6cs6s"
+    "url": "registerSW.js",
+    "revision": "3ca0b8505b4bec776b69afdba2768812"
+  }, {
+    "url": "/offline.html",
+    "revision": "0.rbdn3u05jok"
   }], {});
   workbox.cleanupOutdatedCaches();
-  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
-    allowlist: [/^\/$/]
+  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("/offline.html"), {
+    allowlist: [/^\/$/],
+    denylist: [/^\/api\//, /^\/reports\//]
   }));
-  workbox.registerRoute(/^\/api\/.*/, new workbox.NetworkOnly({
-    "cacheName": "api-cache",
+  workbox.registerRoute(/\.(?:js|css|mjs)$/, new workbox.CacheFirst({
+    "cacheName": "static-assets",
     plugins: [new workbox.ExpirationPlugin({
-      maxEntries: 0
+      maxEntries: 60,
+      maxAgeSeconds: 2592000
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    })]
+  }), 'GET');
+  workbox.registerRoute(/\.(?:woff|woff2|ttf|eot)$/, new workbox.CacheFirst({
+    "cacheName": "fonts",
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 10,
+      maxAgeSeconds: 5184000
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    })]
+  }), 'GET');
+  workbox.registerRoute(/\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/, new workbox.CacheFirst({
+    "cacheName": "images",
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 100,
+      maxAgeSeconds: 604800
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    })]
+  }), 'GET');
+  workbox.registerRoute(/\/api\/evotor\/(sales-today|sales-garden-report|plan-for-today|accessories-sales|gross-profit-today|dashboard-home-insights)/, new workbox.StaleWhileRevalidate({
+    "cacheName": "dashboard-cache",
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 20,
+      maxAgeSeconds: 300
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    })]
+  }), 'GET');
+  workbox.registerRoute(/^\/api\/(?!.*(salary|auth|login)).*/, new workbox.NetworkFirst({
+    "cacheName": "api-cache",
+    "networkTimeoutSeconds": 3,
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 200,
+      maxAgeSeconds: 300
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
     })]
   }), 'GET');
 

@@ -5,6 +5,7 @@ import { useEmployeeRole } from "@/hooks/useApi";
 import { useCurrentWorkShop } from "@/hooks/useCurrentWorkShop";
 import { useAccessoriesSales } from "@/hooks/dashboard/useAccessoriesSales";
 import { useMe } from "@/hooks/useApi";
+import { useProductProfile } from "@/hooks/useProductProfile";
 import { RevenueTempoDetails } from "@/widgets/dashboard/cards/RevenueTempoCard";
 import { SkeletonCard } from "./widgetUtils";
 import { Clock3, TrendingUp, TrendingDown } from "lucide-react";
@@ -22,6 +23,7 @@ export function SalesTempoWidget({ since, until, expanded, onToggle }: Props) {
   const isSuperAdmin = role?.employeeRole === "SUPERADMIN";
   const shopUuid = isSuperAdmin ? undefined : ws?.uuid || undefined;
   const me = useMe();
+  const { isUniversal } = useProductProfile();
 
   const { data, loading } = useSalesData({ since, until, shopUuid, enabled: true });
   const filtered = useFilteredSalesData(data, isSuperAdmin, ws ?? null);
@@ -39,7 +41,7 @@ export function SalesTempoWidget({ since, until, expanded, onToggle }: Props) {
     role: role?.employeeRole || "CASHIER",
     userId: me.data?.id ?? "",
     since, until,
-    enabled: expanded,
+    enabled: expanded && !isUniversal,
   });
 
   if (loading || !filtered) return <SkeletonCard tone="indigo" />;
@@ -104,6 +106,7 @@ export function SalesTempoWidget({ since, until, expanded, onToggle }: Props) {
         currentData={filtered}
         previousData={prevFiltered}
         accessoriesData={accessories.data}
+        showAccessories={!isUniversal}
       />
     </motion.div>
   );

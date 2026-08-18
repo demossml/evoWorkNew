@@ -5,6 +5,7 @@ import { useFilteredSalesData } from "@/hooks/dashboard/useFilteredSalesData";
 import { useSalesCalculations } from "@/hooks/dashboard/useSalesCalculations";
 import { useGrossProfit } from "@/hooks/dashboard/useGrossProfit";
 import { useNumberSetting } from "@/hooks/useSettings";
+import { useProductProfile } from "@/hooks/useProductProfile";
 import { Sparkline } from "@shared/ui";
 import { TileWrapper } from "./TileWrapper";
 import { SkeletonCard } from "./widgetUtils";
@@ -43,6 +44,7 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
   const marginGreen = useNumberSetting("margin_green", 30);
   const marginYellow = useNumberSetting("margin_yellow", 15);
   const [showWhy, setShowWhy] = useState(false);
+  const { isUniversal } = useProductProfile();
 
   // Best shop
   const bestShop = useMemo(() => {
@@ -198,20 +200,22 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
         </button>
       </div>
 
-      {/* 2. Вейп / Аксессуары / Прочие */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { l: "Вейп", i: Zap, c: "text-violet-500", b: "bg-violet-50 dark:bg-violet-950/30", v: filtered.salesByGroup?.vape ?? 0 },
-          { l: "Аксессуары", i: Wrench, c: "text-amber-500", b: "bg-amber-50 dark:bg-amber-950/30", v: filtered.salesByGroup?.accessory ?? 0 },
-          { l: "Прочее", i: Package, c: "text-blue-500", b: "bg-blue-50 dark:bg-blue-950/30", v: filtered.salesByGroup?.other ?? 0 },
-        ].map(x => (
-          <div key={x.l} className={`rounded-xl p-2.5 text-center ${x.b}`}>
-            <x.i className={`w-4 h-4 mx-auto mb-1 ${x.c}`} />
-            <div className="text-sm font-bold text-foreground">{formatRub(x.v)}</div>
-            <div className="text-[10px] text-muted-foreground">{x.l}</div>
-          </div>
-        ))}
-      </div>
+      {/* 2. Вейп / Аксессуары / Прочие — только в vape-режиме */}
+      {!isUniversal && (
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { l: "Вейп", i: Zap, c: "text-violet-500", b: "bg-violet-50 dark:bg-violet-950/30", v: filtered.salesByGroup?.vape ?? 0 },
+            { l: "Аксессуары", i: Wrench, c: "text-amber-500", b: "bg-amber-50 dark:bg-amber-950/30", v: filtered.salesByGroup?.accessory ?? 0 },
+            { l: "Прочее", i: Package, c: "text-blue-500", b: "bg-blue-50 dark:bg-blue-950/30", v: filtered.salesByGroup?.other ?? 0 },
+          ].map(x => (
+            <div key={x.l} className={`rounded-xl p-2.5 text-center ${x.b}`}>
+              <x.i className={`w-4 h-4 mx-auto mb-1 ${x.c}`} />
+              <div className="text-sm font-bold text-foreground">{formatRub(x.v)}</div>
+              <div className="text-[10px] text-muted-foreground">{x.l}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* 3. Разбивка по оплате + возвраты */}
       <div>
@@ -360,8 +364,10 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
                       ? `Снижение ${Math.abs(delta)}%. Проверьте ${bestShop}.`
                       : `Лидер: ${bestShop}.`}</li>
                     <li>Безнал: {cardShare}% · Нал: {cashShare}%. Возвраты: {((filtered.grandTotalRefund || 0) / ((filtered.grandTotalSell || 1)) * 100).toFixed(1)}%.</li>
-                    <li>{delta !== null && delta < 0
+                    <li>{delta !== null && delta < 0 && !isUniversal
                       ? "Запустите акцию на аксессуары для роста среднего чека."
+                      : delta !== null && delta < 0
+                      ? "Подтолкните средний чек через кросс-сейл и допродажи."
                       : "Удерживайте темп через кросс-сейл и допродажи."}</li>
                   </ol>
                 </div>
