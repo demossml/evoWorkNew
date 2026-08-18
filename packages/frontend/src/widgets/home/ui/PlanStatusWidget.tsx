@@ -20,6 +20,8 @@ import {
   type PlanShop,
   type PlanDomainModel,
 } from "@/features/plan/planService";
+import { useProductProfile } from "@/hooks/useProductProfile";
+import { labelFor } from "@/config/productCopy";
 
 // ── Цвета статусов ──
 const STATUS_COLORS = {
@@ -249,6 +251,7 @@ function ForecastBlock({ shop }: { shop: PlanShop }) {
 // ProductList
 // ═══════════════════════════════════════════
 function ProductList({ products }: { products: PlanShop["products"] }) {
+  const { profile } = useProductProfile();
   const maxQty = products.length > 0 ? Math.max(...products.map(p => p.qty), 1) : 1;
   const display = products.slice(0, 5);
 
@@ -256,7 +259,9 @@ function ProductList({ products }: { products: PlanShop["products"] }) {
     <div className="rounded-lg bg-card p-3 border border-border">
       <div className="flex items-center gap-1.5 mb-2">
         <Package className="w-3.5 h-3.5 text-purple-500" />
-        <span className="text-xs font-semibold text-foreground/80">Продажи вейпов сегодня</span>
+        <span className="text-xs font-semibold text-foreground/80">
+          {labelFor(profile, "Продажи вейпов сегодня", "Продажи сегодня")}
+        </span>
       </div>
       {display.length === 0 ? (
         <div className="text-xs text-muted-foreground py-1">Нет продаж</div>
