@@ -6,3 +6,11 @@ dist
 .dev.vars
 .env
 data/
+
+# local artifacts
+dev-dist/
+*.log
+.DS_Store
+packages.zip
+.deep-copilot/
+.vscode/

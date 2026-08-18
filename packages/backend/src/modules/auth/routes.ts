@@ -524,4 +524,42 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
       .all<{ uuid: string; name: string }>();
     return c.json({ success: true, shops: res.results ?? [] });
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // Режим приложения (vape | universal)
+  // ─────────────────────────────────────────────────────────────
+  app.get("/api/tenant/product-profile", async (c) => {
+    const db = c.get("db");
+    const tenantId = c.get("tenantId");
+    const t = await getTenantById(db, tenantId);
+    const profile = t?.product_profile === "universal" ? "universal" : "vape";
+    return c.json({
+      product_profile: profile,
+      label: profile === "universal" ? "Универсальная розница" : "Моя сеть",
+    });
+  });
+
+  app.put("/api/tenant/product-profile", requireSuperAdmin, async (c) => {
+    const body = await c.req
+      .json<{ product_profile?: string }>()
+      .catch(() => ({}));
+    const profile = body.product_profile;
+    if (profile !== "vape" && profile !== "universal") {
+      return c.json({ success: false, error: "invalid_profile" }, 400);
+    }
+
+    const db = c.get("db");
+    const tenantId = c.get("tenantId");
+    await db
+      .prepare(
+        `UPDATE tenants SET product_profile = ?, updated_at = datetime('now') WHERE id = ?`,
+      )
+      .bind(profile, tenantId)
+      .run();
+
+    return c.json({
+      product_profile: profile,
+      label: profile === "universal" ? "Универсальная розница" : "Моя сеть",
+    });
+  });
 }

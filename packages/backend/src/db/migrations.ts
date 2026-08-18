@@ -351,6 +351,8 @@ export async function runMigrations(db: D1Database): Promise<void> {
 	await addColumnIfMissing(db, "tenants", "updated_at", "TEXT NOT NULL DEFAULT (datetime('now'))");
 	// API-ключ DeepSeek тенанта (для ИИ-отчётов этой сети)
 	await addColumnIfMissing(db, "tenants", "deepseek_api_key", "TEXT");
+	// Режим приложения: vape | universal
+	await addColumnIfMissing(db, "tenants", "product_profile", "TEXT NOT NULL DEFAULT 'vape'");
 
 	console.log("[migration] Миграции завершены.");
 }

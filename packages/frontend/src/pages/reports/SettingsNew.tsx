@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { UsersAccessCard, EvotorTokenCard } from "../../components/UsersAccessCard";
 import { AiProviderCard } from "../../components/AiProviderCard";
+import { ProductProfileCard, ModeIndicator } from "../../components/ProductProfileCard";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -1282,8 +1283,8 @@ export default function SettingsNew() {
             <div>
               <h1 className="text-base font-bold">Настройки</h1>
               <p className="text-[10px] text-muted-foreground">Пороги, бонусы, синхронизация</p>
-            </div>
-          </div>
+              <ModeIndicator />
+            </div>          </div>
 
           <div className="flex items-center gap-2">
             {dirtyCount > 0 && (
@@ -1404,6 +1405,9 @@ export default function SettingsNew() {
 
         {/* ИИ-провайдер (только SUPERADMIN) */}
         {!isLoading && !error && <AiProviderCard />}
+
+        {/* Режим приложения (только SUPERADMIN) */}
+        {!isLoading && !error && <ProductProfileCard />}
 
         {/* Акционные товары */}
         {!isLoading && !error && <PromoProductsCard />}
