@@ -22,6 +22,7 @@ import {
   PieChart,
 } from "lucide-react";
 import { isTelegramMiniApp, telegram } from "@/helpers/telegram";
+import { useProductProfile, type ProductProfile } from "@/hooks/useProductProfile";
 
 interface BottomNavigationProps {
   employeeRole?: "CASHIER" | "ADMIN" | "SUPERADMIN";
@@ -69,7 +70,7 @@ const mainNav = [
 
 const moreGroups: Array<{
   title: string;
-  items: Array<{ to: string; label: string; icon: typeof Home; roles: string[] }>;
+  items: Array<{ to: string; label: string; icon: typeof Home; roles: string[]; profiles?: ProductProfile[] }>;
 }> = [
   {
     title: "Продажи",
@@ -136,6 +137,7 @@ const moreGroups: Array<{
         label: "🧬 Seller DNA",
         icon: Users,
         roles: ["SUPERADMIN"],
+        profiles: ["vape"],
       },
       {
         to: "/evotor/product-analysis",
@@ -180,12 +182,20 @@ export function BottomNavigation({
   const navRef = useRef<HTMLElement>(null);
 
   const isMiniApp = isTelegramMiniApp();
+  const { profile } = useProductProfile();
 
-  const filteredMainNav = mainNav.filter((i) => i.roles.includes(employeeRole));
+  const showInProfile = (i: { profiles?: ProductProfile[] }) =>
+    !i.profiles || i.profiles.includes(profile);
+
+  const filteredMainNav = mainNav.filter(
+    (i) => i.roles.includes(employeeRole) && showInProfile(i)
+  );
   const filteredMoreGroups = moreGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((i) => i.roles.includes(employeeRole)),
+      items: group.items.filter(
+        (i) => i.roles.includes(employeeRole) && showInProfile(i)
+      ),
     }))
     .filter((group) => group.items.length > 0);
   const hasMore = filteredMoreGroups.length > 0;
