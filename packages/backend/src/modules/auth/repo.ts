@@ -49,18 +49,19 @@ export async function upsertTenant(
 	id: string,
 	name: string,
 	evotorToken: string,
+	productProfile: "vape" | "universal" = "vape",
 ): Promise<void> {
 	await db
 		.prepare(
-			`INSERT INTO tenants (id, name, evotor_token, status, updated_at)
-       VALUES (?, ?, ?, 'active', datetime('now'))
+			`INSERT INTO tenants (id, name, evotor_token, status, product_profile, updated_at)
+       VALUES (?, ?, ?, 'active', ?, datetime('now'))
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
          evotor_token = excluded.evotor_token,
          status = 'active',
          updated_at = datetime('now')`,
 		)
-		.bind(id, name, evotorToken)
+		.bind(id, name, evotorToken, productProfile)
 		.run();
 }
 

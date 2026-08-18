@@ -21,7 +21,7 @@ export function AuthCard({ redirectTo = "/" }: { redirectTo?: string }) {
   // connect
   const [token, setToken] = useState("");
   const [name, setName] = useState("");
-  const [created, setCreated] = useState<{ login: string; password: string } | null>(null);
+  const [created, setCreated] = useState<{ login: string; password: string; product_profile?: string } | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +65,11 @@ export function AuthCard({ redirectTo = "/" }: { redirectTo?: string }) {
         return;
       }
       if (data.generatedPassword) {
-        setCreated({ login: data.user.login, password: data.generatedPassword });
+        setCreated({
+          login: data.user.login,
+          password: data.generatedPassword,
+          product_profile: data.product_profile,
+        });
         return; // ждём, пока владелец сохранит пароль
       }
       localStorage.setItem("sessionId", data.sessionId);
@@ -84,6 +88,11 @@ export function AuthCard({ redirectTo = "/" }: { redirectTo?: string }) {
         <p className="text-xs text-muted-foreground mb-3">
           Пароль показывается один раз. После входа вы сможете создавать логины продавцам в Настройках.
         </p>
+        {created.product_profile === "universal" && (
+          <p className="text-xs text-muted-foreground mb-3">
+            Режим: универсальная розница (можно сменить в Настройках)
+          </p>
+        )}
         <div className="space-y-2 text-sm">
           <div className="flex items-center justify-between bg-muted rounded-lg px-3 py-2">
             <span className="text-muted-foreground text-xs">Логин</span>

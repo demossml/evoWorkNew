@@ -85,19 +85,26 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
     const db = c.get("db");
     const secret = authSecret(c);
 
-    // Находим существующий tenant по токену или создаём новый
+    // Находим существующий tenant по токену или создаём новый.
+    // Новый коммерческий клиент (не ваш EVOTOR_API_TOKEN) стартует в universal.
     let tenantId: string;
+    let productProfile: "vape" | "universal" = "vape";
     const existing = await findTenantByToken(db, token);
     if (existing) {
       tenantId = existing.id;
+      // Существующую сеть НЕ переписываем (vape остаётся vape).
+      productProfile =
+        existing.product_profile === "universal" ? "universal" : "vape";
     } else if (token === c.env.EVOTOR_API_TOKEN) {
       const def = await getTenantById(db, "default");
       tenantId = def ? "default" : newId();
+      productProfile = "vape"; // ваша основная сеть
     } else {
       tenantId = newId();
+      productProfile = "universal"; // новый клиент
     }
 
-    await upsertTenant(db, tenantId, body.name || "Моя сеть", token);
+    await upsertTenant(db, tenantId, body.name || "Моя сеть", token, productProfile);
 
     // SUPERADMIN этого tenant
     let owner = await findSuperAdminByTenant(db, tenantId);
@@ -132,6 +139,7 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
     return c.json({
       success: true,
       tenantId,
+      product_profile: productProfile,
       sessionId: session.id,
       user: {
         id: owner.id,
