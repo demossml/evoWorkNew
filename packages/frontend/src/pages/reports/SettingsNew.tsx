@@ -25,7 +25,7 @@ import {
   Settings2, Gift, Gauge, RefreshCcw, Upload, Globe, Bell,
   Save, RotateCcw, Check, AlertTriangle, Loader2,
   Wallet, Clock, Store, ChevronDown, ChevronRight,
-  Zap, Package, Search, DollarSign, X, Users,
+  Zap, Package, Search, DollarSign, X, Users, Crosshair,
 } from "lucide-react";
 import { UsersAccessCard, EvotorTokenCard } from "../../components/UsersAccessCard";
 import { AiProviderCard } from "../../components/AiProviderCard";
@@ -1408,6 +1408,30 @@ export default function SettingsNew() {
 
         {/* Режим приложения (только SUPERADMIN) */}
         {!isLoading && !error && <ProductProfileCard />}
+
+        {/* Фокус-категория (универсальный KPI) */}
+        {!isLoading && !error && (
+          <GroupPickerCard
+            title="Фокус-категория"
+            icon={<Crosshair className="w-5 h-5" />}
+            borderColor="border-l-4 border-l-slate-400"
+            description="Группы товаров для отдельного контроля (любой бизнес). В универсальном режиме показываются на главной."
+            loadSelected={async () => {
+              const res = await fetch("/api/tenant/focus-category", { headers: getAuthHeaders() });
+              if (!res.ok) return [];
+              const data = await res.json();
+              return (data.group_uuids ?? []) as string[];
+            }}
+            saveSelected={async (uuids) => {
+              const res = await fetch("/api/tenant/focus-category", {
+                method: "PUT",
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ group_uuids: uuids }),
+              });
+              if (!res.ok) throw new Error(String(res.status));
+            }}
+          />
+        )}
 
         {/* Акционные товары */}
         {!isLoading && !error && <PromoProductsCard />}

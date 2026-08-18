@@ -22,6 +22,7 @@ import { BestShopWidget } from "@widgets/home/BestShopWidget";
 import { TopProductWidget } from "@widgets/home/TopProductWidget";
 import { AccessoriesWidget } from "@widgets/home/AccessoriesWidget";
 import { PromoEarningsWidget } from "@widgets/home/PromoEarningsWidget";
+import { FocusCategoryWidget } from "@widgets/home/FocusCategoryWidget";
 import { isTelegramMiniApp } from "../helpers/telegram";
 import { useState, useEffect, useCallback } from "react";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react";
@@ -99,6 +100,12 @@ export default function Home() {
           <p className="text-[10px] text-muted-foreground px-1 -mt-1">
             Режим: универсальная розница
           </p>
+        )}
+
+        {isUniversal && (
+          <ErrorBoundary variant="widget" name="Фокус">
+            <FocusCategoryWidget />
+          </ErrorBoundary>
         )}
         <div className="flex items-center gap-2">
           <DateFilter value={dateFilter} onChange={setDateFilter} />

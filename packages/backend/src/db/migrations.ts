@@ -353,6 +353,8 @@ export async function runMigrations(db: D1Database): Promise<void> {
 	await addColumnIfMissing(db, "tenants", "deepseek_api_key", "TEXT");
 	// Режим приложения: vape | universal
 	await addColumnIfMissing(db, "tenants", "product_profile", "TEXT NOT NULL DEFAULT 'vape'");
+	// Фокус-группы товаров (JSON array of uuid strings) — универсальный KPI
+	await addColumnIfMissing(db, "tenants", "focus_group_uuids", "TEXT");
 
 	console.log("[migration] Миграции завершены.");
 }

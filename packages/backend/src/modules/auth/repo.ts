@@ -38,6 +38,8 @@ export type TenantRow = {
 	deepseek_api_key?: string | null;
 	/** Режим приложения: vape | universal */
 	product_profile?: string | null;
+	/** Фокус-группы товаров (JSON array of uuid strings) */
+	focus_group_uuids?: string | null;
 };
 
 // --- tenants ---
@@ -68,7 +70,7 @@ export async function getTenantById(
 ): Promise<TenantRow | null> {
 	return (
 		(await db
-			.prepare(`SELECT id, name, evotor_token, status, deepseek_api_key, product_profile FROM tenants WHERE id = ?`)
+			.prepare(`SELECT id, name, evotor_token, status, deepseek_api_key, product_profile, focus_group_uuids FROM tenants WHERE id = ?`)
 			.bind(id)
 			.first<TenantRow>()) ?? null
 	);
@@ -80,7 +82,7 @@ export async function findTenantByToken(
 ): Promise<TenantRow | null> {
 	return (
 		(await db
-			.prepare(`SELECT id, name, evotor_token, status, deepseek_api_key, product_profile FROM tenants WHERE evotor_token = ?`)
+			.prepare(`SELECT id, name, evotor_token, status, deepseek_api_key, product_profile, focus_group_uuids FROM tenants WHERE evotor_token = ?`)
 			.bind(token)
 			.first<TenantRow>()) ?? null
 	);

@@ -562,4 +562,154 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
       label: profile === "universal" ? "Универсальная розница" : "Моя сеть",
     });
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // Фокус-категория (группы товаров для универсального KPI)
+  // ─────────────────────────────────────────────────────────────
+  app.get("/api/tenant/focus-category", async (c) => {
+    const db = c.get("db");
+    const tenantId = c.get("tenantId");
+    const t = await getTenantById(db, tenantId);
+    const uuids = parseGroupUuids(t?.focus_group_uuids);
+    const labels = await groupLabels(db, uuids);
+    return c.json({ group_uuids: uuids, labels });
+  });
+
+  app.put("/api/tenant/focus-category", requireSuperAdmin, async (c) => {
+    const body = await c.req
+      .json<{ group_uuids?: unknown }>()
+      .catch(() => ({}));
+    const arr = Array.isArray(body.group_uuids) ? body.group_uuids : [];
+    const uuids = arr
+      .filter((u): u is string => typeof u === "string" && u.trim().length > 0)
+      .map((u) => u.trim())
+      .slice(0, 3); // максимум 3 группы
+
+    const db = c.get("db");
+    const tenantId = c.get("tenantId");
+    await db
+      .prepare(
+        `UPDATE tenants SET focus_group_uuids = ?, updated_at = datetime('now') WHERE id = ?`,
+      )
+      .bind(JSON.stringify(uuids), tenantId)
+      .run();
+
+    const labels = await groupLabels(db, uuids);
+    return c.json({ group_uuids: uuids, labels });
+  });
+
+  // Продажи фокус-групп за период (минимум для Home-карточки в universal)
+  app.get("/api/tenant/focus-category/sales", async (c) => {
+    const db = c.get("db");
+    const tenantId = c.get("tenantId");
+    const since = c.req.query("since") || todayStr();
+    const until = c.req.query("until") || since;
+
+    const t = await getTenantById(db, tenantId);
+    const uuids = parseGroupUuids(t?.focus_group_uuids);
+    if (uuids.length === 0) {
+      return c.json({ groups: [], focusRevenue: 0, totalRevenue: 0, sharePct: 0 });
+    }
+
+    const labels = await groupLabels(db, uuids);
+
+    const placeholders = uuids.map(() => "?").join(",");
+    const productRows = await db
+      .prepare(
+        `SELECT DISTINCT uuid FROM shopProduct WHERE parentUuid IN (${placeholders}) AND product_group = 0`,
+      )
+      .bind(...uuids)
+      .all<{ uuid: string }>();
+    const focusUuids = new Set((productRows.results ?? []).map((r) => r.uuid));
+
+    // close_date — ISO с временем (2026-08-18T07:48:46.000+0000),
+    // поэтому фильтруем диапазон [since 00:00, until+1день 00:00).
+    const startTs = `${since}T00:00:00`;
+    const endExclusive = addDays(until, 1);
+
+    const docs = await db
+      .prepare(
+        `SELECT type, transactions FROM index_documents WHERE close_date >= ? AND close_date < ? AND type IN ('SELL','PAYBACK')`,
+      )
+      .bind(startTs, endExclusive)
+      .all<{ type: string; transactions: string }>();
+
+    let focusRevenue = 0;
+    let totalRevenue = 0;
+    for (const row of docs.results ?? []) {
+      const isRefund = row.type === "PAYBACK";
+      const sign = isRefund ? -1 : 1;
+      let txs: unknown;
+      try {
+        txs = JSON.parse(row.transactions);
+      } catch {
+        continue;
+      }
+      if (!Array.isArray(txs)) continue;
+      for (const tx of txs as Array<{ type?: string; sum?: number; quantity?: number; commodityUuid?: string }>) {
+        if (tx.type !== "REGISTER_POSITION") continue;
+        const sum = Number(tx.sum ?? 0);
+        totalRevenue += sum * sign;
+        if (tx.commodityUuid && focusUuids.has(tx.commodityUuid)) {
+          focusRevenue += sum * sign;
+        }
+      }
+    }
+
+    const sharePct =
+      totalRevenue > 0 ? Math.round((focusRevenue / totalRevenue) * 1000) / 10 : 0;
+
+    return c.json({
+      groups: labels,
+      focusRevenue: Math.round(focusRevenue),
+      totalRevenue: Math.round(totalRevenue),
+      sharePct,
+    });
+  });
+}
+
+/** Парсит JSON-массив group uuids из колонки tenants.focus_group_uuids. */
+function parseGroupUuids(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((u): u is string => typeof u === "string" && u.trim().length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/** Имена групп (uuid → name) из shopProduct (product_group = 1). */
+async function groupLabels(
+  db: IEnv["Bindings"]["DB"],
+  uuids: string[],
+): Promise<Array<{ uuid: string; name: string }>> {
+  if (uuids.length === 0) return [];
+  const placeholders = uuids.map(() => "?").join(",");
+  const res = await db
+    .prepare(
+      `SELECT DISTINCT uuid, name FROM shopProduct WHERE product_group = 1 AND uuid IN (${placeholders})`,
+    )
+    .bind(...uuids)
+    .all<{ uuid: string; name: string }>();
+  return res.results ?? [];
+}
+
+/** Локальная дата YYYY-MM-DD (без сдвига часового пояса). */
+function todayStr(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+/** Прибавляет N дней к дате YYYY-MM-DD (локально). */
+function addDays(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y!, (m ?? 1) - 1, d!);
+  dt.setDate(dt.getDate() + days);
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${dt.getFullYear()}-${mm}-${dd}`;
 }

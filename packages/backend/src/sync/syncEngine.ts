@@ -79,6 +79,9 @@ export async function createTenantsTable(db: D1Database): Promise<void> {
   try {
     await db.prepare(`ALTER TABLE tenants ADD COLUMN product_profile TEXT NOT NULL DEFAULT 'vape'`).run();
   } catch { /* уже есть */ }
+  try {
+    await db.prepare(`ALTER TABLE tenants ADD COLUMN focus_group_uuids TEXT`).run();
+  } catch { /* уже есть */ }
 }
 
 export async function createSyncStateTable(db: D1Database): Promise<void> {
