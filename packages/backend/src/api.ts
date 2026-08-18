@@ -18,7 +18,7 @@ import { hashMetrics, getCachedAnalysis, saveCachedAnalysis, saveConversation, g
 import { computeSellerAdvancedStats, computeWeekdayComparison, computeWeekdayBreakdown } from "./services/sellerAdvancedStats";
 import { generateSellerInsights } from "./services/sellerInsights";
 import { computeHourlyCompare } from "./services/sellerHourlyCompare";
-import { requireAdmin, assertShopAccess } from "./helpers";
+import { requireAdmin, assertShopAccess, getTenantShopUuids } from "./helpers";
 import { registerAuthRoutes } from "./modules/auth/routes";
 import { registerAiProviderRoutes } from "./modules/ai/providerRoutes";
 import { resolveDeepseekKey } from "./services/deepseek";
@@ -826,14 +826,17 @@ export const api = new Hono<IEnv>()
 	.get("/api/evotor/sales-today", async (c) => {
 		const db = c.get("db");
 		const { getSalesTodayFromD1, getSalesByProductGroup: getGroup } = await import("./evotor/utils.js");
-		const salesData = await getSalesTodayFromD1(db);
+		const tenantId = c.get("tenantId") || "default";
+		const shopUuids = await getTenantShopUuids(db, tenantId);
+
+		const salesData = await getSalesTodayFromD1(db, shopUuids);
 
 		assert(salesData, "No sales data found");
 
 		const now = new Date();
 		const since = formatDateWithTime(now, false);
 		const until = formatDateWithTime(now, true);
-		const salesByGroup = await getGroup(db, since, until);
+		const salesByGroup = await getGroup(db, since, until, shopUuids);
 
 		return c.json({ salesData, salesByGroup });
 	})
@@ -919,10 +922,11 @@ export const api = new Hono<IEnv>()
 				"568905be-9460-11ee-9ef4-be8fe126e7b9",
 			];
 
-			// Получаем список магазинов из D1
+			// Получаем список магазинов текущего tenant
+			const tenantId = c.get("tenantId") || "default";
 			const shopsResult = await db.prepare(
-				"SELECT uuid, name FROM shops"
-			).all<{ uuid: string; name: string }>();
+				"SELECT uuid, name FROM shops WHERE tenant_id = ?"
+			).bind(tenantId).all<{ uuid: string; name: string }>();
 			const shops = shopsResult.results ?? [];
 
 			// === План: получаем из таблицы plan, если нет/заглушка — считаем из D1 продаж ===
@@ -1617,11 +1621,25 @@ export const api = new Hono<IEnv>()
 				until = today + "T23:59:59";
 			}
 
+			// Изоляция tenant: только магазины текущего tenant
+			const tenantId = c.get("tenantId") || "default";
+			const shopUuids = await getTenantShopUuids(db, tenantId);
+			if (shopUuids.length === 0) {
+				return c.json({
+					since: since.slice(0, 10),
+					until: until.slice(0, 10),
+					shops: {},
+					total: { revenue: 0, cost: 0, profit: 0 },
+				});
+			}
+			const shopPlaceholders = shopUuids.map(() => "?").join(",");
+
 			const docs = await db
 				.prepare(`SELECT shop_id, type, transactions FROM index_documents
 				          WHERE close_date >= ? AND close_date <= ?
+				            AND shop_id IN (${shopPlaceholders})
 				            AND type IN ('SELL', 'PAYBACK')`)
-				.bind(since, until)
+				.bind(since, until, ...shopUuids)
 				.all<{ shop_id: string; type: string; transactions: string }>();
 
 			// Агрегация: shopId → productName → { revenue, qty, cost }
@@ -2201,7 +2219,9 @@ export const api = new Hono<IEnv>()
 
 			const { startDate, endDate } = data;
 
-			const shopUuids = await getShopUuidsFromDB(db);
+			// Изоляция tenant: только магазины текущего tenant
+			const tenantId = c.get("tenantId") || "default";
+			const shopUuids = await getTenantShopUuids(db, tenantId);
 
 			const sincetDate = new Date(startDate); // Преобразуем в объект Date
 			const untilDate = new Date(endDate); // Преобразуем в объект Date
@@ -2259,7 +2279,7 @@ export const api = new Hono<IEnv>()
 
 			const grandTotalCashOutcome = calculateTotalSum(cashOutcomeData);
 
-			const salesByGroup = await getSalesByProductGroup(db, since, until);
+			const salesByGroup = await getSalesByProductGroup(db, since, until, shopUuids);
 
 			return c.json({
 				salesDataByShopName,

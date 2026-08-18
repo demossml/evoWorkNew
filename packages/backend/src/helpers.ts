@@ -243,3 +243,28 @@ async function getEmployeeRoleFromDBSimple(
 		.first<{ role: string }>();
 	return res?.role ?? null;
 }
+
+/**
+ * UUID магазинов текущего tenant (по shops.tenant_id).
+ * Пустой список = у tenant нет магазинов → caller должен вернуть пустой ответ,
+ * а не «все данные».
+ */
+export async function getTenantShopUuids(
+	db: D1Database,
+	tenantId: string,
+): Promise<string[]> {
+	const rows = await db
+		.prepare("SELECT uuid FROM shops WHERE tenant_id = ?")
+		.bind(tenantId || "default")
+		.all<{ uuid: string }>();
+	return (rows.results ?? []).map((r) => r.uuid);
+}
+
+/**
+ * Строит SQL-фрагмент `IN (?, ?, ...)` для shop scoping.
+ * Если список пуст — возвращает "('__no_shops__')", чтобы запрос дал 0 строк.
+ */
+export function shopInClause(shopUuids: string[]): string {
+	if (shopUuids.length === 0) return "('__no_shops__')";
+	return `(${shopUuids.map(() => "?").join(",")})`;
+}

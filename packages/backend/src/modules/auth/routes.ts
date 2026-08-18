@@ -5,7 +5,7 @@
 
 import { Hono } from "hono";
 import type { IEnv } from "../../types";
-import { requireSuperAdmin, SUPERADMIN_IDS } from "../../helpers";
+import { requireSuperAdmin, SUPERADMIN_IDS, getTenantShopUuids } from "../../helpers";
 import {
   upsertTenant,
   getTenantById,
@@ -619,6 +619,12 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
       return c.json({ groups: [], focusRevenue: 0, totalRevenue: 0, sharePct: 0 });
     }
 
+    // Изоляция tenant: считаем только по магазинам текущего tenant.
+    const shopUuids = await getTenantShopUuids(db, tenantId);
+    if (shopUuids.length === 0) {
+      return c.json({ groups: [], focusRevenue: 0, totalRevenue: 0, sharePct: 0 });
+    }
+
     const labels = await groupLabels(db, uuids);
 
     const placeholders = uuids.map(() => "?").join(",");
@@ -634,12 +640,16 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
     // поэтому фильтруем диапазон [since 00:00, until+1день 00:00).
     const startTs = `${since}T00:00:00`;
     const endExclusive = addDays(until, 1);
+    const shopPlaceholders = shopUuids.map(() => "?").join(",");
 
     const docs = await db
       .prepare(
-        `SELECT type, transactions FROM index_documents WHERE close_date >= ? AND close_date < ? AND type IN ('SELL','PAYBACK')`,
+        `SELECT type, transactions FROM index_documents
+         WHERE close_date >= ? AND close_date < ?
+           AND shop_id IN (${shopPlaceholders})
+           AND type IN ('SELL','PAYBACK')`,
       )
-      .bind(startTs, endExclusive)
+      .bind(startTs, endExclusive, ...shopUuids)
       .all<{ type: string; transactions: string }>();
 
     let focusRevenue = 0;

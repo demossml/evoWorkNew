@@ -795,10 +795,20 @@ export async function getSalesByProductGroup(
 	db: D1Database,
 	since: string,
 	until: string,
+	shopUuids?: string[],
 ): Promise<{ vape: number; accessory: number; other: number }> {
 	const result = { vape: 0, accessory: 0, other: 0 };
 
 	try {
+		// Scope по магазинам tenant (если передан). Пустой список → нет данных.
+		let shopFilter = "";
+		const bindParams: string[] = [since, until];
+		if (shopUuids && shopUuids.length === 0) return result;
+		if (shopUuids && shopUuids.length > 0) {
+			shopFilter = `AND shop_id IN (${shopUuids.map(() => "?").join(",")})`;
+			bindParams.push(...shopUuids);
+		}
+
 		// 1. Собираем UUID вейп-товаров
 		const vapeParentUuids = await getVapeGroupUuids(db);
 		const vapePlaceholders = vapeParentUuids.map(() => "?").join(",");
@@ -840,8 +850,9 @@ export async function getSalesByProductGroup(
 				FROM index_documents
 				WHERE close_date >= ?1 AND close_date <= ?2
 				  AND type IN ('SELL', 'PAYBACK')
+				  ${shopFilter}
 			`)
-			.bind(since, until)
+			.bind(...bindParams)
 			.all();
 
 		if (!docs?.results || docs.results.length === 0) return result;
@@ -1108,6 +1119,7 @@ export async function getCashByShopsFromD1(
  */
 export async function getSalesTodayFromD1(
 	db: D1Database,
+	shopUuids?: string[],
 ): Promise<Record<string, Record<string, number>>> {
 	const { getShopNameUuidsFromDB, getShopUuidsFromDB } = await import("../sync/db.js");
 
@@ -1125,13 +1137,13 @@ export async function getSalesTodayFromD1(
 		UNKNOWN: "Неизвестно. По-умолчанию:",
 	};
 
-	const shopUuids = await getShopUuidsFromDB(db);
+	const shopUuidsList = shopUuids ?? (await getShopUuidsFromDB(db));
 	const shopNames = await getShopNameUuidsFromDB(db);
 	const nameMap = new Map(shopNames.map(s => [s.uuid, s.name]));
 
 	const salesByShop: Record<string, Record<string, number>> = {};
 
-	for (const shopUuid of shopUuids) {
+	for (const shopUuid of shopUuidsList) {
 		const result = await db
 			.prepare(
 				`SELECT transactions FROM index_documents
