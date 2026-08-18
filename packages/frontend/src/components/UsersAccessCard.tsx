@@ -17,7 +17,7 @@ import {
   Plug,
   ShieldCheck,
 } from "lucide-react";
-import { getAuthHeaders } from "@shared/api";
+import { getAuthHeaders, queryClient } from "@shared/api";
 import { AuthCard } from "./AuthCard";
 
 interface MeResponse {
@@ -283,6 +283,13 @@ export function UsersAccessCard() {
       /* ignore */
     }
     localStorage.removeItem("sessionId");
+    // Очищаем персист кэш, чтобы не светить данные предыдущего пользователя
+    try {
+      queryClient.clear();
+      localStorage.removeItem("evo-rq-cache-v1");
+    } catch {
+      /* ignore */
+    }
     window.location.replace("/");
   };
 

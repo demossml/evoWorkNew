@@ -39,18 +39,21 @@ function getTodayRange(): DateFilterValue {
 }
 
 export default function Home() {
-  const { data, error, isLoading } = useEmployeeRole();
+  const { data, error, isPending } = useEmployeeRole();
   const { isUniversal } = useProductProfile();
   const miniApp = isTelegramMiniApp();
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getTodayRange);
   const [expanded, setExpanded] = useState<WidgetKey | null>(null);
   const queryClient = useQueryClient();
+  const isFetching = useIsFetching() > 0;
 
   const toggle = useCallback((key: WidgetKey) => {
     setExpanded((prev) => (prev === key ? null : key));
   }, []);
 
-  if (isLoading) {
+  // Полный skeleton только когда ещё нет данных (в т.ч. из persist).
+  // При наличии кэша — сразу рисуем UI, фоновый refetch обновит на месте.
+  if (isPending && !data) {
     return (
       <div className="flex flex-col items-center w-full min-h-screen bg-background pt-[calc(var(--tg-app-top-offset,var(--tg-safe-top,0px))+3.5rem)] px-4 sm:px-6 pb-24">
         <div className="w-full max-w-7xl space-y-4">
@@ -92,6 +95,9 @@ export default function Home() {
     <div className="flex flex-col items-center w-full min-h-screen bg-background pt-[calc(var(--tg-app-top-offset,var(--tg-safe-top,0px))+3.5rem)] px-4 sm:px-6 pb-24">
       <HomeTopBar queryClient={queryClient} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
       <div className="w-full max-w-7xl space-y-4">
+        {isFetching && (
+          <p className="text-[10px] text-muted-foreground text-center -mb-1">Обновление…</p>
+        )}
 
         <ErrorBoundary variant="widget" name="Ежедневный брифинг">
           <DailyBriefing />
