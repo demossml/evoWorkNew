@@ -6,7 +6,7 @@ declare global {
   }
 }
 
-export const telegram = window.Telegram;
+export const telegram = window.Telegram ?? ({} as Telegram);
 
 // export const isTelegramMiniApp =
 //   typeof window !== "undefined" &&
