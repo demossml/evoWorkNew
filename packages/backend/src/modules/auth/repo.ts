@@ -148,6 +148,20 @@ export async function listUsersByTenant(
 	return res.results ?? [];
 }
 
+/** Число активных SUPERADMIN в tenant. */
+export async function countActiveSuperAdmins(
+	db: D1Database,
+	tenantId: string,
+): Promise<number> {
+	const res = await db
+		.prepare(
+			`SELECT COUNT(*) as n FROM app_users WHERE tenant_id = ? AND role = 'SUPERADMIN' AND is_active = 1`,
+		)
+		.bind(tenantId)
+		.first<{ n: number }>();
+	return Number(res?.n ?? 0);
+}
+
 export async function insertUser(
 	db: D1Database,
 	row: {

@@ -73,7 +73,7 @@ export function UsersAccessCard() {
   // Модалка создания
   const [showCreate, setShowCreate] = useState(false);
   const [formEmployeeUuid, setFormEmployeeUuid] = useState("");
-  const [formRole, setFormRole] = useState<"CASHIER" | "ADMIN">("CASHIER");
+  const [formRole, setFormRole] = useState<"CASHIER" | "ADMIN" | "SUPERADMIN">("CASHIER");
   const [formShops, setFormShops] = useState<string[]>([]);
   const [createdCreds, setCreatedCreds] = useState<{ login: string; password: string } | null>(null);
 
@@ -246,9 +246,12 @@ export function UsersAccessCard() {
       method: "POST",
       headers: apiHeaders(),
     });
+    const data = await res.json().catch(() => ({}));
     if (res.ok) {
       setMessage(`${user.display_name || user.login} деактивирован`);
       await load();
+    } else if (data.error === "last_superadmin") {
+      setMessage("Нельзя убрать последнего супер админа");
     } else {
       setMessage("Ошибка деактивации");
     }
@@ -468,11 +471,12 @@ export function UsersAccessCard() {
                 <label className="text-xs text-muted-foreground">Роль</label>
                 <select
                   value={formRole}
-                  onChange={(e) => setFormRole(e.target.value as "CASHIER" | "ADMIN")}
+                  onChange={(e) => setFormRole(e.target.value as "CASHIER" | "ADMIN" | "SUPERADMIN")}
                   className="w-full mt-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none"
                 >
                   <option value="CASHIER">CASHIER — продавец</option>
                   <option value="ADMIN">ADMIN — администратор</option>
+                  <option value="SUPERADMIN">SUPERADMIN — супер админ</option>
                 </select>
               </div>
               <div>

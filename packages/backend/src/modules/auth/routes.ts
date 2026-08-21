@@ -29,6 +29,7 @@ import {
   listEmployeesByTenant,
   findUserByEmployee,
   findActiveUserByEmployee,
+  countActiveSuperAdmins,
 } from "./repo";
 import {
   hashPassword,
@@ -316,7 +317,7 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
     const secret = authSecret(c);
 
     const role = body.role || "CASHIER";
-    if (role !== "CASHIER" && role !== "ADMIN") {
+    if (role !== "CASHIER" && role !== "ADMIN" && role !== "SUPERADMIN") {
       return c.json({ success: false, error: "invalid_role" }, 400);
     }
 
@@ -416,7 +417,7 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
       .catch(() => ({}));
 
     if (body.role !== undefined) {
-      if (body.role !== "CASHIER" && body.role !== "ADMIN") {
+      if (body.role !== "CASHIER" && body.role !== "ADMIN" && body.role !== "SUPERADMIN") {
         return c.json({ success: false, error: "invalid_role" }, 400);
       }
     }
@@ -432,6 +433,18 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
       (targetRole === "CASHIER" || targetRole === "ADMIN")
     ) {
       return c.json({ success: false, error: "employee_uuid_required" }, 400);
+    }
+
+    // Защита от lockout: нельзя снять/деактивировать последнего SUPERADMIN
+    const demotingSuperAdmin =
+      user.role === "SUPERADMIN" && targetRole !== "SUPERADMIN";
+    const deactivatingSuperAdmin =
+      user.role === "SUPERADMIN" && body.is_active === 0;
+    if (demotingSuperAdmin || deactivatingSuperAdmin) {
+      const activeSuperAdmins = await countActiveSuperAdmins(db, tenantId);
+      if (activeSuperAdmins <= 1) {
+        return c.json({ success: false, error: "last_superadmin" }, 400);
+      }
     }
 
     if (body.shop_ids !== undefined) {
@@ -512,6 +525,12 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
     }
     if (currentUserId && currentUserId === userId) {
       return c.json({ success: false, error: "cannot_deactivate_self" }, 400);
+    }
+    if (user.role === "SUPERADMIN") {
+      const activeSuperAdmins = await countActiveSuperAdmins(db, tenantId);
+      if (activeSuperAdmins <= 1) {
+        return c.json({ success: false, error: "last_superadmin" }, 400);
+      }
     }
 
     await updateUserMeta(db, userId, { is_active: 0 });
