@@ -39,6 +39,8 @@ interface Props { since: string; until: string; expanded: boolean; onToggle: () 
 
 export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
   const { data, loading, error } = useSalesData({ since, until, enabled: true });
+  const { data: role } = useEmployeeRole();
+  const isSuperAdmin = role?.employeeRole === "SUPERADMIN";
   const filtered = useFilteredSalesData(data, true, null);
   const { netSales } = useSalesCalculations(filtered);
   const { data: grossProfit } = useGrossProfit({ since, until, enabled: isSuperAdmin });
@@ -46,8 +48,6 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
   const marginYellow = useNumberSetting("margin_yellow", 15);
   const [showWhy, setShowWhy] = useState(false);
   const { isUniversal } = useProductProfile();
-  const { data: role } = useEmployeeRole();
-  const isSuperAdmin = role?.employeeRole === "SUPERADMIN";
 
   // Best shop
   const bestShop = useMemo(() => {
