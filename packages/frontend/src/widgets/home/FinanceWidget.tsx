@@ -24,7 +24,7 @@ export function FinanceWidget({ since, until, expanded, onToggle }: Props) {
 
   const { data, loading, error } = useSalesData({ since, until, shopUuid, enabled: true });
   const filtered = useFilteredSalesData(data, isSuperAdmin, ws ?? null);
-  const { data: grossProfit } = useGrossProfit({ since, until });
+  const { data: grossProfit } = useGrossProfit({ since, until, enabled: isSuperAdmin });
 
   if (loading || !filtered) return <SkeletonCard tone="orange" />;
   if (error) return <div className="text-red-500 text-sm p-2">Ошибка: {error}</div>;
@@ -61,7 +61,7 @@ export function FinanceWidget({ since, until, expanded, onToggle }: Props) {
                 <span className="opacity-70">Расходы {formatRub(expenses)}</span>
                 {refund > 0 && <span className="opacity-70">· Возвраты {formatRub(refund)}</span>}
               </div>
-              {profit > 0 && (
+              {isSuperAdmin && profit > 0 && (
                 <div className="flex items-center gap-1 text-emerald-200">
                   <TrendingUp className="w-3 h-3" />
                   Прибыль {formatRub(profit)} ₽
@@ -89,8 +89,8 @@ export function FinanceWidget({ since, until, expanded, onToggle }: Props) {
         grandTotalRefund={refund}
         grandTotalCashOutcome={expenses}
         totalCashBalance={filtered.totalCashBalance ?? 0}
-        grossProfitByShop={grossProfit?.shops}
-        totalGrossProfit={profit}
+        grossProfitByShop={isSuperAdmin ? grossProfit?.shops : undefined}
+        totalGrossProfit={isSuperAdmin ? profit : undefined}
       />
     </motion.div>
   );

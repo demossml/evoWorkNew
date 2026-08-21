@@ -21,9 +21,10 @@ export interface GrossProfitResponse {
  * Валовая прибыль за период.
  * По умолчанию — сегодня.
  */
-export function useGrossProfit(params?: { since?: string; until?: string }) {
+export function useGrossProfit(params?: { since?: string; until?: string; enabled?: boolean }) {
 	const since = params?.since;
 	const until = params?.until;
+	const enabled = params?.enabled !== false;
 
 	return useQuery<GrossProfitResponse>({
 		queryKey: ["gross-profit", since, until],
@@ -37,5 +38,6 @@ export function useGrossProfit(params?: { since?: string; until?: string }) {
 			return res.json();
 		},
 		staleTime: 2 * 60_000,
+		enabled,
 	});
 }

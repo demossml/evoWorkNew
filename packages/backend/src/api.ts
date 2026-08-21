@@ -18,7 +18,7 @@ import { hashMetrics, getCachedAnalysis, saveCachedAnalysis, saveConversation, g
 import { computeSellerAdvancedStats, computeWeekdayComparison, computeWeekdayBreakdown } from "./services/sellerAdvancedStats";
 import { generateSellerInsights } from "./services/sellerInsights";
 import { computeHourlyCompare } from "./services/sellerHourlyCompare";
-import { requireAdmin, assertShopAccess, getTenantShopUuids } from "./helpers";
+import { requireAdmin, assertShopAccess, getTenantShopUuids, requireSuperAdmin } from "./helpers";
 import { registerAuthRoutes } from "./modules/auth/routes";
 import { registerAiProviderRoutes } from "./modules/ai/providerRoutes";
 import { resolveDeepseekKey } from "./services/deepseek";
@@ -1414,7 +1414,7 @@ export const api = new Hono<IEnv>()
 	// Валовая прибыль по группам товаров (новый отчёт)
 	// GET /api/reports/gross-profit?since=YYYY-MM-DD&until=YYYY-MM-DD&shopId=...
 	// ═══════════════════════════════════════════════════════════════════════════
-	.get("/api/reports/gross-profit", requireAdmin, async (c) => {
+	.get("/api/reports/gross-profit", requireSuperAdmin, async (c) => {
 		try {
 			const db = c.get("db");
 			const sinceParam = c.req.query("since");
@@ -1606,6 +1606,9 @@ export const api = new Hono<IEnv>()
 	// Параметры: since, until (опционально) или date (один день).
 	.get("/api/evotor/gross-profit-today", async (c) => {
 		try {
+			if ((c.get("role") as string) !== "SUPERADMIN") {
+				return c.json({ error: "forbidden" }, 403);
+			}
 			const db = c.get("db");
 			const dateParam = c.req.query("date");
 			const sinceParam = c.req.query("since");
@@ -2310,6 +2313,9 @@ export const api = new Hono<IEnv>()
 
 	.post("/api/profit-report", async (c) => {
 		try {
+			if ((c.get("role") as string) !== "SUPERADMIN") {
+				return c.json({ error: "forbidden" }, 403);
+			}
 			// Получаем данные из запроса
 			const body = await c.req.json<{
 				shopUuids: string[];
