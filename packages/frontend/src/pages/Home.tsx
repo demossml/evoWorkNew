@@ -25,9 +25,10 @@ import { PromoEarningsWidget } from "@widgets/home/PromoEarningsWidget";
 import { FocusCategoryWidget } from "@widgets/home/FocusCategoryWidget";
 import { isTelegramMiniApp } from "../helpers/telegram";
 import { useState, useEffect, useCallback } from "react";
-import { Wifi, WifiOff, RefreshCw } from "lucide-react";
+import { Wifi, WifiOff, RefreshCw, LogOut } from "lucide-react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { getAuthHeaders } from "@shared/api";
 import { AuthCard } from "../components/AuthCard";
 
 type WidgetKey = "revenue" | "tempo" | "finance" | "best" | "products" | "accessories";
@@ -291,6 +292,27 @@ function HomeTopBar({ queryClient, isAdmin, isSuperAdmin }: { queryClient: Query
     setTimeout(() => setRefreshing(false), 600);
   }, [queryClient]);
 
+  const [loggingOut, setLoggingOut] = useState(false);
+  const handleLogout = useCallback(async () => {
+    if (!window.confirm("Выйти из аккаунта?")) return;
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST", headers: getAuthHeaders() });
+    } catch {
+      /* ignore */
+    }
+    localStorage.removeItem("sessionId");
+    localStorage.removeItem("telegramId");
+    localStorage.setItem("evo_logged_out", "1");
+    try {
+      queryClient.clear();
+      localStorage.removeItem("evo-rq-cache-v1");
+    } catch {
+      /* ignore */
+    }
+    window.location.assign("/");
+  }, [queryClient]);
+
   return (
     <div
       className="app-safe-top fixed top-0 left-0 right-0 z-50 bg-card/85 backdrop-blur-sm border-b border-border"
@@ -315,6 +337,16 @@ function HomeTopBar({ queryClient, isAdmin, isSuperAdmin }: { queryClient: Query
           >
             <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
             Обновить
+          </button>
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            title="Выйти"
+            aria-label="Выйти"
+            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-muted-foreground bg-secondary rounded-md hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-all disabled:opacity-50"
+          >
+            <LogOut className="w-3 h-3" />
+            Выйти
           </button>
         </div>
       </div>
