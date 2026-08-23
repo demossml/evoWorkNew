@@ -2259,6 +2259,13 @@ export const api = new Hono<IEnv>()
 				shopUuids,
 			);
 
+			// Прибыль/маржа только для SUPERADMIN — вырезаем поля у остальных
+			const role = c.get("role") as string;
+			const scopedTopProducts =
+				role === "SUPERADMIN"
+					? topProducts
+					: topProducts.map(({ grossProfit: _gp, marginPct: _mp, ...rest }) => rest);
+
 			// const aiWithRun = c.var.ai as any;
 			// const evo = c.var.evotor;
 
@@ -2302,7 +2309,7 @@ export const api = new Hono<IEnv>()
 				cashOutcomeData,
 				cashBalanceByShop,
 				totalCashBalance,
-				topProducts,
+				topProducts: scopedTopProducts,
 				salesByGroup,
 			});
 		} catch (error) {

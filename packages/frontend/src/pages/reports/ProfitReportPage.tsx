@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { useGetShops } from "../../hooks/useApi";
+import { useGetShops, useEmployeeRole } from "../../hooks/useApi";
 import { DynamicTableProfit } from "@widgets/reports";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { ReportHeader, ReportShareButton } from "@shared/ui";
@@ -28,6 +28,8 @@ interface ProfitReportSnapshotListItem {
 }
 
 export default function ProfitReportPage() {
+  const { data: roleData, isLoading: roleLoading } = useEmployeeRole();
+  const isSuperAdmin = roleData?.employeeRole === "SUPERADMIN";
   const { data, isLoading, error } = useGetShops();
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [formData, setFormData] = useState<
@@ -216,6 +218,15 @@ export default function ProfitReportPage() {
     return (
       <div className="flex justify-center items-center h-screen bg-background">
         <div className="w-10 h-10 border-4 border-t-transparent border-primary dark:border-blue-400 border-solid rounded-full animate-spin" />
+      </div>
+    );
+
+  if (!roleLoading && !isSuperAdmin)
+    return (
+      <div className="flex justify-center items-center h-screen bg-background">
+        <p className="text-muted-foreground text-center p-4">
+          Доступ запрещён — требуется роль SUPERADMIN
+        </p>
       </div>
     );
 

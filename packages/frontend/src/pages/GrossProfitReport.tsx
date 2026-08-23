@@ -141,9 +141,9 @@ function renderCustomLabel({
 export default function GrossProfitReport() {
   useTelegramBackButton();
 
-  // Проверка роли — только ADMIN / SUPERADMIN
+  // Проверка роли — только SUPERADMIN
   const { data: roleData, isLoading: roleLoading } = useEmployeeRole();
-  const isAdmin = roleData?.employeeRole === "ADMIN" || roleData?.employeeRole === "SUPERADMIN";
+  const isSuperAdmin = roleData?.employeeRole === "SUPERADMIN";
 
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getTodayRange);
   const [shopId, setShopId] = useState<string>("all");
@@ -238,12 +238,12 @@ export default function GrossProfitReport() {
   // ── Render ──────────────────────────────────────────────────────────
 
   if (roleLoading) return <LoadingState />;
-  if (!isAdmin) {
+  if (!isSuperAdmin) {
     return (
       <div className="app-page min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-lg font-semibold text-foreground">Доступ запрещён</h2>
-          <p className="text-sm text-muted-foreground mt-1">Требуется роль ADMIN или SUPERADMIN</p>
+          <p className="text-sm text-muted-foreground mt-1">Требуется роль SUPERADMIN</p>
         </div>
       </div>
     );

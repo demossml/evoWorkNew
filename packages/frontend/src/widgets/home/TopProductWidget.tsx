@@ -70,7 +70,7 @@ export function TopProductWidget({ since, until, expanded, onToggle }: Props) {
             <div className="text-lg font-bold mt-0.5">{formatRub(top1.netRevenue)} ₽</div>
             <div className="text-xs opacity-80 mt-0.5 flex items-center gap-2">
               <span>{top1.netQuantity} шт</span>
-              <span>· маржа {top1.marginPct.toFixed(0)}%</span>
+              {isSuperAdmin && <span>· маржа {top1.marginPct.toFixed(0)}%</span>}
             </div>
           </div>
           {top1.dailyNetRevenue7?.length >= 2 && (
@@ -95,7 +95,7 @@ export function TopProductWidget({ since, until, expanded, onToggle }: Props) {
       </div>
 
       {/* Сводка */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className={`grid ${isSuperAdmin ? "grid-cols-3" : "grid-cols-2"} gap-2`}>
         <div className="rounded-xl bg-chart-5/10 p-2.5 text-center">
           <div className="text-sm font-bold text-foreground">{formatRub(totalRev)}</div>
           <div className="text-[10px] text-muted-foreground">Выручка топ-10</div>
@@ -104,12 +104,14 @@ export function TopProductWidget({ since, until, expanded, onToggle }: Props) {
           <div className="text-sm font-bold text-foreground">{top10.reduce((s, p) => s + p.netQuantity, 0)}</div>
           <div className="text-[10px] text-muted-foreground">Продано шт</div>
         </div>
-        <div className="rounded-xl bg-muted p-2.5 text-center">
-          <div className="text-sm font-bold text-foreground">
-            {(top10.reduce((s, p) => s + p.marginPct * p.netRevenue, 0) / (totalRev || 1)).toFixed(0)}%
+        {isSuperAdmin && (
+          <div className="rounded-xl bg-muted p-2.5 text-center">
+            <div className="text-sm font-bold text-foreground">
+              {(top10.reduce((s, p) => s + p.marginPct * p.netRevenue, 0) / (totalRev || 1)).toFixed(0)}%
+            </div>
+            <div className="text-[10px] text-muted-foreground">Ср. маржа</div>
           </div>
-          <div className="text-[10px] text-muted-foreground">Ср. маржа</div>
-        </div>
+        )}
       </div>
 
       {/* Список продуктов */}
@@ -120,7 +122,9 @@ export function TopProductWidget({ since, until, expanded, onToggle }: Props) {
         <div className="space-y-2">
           {top10.map((p, i) => {
             const barW = (p.netRevenue / maxRev) * 100;
-            const hasRisk = p.refundRate > HIGH_REFUND_THRESHOLD || p.marginPct < LOW_MARGIN_THRESHOLD;
+            const hasRisk = isSuperAdmin
+              ? p.refundRate > HIGH_REFUND_THRESHOLD || p.marginPct < LOW_MARGIN_THRESHOLD
+              : p.refundRate > HIGH_REFUND_THRESHOLD;
 
             return (
               <div key={p.productName}>
@@ -146,7 +150,7 @@ export function TopProductWidget({ since, until, expanded, onToggle }: Props) {
                 </div>
                 <div className="flex items-center gap-3 text-[9px] text-muted-foreground mt-0.5 pl-5">
                   <span>{p.netQuantity} шт</span>
-                  <span>маржа {p.marginPct.toFixed(0)}%</span>
+                  {isSuperAdmin && <span>маржа {p.marginPct.toFixed(0)}%</span>}
                   {p.refundRate > 0 && <span className="text-destructive">возврат {p.refundRate.toFixed(1)}%</span>}
                 </div>
               </div>
