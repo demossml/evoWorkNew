@@ -33,6 +33,20 @@ import { ProductProfileCard, ModeIndicator } from "../../components/ProductProfi
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
+type SettingRule = { min: number; max: number; unit: string };
+
+const SETTING_RULES: Record<string, SettingRule> = {
+  bonus_accessories_rate: { min: 0, max: 100, unit: "%" },
+  bonus_plan_amount: { min: 0, max: 1_000_000, unit: "₽" },
+  base_salary: { min: 0, max: 1_000_000, unit: "₽" },
+  margin_green: { min: 0, max: 100, unit: "%" },
+  margin_yellow: { min: 0, max: 100, unit: "%" },
+  plan_green: { min: 0, max: 100, unit: "%" },
+  plan_yellow: { min: 0, max: 100, unit: "%" },
+  accessory_share_target: { min: 0, max: 100, unit: "%" },
+  dead_stock_days: { min: 1, max: 365, unit: "дн." },
+};
+
 function formatLabel(key: string): string {
   const map: Record<string, string> = {
     bonus_accessories_rate: "Бонус с аксессуаров, %",
@@ -101,6 +115,9 @@ function SettingRow({
   const dirty = value !== setting.value;
   const isNumber = setting.type === "number";
   const isJson = setting.type === "json";
+  const rule = isNumber ? SETTING_RULES[setting.key] : undefined;
+  const num = isNumber ? Number(value) : NaN;
+  const invalid = Boolean(rule) && (value.trim() === "" || !Number.isFinite(num) || num < rule!.min || num > rule!.max);
 
   return (
     <div className="flex items-center gap-3 py-2 border-b border-border last:border-b-0">
@@ -121,22 +138,43 @@ function SettingRow({
             onChange={(e) => onChange(e.target.value)}
           />
         ) : (
-          <input
-            className="bg-muted border border-border rounded-lg px-3 py-1.5 text-sm w-28
-                       focus:outline-none focus:border-primary/50 text-right"
-            type={isNumber ? "number" : "text"}
-            step={isNumber ? "any" : undefined}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-          />
+          <div className="flex flex-col items-end gap-0.5">
+            <div className="flex items-center gap-1.5">
+              <input
+                className={`bg-muted border rounded-lg px-3 py-1.5 text-sm w-28
+                           focus:outline-none text-right ${
+                             invalid
+                               ? "border-red-500/60 text-red-400 focus:border-red-500"
+                               : "border-border focus:border-primary/50"
+                           }`}
+                type={isNumber ? "number" : "text"}
+                step={isNumber ? "any" : undefined}
+                value={value}
+                min={rule?.min}
+                max={rule?.max}
+                onChange={(e) => onChange(e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()}
+              />
+              {rule && (
+                <span className={`text-xs w-8 ${invalid ? "text-red-400" : "text-muted-foreground"}`}>
+                  {rule.unit}
+                </span>
+              )}
+            </div>
+            {invalid && (
+              <span className="text-[10px] text-red-400">
+                {rule!.min}–{rule!.max} {rule!.unit}
+              </span>
+            )}
+          </div>
         )}
         {dirty && (
           <button
             onClick={onSave}
-            disabled={saving}
+            disabled={saving || invalid}
             className="p-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30
                        disabled:opacity-50 transition-colors"
-            title="Сохранить"
+            title={invalid ? "Значение вне диапазона" : "Сохранить"}
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           </button>
@@ -1273,6 +1311,18 @@ export default function SettingsNew() {
 
   const dirtyCount = Object.keys(editedValues).length;
 
+  const hasInvalid = useMemo(() => {
+    const byKey = new Map((settings ?? []).map((s) => [s.key, s] as const));
+    return Object.entries(editedValues).some(([key, value]) => {
+      const s = byKey.get(key);
+      if (!s || s.type !== "number") return false;
+      const rule = SETTING_RULES[key];
+      if (!rule) return false;
+      const n = Number(value);
+      return value.trim() === "" || !Number.isFinite(n) || n < rule.min || n > rule.max;
+    });
+  }, [editedValues, settings]);
+
   // ─── Render ─────────────────────────────────────────────────────────
 
   return (
@@ -1301,9 +1351,10 @@ export default function SettingsNew() {
                 </button>
                 <button
                   onClick={saveAll}
-                  disabled={batchMutation.isPending}
+                  disabled={batchMutation.isPending || hasInvalid}
                   className="px-2.5 py-1 text-[10px] rounded-lg bg-primary/20 text-primary hover:bg-primary/30
                              transition-colors flex items-center gap-1 disabled:opacity-50"
+                  title={hasInvalid ? "Есть значения вне диапазона" : undefined}
                 >
                   {batchMutation.isPending ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
