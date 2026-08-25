@@ -460,15 +460,17 @@ export default function GrossProfitReport() {
                       >
                         <div className="border-t border-border">
                           <div className="max-h-[400px] overflow-y-auto">
-                            {/* Sticky шапка колонок */}
+                            {/* Sticky шапка колонок (подписи второй линии) */}
                             <div className="sticky top-0 z-[1] bg-muted/95 backdrop-blur-sm border-b border-border
-                                            px-3 py-1.5 grid grid-cols-[minmax(0,1fr)_2.5rem_4.5rem_4.5rem_2.75rem]
-                                            gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                              <span>Название</span>
-                              <span className="text-right">Шт</span>
-                              <span className="text-right">Выручка</span>
-                              <span className="text-right">Прибыль</span>
-                              <span className="text-right">%</span>
+                                            px-3 py-1.5 flex items-center justify-between gap-3
+                                            text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              <span>Товар</span>
+                              <div className="flex items-center gap-4">
+                                <span className="min-w-[2rem] text-right">Шт</span>
+                                <span className="min-w-[4.5rem] text-right">Выручка</span>
+                                <span className="min-w-[4.5rem] text-right">Прибыль</span>
+                                <span className="min-w-[2.5rem] text-right">%</span>
+                              </div>
                             </div>
 
                             {/* Строки товаров */}
@@ -476,34 +478,37 @@ export default function GrossProfitReport() {
                               {group.items.map((item, i) => (
                                 <div
                                   key={item.article || i}
-                                  className={`px-3 py-2 grid grid-cols-[minmax(0,1fr)_2.5rem_4.5rem_4.5rem_2.75rem]
-                                              gap-1 items-start text-xs ${
-                                                i % 2 === 0 ? "bg-transparent" : "bg-muted/10"
-                                              }`}
+                                  className={`px-3 py-2.5 ${
+                                    i % 2 === 0 ? "bg-transparent" : "bg-muted/10"
+                                  }`}
                                 >
-                                  <span className="min-w-0 break-words leading-snug text-foreground">
+                                  {/* Линия 1: полное название на всю ширину */}
+                                  <p className="text-sm font-medium text-foreground leading-snug break-words">
                                     {item.name}
-                                  </span>
-                                  <span className="text-right tabular-nums text-muted-foreground">
-                                    {item.quantity}
-                                  </span>
-                                  <span className="text-right tabular-nums text-foreground">
-                                    {fmtRub(item.revenue)}
-                                  </span>
-                                  <span
-                                    className={`text-right tabular-nums ${
-                                      item.profit >= 0 ? "text-emerald-600" : "text-red-500"
-                                    }`}
-                                  >
-                                    {fmtRub(item.profit)}
-                                  </span>
-                                  <span
-                                    className={`text-right tabular-nums ${
-                                      item.margin >= 0 ? "text-emerald-600" : "text-red-500"
-                                    }`}
-                                  >
-                                    {item.margin.toFixed(0)}
-                                  </span>
+                                  </p>
+                                  {/* Линия 2: только цифры */}
+                                  <div className="mt-1.5 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm tabular-nums">
+                                    <span className="text-muted-foreground min-w-[2rem]">
+                                      {item.quantity}
+                                    </span>
+                                    <span className="min-w-[4.5rem] text-foreground">
+                                      {fmtRub(item.revenue)}
+                                    </span>
+                                    <span
+                                      className={`min-w-[4.5rem] ${
+                                        item.profit >= 0 ? "text-emerald-600" : "text-red-500"
+                                      }`}
+                                    >
+                                      {fmtRub(item.profit)}
+                                    </span>
+                                    <span
+                                      className={`min-w-[2.5rem] ${
+                                        item.margin >= 0 ? "text-emerald-600" : "text-red-500"
+                                      }`}
+                                    >
+                                      {item.margin.toFixed(0)}%
+                                    </span>
+                                  </div>
                                 </div>
                               ))}
                             </div>
