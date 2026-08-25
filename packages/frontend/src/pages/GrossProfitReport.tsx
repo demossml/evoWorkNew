@@ -12,6 +12,7 @@ import { LoadingState, ErrorState } from "@shared/ui/states";
 import { useTelegramBackButton } from "../hooks/useSimpleTelegramBackButton";
 import { useEmployeeRole } from "../hooks/useApi";
 import { canSeeProfit } from "@features/dashboard/model/homePageModel";
+import { getAuthHeaders } from "@shared/api";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -156,10 +157,7 @@ export default function GrossProfitReport() {
     queryKey: ["shops", "list"],
     queryFn: async () => {
       const res = await fetch("/api/evotor/shops", {
-        headers: {
-          initData: "guest",
-          "telegram-id": localStorage.getItem("telegramId") || "",
-        },
+        headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error("Не удалось загрузить магазины");
       return res.json() as Promise<{ shopOptions: Record<string, string> }>;
@@ -188,10 +186,7 @@ export default function GrossProfitReport() {
       if (shopId !== "all") params.set("shopId", shopId);
 
       const res = await fetch(`/api/reports/gross-profit?${params}`, {
-        headers: {
-          initData: "guest",
-          "telegram-id": localStorage.getItem("telegramId") || "",
-        },
+        headers: getAuthHeaders(),
       });
 
       if (!res.ok) {
