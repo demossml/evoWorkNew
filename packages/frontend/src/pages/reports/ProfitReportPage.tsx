@@ -5,6 +5,7 @@ import { DynamicTableProfit } from "@widgets/reports";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { ReportHeader, ReportShareButton } from "@shared/ui";
 import { client } from "../../helpers/api";
+import { canSeeProfit } from "@features/dashboard/model/homePageModel";
 
 interface ReportData {
   byCategory: Record<string, number>;
@@ -29,7 +30,7 @@ interface ProfitReportSnapshotListItem {
 
 export default function ProfitReportPage() {
   const { data: roleData, isLoading: roleLoading } = useEmployeeRole();
-  const isSuperAdmin = roleData?.employeeRole === "SUPERADMIN";
+  const canSeeProfitValue = canSeeProfit(roleData?.employeeRole);
   const { data, isLoading, error } = useGetShops();
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [formData, setFormData] = useState<
@@ -221,11 +222,11 @@ export default function ProfitReportPage() {
       </div>
     );
 
-  if (!roleLoading && !isSuperAdmin)
+  if (!roleLoading && !canSeeProfitValue)
     return (
       <div className="flex justify-center items-center h-screen bg-background">
         <p className="text-muted-foreground text-center p-4">
-          Доступ запрещён — требуется роль SUPERADMIN
+          Доступ запрещён — требуется роль SUPERADMIN или ADMIN
         </p>
       </div>
     );

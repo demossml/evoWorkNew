@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSalesData } from "@/hooks/dashboard/useSalesData";
 import { useFilteredSalesData } from "@/hooks/dashboard/useFilteredSalesData";
 import { useEmployeeRole } from "@/hooks/useApi";
+import { canSeeProfit } from "@features/dashboard/model/homePageModel";
 import { useCurrentWorkShop } from "@/hooks/useCurrentWorkShop";
 import { useGrossProfit } from "@/hooks/dashboard/useGrossProfit";
 import { FinancialReportDetails } from "@/widgets/dashboard/cards/FinancialReportDetails";
@@ -20,11 +21,12 @@ export function FinanceWidget({ since, until, expanded, onToggle }: Props) {
   const { data: role } = useEmployeeRole();
   const { data: ws } = useCurrentWorkShop();
   const isSuperAdmin = role?.employeeRole === "SUPERADMIN";
+  const canSeeProfitValue = canSeeProfit(role?.employeeRole);
   const shopUuid = isSuperAdmin ? undefined : ws?.uuid || undefined;
 
   const { data, loading, error } = useSalesData({ since, until, shopUuid, enabled: true });
   const filtered = useFilteredSalesData(data, isSuperAdmin, ws ?? null);
-  const { data: grossProfit } = useGrossProfit({ since, until, enabled: isSuperAdmin });
+  const { data: grossProfit } = useGrossProfit({ since, until, enabled: canSeeProfitValue });
 
   if (loading || !filtered) return <SkeletonCard tone="orange" />;
   if (error) return <div className="text-red-500 text-sm p-2">Ошибка: {error}</div>;
@@ -61,7 +63,7 @@ export function FinanceWidget({ since, until, expanded, onToggle }: Props) {
                 <span className="opacity-70">Расходы {formatRub(expenses)}</span>
                 {refund > 0 && <span className="opacity-70">· Возвраты {formatRub(refund)}</span>}
               </div>
-              {isSuperAdmin && profit > 0 && (
+              {canSeeProfitValue && profit > 0 && (
                 <div className="flex items-center gap-1 text-emerald-200">
                   <TrendingUp className="w-3 h-3" />
                   Прибыль {formatRub(profit)} ₽
@@ -89,8 +91,8 @@ export function FinanceWidget({ since, until, expanded, onToggle }: Props) {
         grandTotalRefund={refund}
         grandTotalCashOutcome={expenses}
         totalCashBalance={filtered.totalCashBalance ?? 0}
-        grossProfitByShop={isSuperAdmin ? grossProfit?.shops : undefined}
-        totalGrossProfit={isSuperAdmin ? profit : undefined}
+        grossProfitByShop={canSeeProfitValue ? grossProfit?.shops : undefined}
+        totalGrossProfit={canSeeProfitValue ? profit : undefined}
       />
     </motion.div>
   );

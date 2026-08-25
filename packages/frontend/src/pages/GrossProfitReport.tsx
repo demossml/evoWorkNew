@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, ReportKPIBar } from "@shared/
 import { LoadingState, ErrorState } from "@shared/ui/states";
 import { useTelegramBackButton } from "../hooks/useSimpleTelegramBackButton";
 import { useEmployeeRole } from "../hooks/useApi";
+import { canSeeProfit } from "@features/dashboard/model/homePageModel";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -141,9 +142,9 @@ function renderCustomLabel({
 export default function GrossProfitReport() {
   useTelegramBackButton();
 
-  // Проверка роли — только SUPERADMIN
+  // Проверка роли — SUPERADMIN или ADMIN
   const { data: roleData, isLoading: roleLoading } = useEmployeeRole();
-  const isSuperAdmin = roleData?.employeeRole === "SUPERADMIN";
+  const canSeeProfitValue = canSeeProfit(roleData?.employeeRole);
 
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getTodayRange);
   const [shopId, setShopId] = useState<string>("all");
@@ -238,12 +239,12 @@ export default function GrossProfitReport() {
   // ── Render ──────────────────────────────────────────────────────────
 
   if (roleLoading) return <LoadingState />;
-  if (!isSuperAdmin) {
+  if (!canSeeProfitValue) {
     return (
       <div className="app-page min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-lg font-semibold text-foreground">Доступ запрещён</h2>
-          <p className="text-sm text-muted-foreground mt-1">Требуется роль SUPERADMIN</p>
+          <p className="text-sm text-muted-foreground mt-1">Требуется роль SUPERADMIN или ADMIN</p>
         </div>
       </div>
     );

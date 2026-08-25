@@ -18,7 +18,7 @@ import { hashMetrics, getCachedAnalysis, saveCachedAnalysis, saveConversation, g
 import { computeSellerAdvancedStats, computeWeekdayComparison, computeWeekdayBreakdown } from "./services/sellerAdvancedStats";
 import { generateSellerInsights } from "./services/sellerInsights";
 import { computeHourlyCompare } from "./services/sellerHourlyCompare";
-import { requireAdmin, assertShopAccess, getTenantShopUuids, requireSuperAdmin } from "./helpers";
+import { requireAdmin, assertShopAccess, getTenantShopUuids } from "./helpers";
 import { registerAuthRoutes } from "./modules/auth/routes";
 import { registerAiProviderRoutes } from "./modules/ai/providerRoutes";
 import { resolveDeepseekKey } from "./services/deepseek";
@@ -1415,7 +1415,7 @@ export const api = new Hono<IEnv>()
 	// Валовая прибыль по группам товаров (новый отчёт)
 	// GET /api/reports/gross-profit?since=YYYY-MM-DD&until=YYYY-MM-DD&shopId=...
 	// ═══════════════════════════════════════════════════════════════════════════
-	.get("/api/reports/gross-profit", requireSuperAdmin, async (c) => {
+	.get("/api/reports/gross-profit", requireAdmin, async (c) => {
 		try {
 			const db = c.get("db");
 			const sinceParam = c.req.query("since");
@@ -1605,11 +1605,8 @@ export const api = new Hono<IEnv>()
 
 	// Валовая прибыль за период (по умолчанию — сегодня).
 	// Параметры: since, until (опционально) или date (один день).
-	.get("/api/evotor/gross-profit-today", async (c) => {
+	.get("/api/evotor/gross-profit-today", requireAdmin, async (c) => {
 		try {
-			if ((c.get("role") as string) !== "SUPERADMIN") {
-				return c.json({ error: "forbidden" }, 403);
-			}
 			const db = c.get("db");
 			const dateParam = c.req.query("date");
 			const sinceParam = c.req.query("since");
@@ -2260,12 +2257,12 @@ export const api = new Hono<IEnv>()
 				shopUuids,
 			);
 
-			// Прибыль/маржа только для SUPERADMIN — вырезаем поля у остальных
+			// Прибыль/маржа только для SUPERADMIN/ADMIN — вырезаем поля у CASHIER и гостей
 			const role = c.get("role") as string;
-			const scopedTopProducts =
-				role === "SUPERADMIN"
-					? topProducts
-					: topProducts.map(({ grossProfit: _gp, marginPct: _mp, ...rest }) => rest);
+			const canSeeProfit = role === "SUPERADMIN" || role === "ADMIN";
+			const scopedTopProducts = canSeeProfit
+				? topProducts
+				: topProducts.map(({ grossProfit: _gp, marginPct: _mp, ...rest }) => rest);
 
 			// const aiWithRun = c.var.ai as any;
 			// const evo = c.var.evotor;
@@ -2319,11 +2316,8 @@ export const api = new Hono<IEnv>()
 		}
 	})
 
-	.post("/api/profit-report", async (c) => {
+	.post("/api/profit-report", requireAdmin, async (c) => {
 		try {
-			if ((c.get("role") as string) !== "SUPERADMIN") {
-				return c.json({ error: "forbidden" }, 403);
-			}
 			// Получаем данные из запроса
 			const body = await c.req.json<{
 				shopUuids: string[];

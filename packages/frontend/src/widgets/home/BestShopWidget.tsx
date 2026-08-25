@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useDashboardHomeInsights } from "@/hooks/dashboard/useDashboardHomeInsights";
 import { useGrossProfit } from "@/hooks/dashboard/useGrossProfit";
 import { useEmployeeRole } from "@/hooks/useApi";
+import { canSeeProfit } from "@features/dashboard/model/homePageModel";
 import { useCurrentWorkShop } from "@/hooks/useCurrentWorkShop";
 import { SkeletonCard } from "./widgetUtils";
 import {
@@ -57,12 +58,13 @@ export function BestShopWidget({ since, until, dateMode: _dm, expanded, onToggle
   const { data: role } = useEmployeeRole();
   const { data: ws } = useCurrentWorkShop();
   const isSuperAdmin = role?.employeeRole === "SUPERADMIN";
+  const canSeeProfitValue = canSeeProfit(role?.employeeRole);
   const shopUuid = isSuperAdmin ? undefined : ws?.uuid || undefined;
 
   const range = getDateRange(mode);
   const insights = useDashboardHomeInsights({ ...range, shopUuid, enabled: true });
   const { bestShop, loading } = insights;
-  const { data: grossProfit } = useGrossProfit({ since: range.since, until: range.until, enabled: isSuperAdmin });
+  const { data: grossProfit } = useGrossProfit({ since: range.since, until: range.until, enabled: canSeeProfitValue });
   const rows = mode === "week" ? bestShop.weekRows : bestShop.dayRows;
 
   // Margin map: shopName → { pct, profit }
@@ -79,7 +81,7 @@ export function BestShopWidget({ since, until, dateMode: _dm, expanded, onToggle
 
   // Rank by profit (₽) — money is what matters; без прав на прибыль — по выручке.
   const rankScore = (shop: typeof rows[0]): number => {
-    return isSuperAdmin ? (marginMap.get(shop.name)?.profit ?? 0) : shop.netRevenue;
+    return canSeeProfitValue ? (marginMap.get(shop.name)?.profit ?? 0) : shop.netRevenue;
   };
 
   const sorted = useMemo(() => [...rows].sort((a, b) => rankScore(b) - rankScore(a)), [rows, marginMap]);
@@ -131,7 +133,7 @@ export function BestShopWidget({ since, until, dateMode: _dm, expanded, onToggle
             <div className="text-sm opacity-90 mt-1 truncate flex items-center gap-1.5">
               <TrendingUp className="w-3 h-3" />
               <span>{formatRub(leader.netRevenue)} ₽</span>
-              {isSuperAdmin && leaderMargin && (
+              {canSeeProfitValue && leaderMargin && (
                 <span className="text-[10px] opacity-75">· {formatRub(leaderMargin.profit)} ₽ приб.</span>
               )}
             </div>
@@ -171,7 +173,7 @@ export function BestShopWidget({ since, until, dateMode: _dm, expanded, onToggle
           <Trophy className="w-5 h-5" />
           <span className="text-sm font-bold">Лидер: {leader.name}</span>
         </div>
-        <div className={`grid ${isSuperAdmin ? "grid-cols-4" : "grid-cols-3"} gap-3 text-center`}>
+        <div className={`grid ${canSeeProfitValue ? "grid-cols-4" : "grid-cols-3"} gap-3 text-center`}>
           <div>
             <div className="text-xl font-bold">{formatRub(leader.netRevenue)}</div>
             <div className="text-[10px] opacity-80">Выр. ₽</div>
@@ -185,7 +187,7 @@ export function BestShopWidget({ since, until, dateMode: _dm, expanded, onToggle
             <div className="text-xl font-bold">{formatRub(leader.averageCheck)}</div>
             <div className="text-[10px] opacity-80">Ср.чек ₽</div>
           </div>
-          {isSuperAdmin && (
+          {canSeeProfitValue && (
             <div>
               <div className="text-xl font-bold">{leaderMargin ? formatRub(leaderMargin.profit) : "—"}</div>
               <div className="text-[10px] opacity-80">Прибыль ₽</div>
@@ -198,7 +200,7 @@ export function BestShopWidget({ since, until, dateMode: _dm, expanded, onToggle
       {/* Сравнительная таблица */}
       <div>
         <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-          Рейтинг по {isSuperAdmin ? "прибыли" : "выручке"} ({sorted.length})
+          Рейтинг по {canSeeProfitValue ? "прибыли" : "выручке"} ({sorted.length})
         </h4>
 
         {/* Заголовки */}
@@ -209,7 +211,7 @@ export function BestShopWidget({ since, until, dateMode: _dm, expanded, onToggle
           <span className="w-9 text-right">Ср.чек</span>
           <span className="w-8 text-right">Возвр</span>
           <span className="w-7 text-right">Расх.</span>
-          {isSuperAdmin && <span className="w-11 text-right">Прибыль</span>}
+          {canSeeProfitValue && <span className="w-11 text-right">Прибыль</span>}
         </div>
 
         <div className="space-y-1">
@@ -227,7 +229,7 @@ export function BestShopWidget({ since, until, dateMode: _dm, expanded, onToggle
               { val: shop.averageCheck, max: maxAvg, fmt: formatRub(shop.averageCheck), w: 36 },
               { val: shop.refundRate, max: Math.max(...sorted.map(s => s.refundRate), 1), fmt: `${shop.refundRate.toFixed(1)}%`, w: 32 },
               { val: expRatio, max: Math.max(...sorted.map(s => s.revenue > 0 ? s.expenses / s.revenue : 0), 0.01), fmt: `${(expRatio * 100).toFixed(0)}%`, w: 28 },
-              ...(isSuperAdmin
+              ...(canSeeProfitValue
                 ? [{ val: sm?.profit ?? 0, max: maxProfit, fmt: sm ? formatRub(sm.profit) : "—", w: 44 }]
                 : []),
             ];
@@ -268,7 +270,7 @@ export function BestShopWidget({ since, until, dateMode: _dm, expanded, onToggle
           <span className="w-9 text-right tabular-nums">{formatRub(avgCheck)}</span>
           <span className="w-8 text-right tabular-nums">{avgRefund.toFixed(1)}%</span>
           <span className="w-7 text-right tabular-nums">{(avgExpRatio * 100).toFixed(0)}%</span>
-          {isSuperAdmin && <span className="w-11 text-right tabular-nums">{formatRub(avgProfit)}</span>}
+          {canSeeProfitValue && <span className="w-11 text-right tabular-nums">{formatRub(avgProfit)}</span>}
         </div>
       </div>
 

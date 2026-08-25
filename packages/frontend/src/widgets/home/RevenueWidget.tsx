@@ -7,6 +7,7 @@ import { useGrossProfit } from "@/hooks/dashboard/useGrossProfit";
 import { useNumberSetting } from "@/hooks/useSettings";
 import { useProductProfile } from "@/hooks/useProductProfile";
 import { useEmployeeRole } from "@/hooks/useApi";
+import { canSeeProfit } from "@features/dashboard/model/homePageModel";
 import { Sparkline } from "@shared/ui";
 import { TileWrapper } from "./TileWrapper";
 import { SkeletonCard } from "./widgetUtils";
@@ -40,10 +41,10 @@ interface Props { since: string; until: string; expanded: boolean; onToggle: () 
 export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
   const { data, loading, error } = useSalesData({ since, until, enabled: true });
   const { data: role } = useEmployeeRole();
-  const isSuperAdmin = role?.employeeRole === "SUPERADMIN";
+  const canSeeProfitValue = canSeeProfit(role?.employeeRole);
   const filtered = useFilteredSalesData(data, true, null);
   const { netSales } = useSalesCalculations(filtered);
-  const { data: grossProfit } = useGrossProfit({ since, until, enabled: isSuperAdmin });
+  const { data: grossProfit } = useGrossProfit({ since, until, enabled: canSeeProfitValue });
   const marginGreen = useNumberSetting("margin_green", 30);
   const marginYellow = useNumberSetting("margin_yellow", 15);
   const [showWhy, setShowWhy] = useState(false);
@@ -189,7 +190,7 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
             )}
             <span>· {filtered.totalChecks || 0} чеков</span>
             <span>· ср. чек {formatRub(filtered.averageCheck || 0)} ₽</span>
-            {isSuperAdmin && overallMarginPct !== null && (
+            {canSeeProfitValue && overallMarginPct !== null && (
               <span className="flex items-center gap-0.5" style={{ color: marginColor(overallMarginPct) }}>
                 <Percent className="w-3 h-3" />
                 маржа {overallMarginPct}%

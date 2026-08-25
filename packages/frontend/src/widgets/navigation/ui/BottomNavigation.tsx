@@ -102,7 +102,7 @@ const moreGroups: Array<{
         to: "/evotor/gross-profit",
         label: "Валовая прибыль",
         icon: PieChart,
-        roles: ["SUPERADMIN"],
+        roles: ["SUPERADMIN", "ADMIN"],
       },
     ],
   },
