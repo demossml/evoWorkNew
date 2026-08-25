@@ -198,8 +198,6 @@ export async function runMigrations(db: D1Database): Promise<void> {
 	await insertSetting("plan_yellow", "70", "number", "thresholds", "План: жёлтый", "≥ N%");
 	await insertSetting("accessory_share_target", "12", "number", "thresholds", "Цель аксессуаров", "% в выручке");
 	await insertSetting("dead_stock_days", "14", "number", "thresholds", "Мёртвый сток", "дней без продаж");
-	await insertSetting("category_threshold", "0.05", "number", "thresholds", "Значимость категории", "мин. доля");
-	await insertSetting("refund_trend", "1.5", "number", "thresholds", "Тренд возвратов", "коэф. роста");
 	await insertSetting("sync_delay_shops", "7000", "number", "sync", "Задержка: магазины", "мс");
 	await insertSetting("sync_delay_requests", "2000", "number", "sync", "Задержка: запросы", "мс");
 	await insertSetting("upload_max_attempts", "4", "number", "upload", "Макс. попыток загрузки", "");

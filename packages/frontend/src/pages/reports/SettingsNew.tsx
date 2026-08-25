@@ -45,8 +45,6 @@ function formatLabel(key: string): string {
     plan_yellow: "План: жёлтый, ≥ %",
     accessory_share_target: "Цель аксессуаров, %",
     dead_stock_days: "Мёртвый сток, дней",
-    category_threshold: "Значимость категории, доля",
-    refund_trend: "Тренд возвратов, коэф.",
   };
   return map[key] ?? key;
 }
