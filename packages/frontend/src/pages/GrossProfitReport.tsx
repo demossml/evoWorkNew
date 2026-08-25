@@ -462,15 +462,13 @@ export default function GrossProfitReport() {
                           <div className="max-h-[400px] overflow-y-auto">
                             {/* Sticky шапка колонок (подписи второй линии) */}
                             <div className="sticky top-0 z-[1] bg-muted/95 backdrop-blur-sm border-b border-border
-                                            px-3 py-1.5 flex items-center justify-between gap-3
+                                            px-3 py-1.5 grid gap-1 grid-cols-[minmax(0,1fr)_2.75rem_4.75rem_4.75rem_2.75rem]
                                             text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                               <span>Товар</span>
-                              <div className="flex items-center gap-4">
-                                <span className="min-w-[2rem] text-right">Шт</span>
-                                <span className="min-w-[4.5rem] text-right">Выручка</span>
-                                <span className="min-w-[4.5rem] text-right">Прибыль</span>
-                                <span className="min-w-[2.5rem] text-right">%</span>
-                              </div>
+                              <span className="text-right">Шт</span>
+                              <span className="text-right">Выручка</span>
+                              <span className="text-right">Прибыль</span>
+                              <span className="text-right">%</span>
                             </div>
 
                             {/* Строки товаров */}
@@ -483,26 +481,28 @@ export default function GrossProfitReport() {
                                   }`}
                                 >
                                   {/* Линия 1: полное название на всю ширину */}
-                                  <p className="text-sm font-medium text-foreground leading-snug break-words">
+                                  <p className="text-sm font-medium text-foreground leading-snug break-words mb-1.5">
                                     {item.name}
                                   </p>
-                                  {/* Линия 2: только цифры */}
-                                  <div className="mt-1.5 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm tabular-nums">
-                                    <span className="text-muted-foreground min-w-[2rem]">
+                                  {/* Линия 2: та же сетка, что у шапки; 1-я ячейка пустая */}
+                                  <div className="grid gap-1 grid-cols-[minmax(0,1fr)_2.75rem_4.75rem_4.75rem_2.75rem]
+                                                  items-baseline text-sm tabular-nums">
+                                    <span aria-hidden className="min-w-0" />
+                                    <span className="text-right text-muted-foreground">
                                       {item.quantity}
                                     </span>
-                                    <span className="min-w-[4.5rem] text-foreground">
+                                    <span className="text-right text-foreground">
                                       {fmtRub(item.revenue)}
                                     </span>
                                     <span
-                                      className={`min-w-[4.5rem] ${
+                                      className={`text-right ${
                                         item.profit >= 0 ? "text-emerald-600" : "text-red-500"
                                       }`}
                                     >
                                       {fmtRub(item.profit)}
                                     </span>
                                     <span
-                                      className={`min-w-[2.5rem] ${
+                                      className={`text-right ${
                                         item.margin >= 0 ? "text-emerald-600" : "text-red-500"
                                       }`}
                                     >
