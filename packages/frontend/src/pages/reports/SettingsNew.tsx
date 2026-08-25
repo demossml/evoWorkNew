@@ -47,6 +47,19 @@ const SETTING_RULES: Record<string, SettingRule> = {
   dead_stock_days: { min: 1, max: 365, unit: "дн." },
 };
 
+const SETTING_DEFAULTS: Record<string, string> = {
+  bonus_accessories_rate: "0.05",
+  bonus_plan_amount: "450",
+  base_salary: "0",
+  salary_mode: "oklad",
+  margin_green: "30",
+  margin_yellow: "15",
+  plan_green: "90",
+  plan_yellow: "70",
+  accessory_share_target: "12",
+  dead_stock_days: "14",
+};
+
 function formatLabel(key: string): string {
   const map: Record<string, string> = {
     bonus_accessories_rate: "Бонус с аксессуаров, %",
@@ -118,6 +131,8 @@ function SettingRow({
   const rule = isNumber ? SETTING_RULES[setting.key] : undefined;
   const num = isNumber ? Number(value) : NaN;
   const invalid = Boolean(rule) && (value.trim() === "" || !Number.isFinite(num) || num < rule!.min || num > rule!.max);
+  const defaultVal = SETTING_DEFAULTS[setting.key];
+  const canReset = defaultVal !== undefined && value !== defaultVal;
 
   return (
     <div className="flex items-center gap-3 py-2 border-b border-border last:border-b-0">
@@ -167,6 +182,15 @@ function SettingRow({
               </span>
             )}
           </div>
+        )}
+        {canReset && (
+          <button
+            onClick={() => onChange(defaultVal!)}
+            className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-muted/70 transition-colors"
+            title={`Сбросить к значению по умолчанию (${defaultVal})`}
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
         )}
         {dirty && (
           <button
