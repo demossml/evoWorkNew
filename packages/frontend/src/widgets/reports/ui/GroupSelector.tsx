@@ -134,7 +134,7 @@ export const GroupSelector: React.FC<GroupSelectorProps> = ({
         </div>
 
         {/* Список групп */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-3">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3">
           {isLoadingGroups ? (
             <div className="flex items-center justify-center w-full h-full">
               <div className="w-8 h-8 border-4 border-t-transparent border-primary border-solid rounded-full animate-spin" />
@@ -159,7 +159,7 @@ export const GroupSelector: React.FC<GroupSelectorProps> = ({
                   {groups.map((group) => (
                     <div
                       key={group.uuid}
-                      className="flex items-center mt-2 cursor-pointer"
+                      className="flex items-center min-h-11 mt-2 cursor-pointer"
                       onClick={() => handleGroupToggle(group.uuid)}
                     >
                       <div
@@ -178,10 +178,12 @@ export const GroupSelector: React.FC<GroupSelectorProps> = ({
               </motion.div>
             ))
           )}
+          {/* Spacer: чтобы последняя группа не уходила под футер */}
+          <div className="h-4" aria-hidden />
         </div>
 
-        {/* Кнопки внизу */}
-        <div className="sticky bottom-0 left-0 right-0 z-10 bg-muted border-t p-2 shrink-0">
+        {/* Кнопки внизу (вне скролла, не перекрывают список) */}
+        <div className="bg-muted border-t p-2 shrink-0">
           <div className="mb-2 flex items-center justify-between gap-2 px-1">
             <div
               className="flex items-center cursor-pointer"

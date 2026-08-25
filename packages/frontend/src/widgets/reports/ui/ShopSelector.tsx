@@ -130,7 +130,7 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
         </div>
 
         {/* Список магазинов */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-4">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4">
           {isLoadingShops ? (
             <div className="flex items-center justify-center w-full h-full">
               <div className="w-8 h-8 border-4 border-t-transparent border-primary border-solid rounded-full animate-spin" />
@@ -155,7 +155,7 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
                   {shops.map(([uuid, name]) => (
                     <div
                       key={uuid}
-                      className="flex items-center mt-2 cursor-pointer"
+                      className="flex items-center min-h-11 mt-2 cursor-pointer"
                       onClick={() => handleShopChange(uuid)}
                     >
                       <div
@@ -174,10 +174,12 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
               </motion.div>
             ))
           )}
+          {/* Spacer: чтобы последний магазин не уходил под футер */}
+          <div className="h-4" aria-hidden />
         </div>
 
-        {/* Кнопки подтверждения и отмены */}
-        <div className="sticky bottom-0 left-0 right-0 z-10 bg-muted border-t p-2 flex gap-2 shrink-0">
+        {/* Кнопки подтверждения и отмены (вне скролла) */}
+        <div className="bg-muted border-t p-2 flex gap-2 shrink-0">
           <motion.button
             onClick={handleCancelSelection}
             className="flex-1 p-2 rounded-md text-foreground bg-muted hover:bg-gray-300 dark:hover:bg-gray-600"
