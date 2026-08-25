@@ -476,9 +476,8 @@ export default function GrossProfitReport() {
                                 <p className="text-sm text-foreground leading-snug break-words">
                                   {item.name}
                                 </p>
-                                {/* Подстрока: артикул + количество */}
+                                {/* Подстрока: количество */}
                                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                                  {item.article && <span>арт. {item.article}</span>}
                                   <span>{item.quantity} шт</span>
                                 </div>
                                 {/* Цифры: выручка · прибыль · маржа */}
