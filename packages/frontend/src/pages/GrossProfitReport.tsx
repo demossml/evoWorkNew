@@ -412,10 +412,10 @@ export default function GrossProfitReport() {
                     />
 
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
+                      <p className="text-sm font-medium text-foreground leading-snug whitespace-normal break-words">
                         {group.groupName}
                       </p>
-                      <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                         <span>Выручка: {fmtRub(group.revenue)}</span>
                         <span
                           className={
@@ -424,6 +424,7 @@ export default function GrossProfitReport() {
                         >
                           Прибыль: {fmtRub(group.profit)}
                         </span>
+                        <span>Маржа: {fmtPct(group.margin)}</span>
                       </div>
                     </div>
 
@@ -458,50 +459,52 @@ export default function GrossProfitReport() {
                         className="overflow-hidden"
                       >
                         <div className="border-t border-border">
-                          {/* Заголовок таблицы */}
-                          <div className="px-4 py-1.5 flex gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30">
-                            <span className="flex-1">Товар</span>
-                            <span className="w-12 text-right">Кол-во</span>
-                            <span className="w-20 text-right">Выручка</span>
-                            <span className="w-20 text-right">Прибыль</span>
-                            <span className="w-12 text-right">%</span>
+                          {/* Легенда метрик — один раз над списком товаров */}
+                          <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30">
+                            Выр. · Приб. · Маржа
                           </div>
 
                           <div className="max-h-[400px] overflow-y-auto divide-y divide-border">
                             {group.items.map((item, i) => (
                               <div
                                 key={item.article || i}
-                                className={`px-4 py-2 flex gap-2 items-center text-xs ${
+                                className={`px-4 py-2.5 ${
                                   i % 2 === 0 ? "bg-transparent" : "bg-muted/10"
                                 }`}
                               >
-                                <span className="flex-1 truncate text-foreground">
+                                {/* Строка 1: полное название товара */}
+                                <p className="text-sm text-foreground leading-snug break-words">
                                   {item.name}
-                                </span>
-                                <span className="w-12 text-right tabular-nums text-muted-foreground">
-                                  {item.quantity}
-                                </span>
-                                <span className="w-20 text-right tabular-nums font-mono text-foreground">
-                                  {fmtRub(item.revenue)}
-                                </span>
-                                <span
-                                  className={`w-20 text-right tabular-nums font-mono ${
-                                    item.profit >= 0
-                                      ? "text-emerald-600"
-                                      : "text-red-500"
-                                  }`}
-                                >
-                                  {fmtRub(item.profit)}
-                                </span>
-                                <span
-                                  className={`w-12 text-right tabular-nums ${
-                                    item.margin >= 0
-                                      ? "text-emerald-600"
-                                      : "text-red-500"
-                                  }`}
-                                >
-                                  {item.margin.toFixed(0)}%
-                                </span>
+                                </p>
+                                {/* Подстрока: артикул + количество */}
+                                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                                  {item.article && <span>арт. {item.article}</span>}
+                                  <span>{item.quantity} шт</span>
+                                </div>
+                                {/* Цифры: выручка · прибыль · маржа */}
+                                <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums">
+                                  <span className="text-foreground">
+                                    Выр. {fmtRub(item.revenue)}
+                                  </span>
+                                  <span
+                                    className={
+                                      item.profit >= 0
+                                        ? "text-emerald-600"
+                                        : "text-red-500"
+                                    }
+                                  >
+                                    Приб. {fmtRub(item.profit)}
+                                  </span>
+                                  <span
+                                    className={
+                                      item.margin >= 0
+                                        ? "text-emerald-600"
+                                        : "text-red-500"
+                                    }
+                                  >
+                                    {item.margin.toFixed(0)}%
+                                  </span>
+                                </div>
                               </div>
                             ))}
                           </div>
