@@ -67,6 +67,7 @@ import {
 	updateOpenStore,
 	updatePlan,
 	updateSchedule,
+	normalizeSalaryMode,
 } from "./utils";
 // import type { CandleBinance } from "./utils";
 import {
@@ -5825,7 +5826,7 @@ api
 				return {
 					uuid: emp.uuid,
 					name: emp.name,
-					salary_mode: s?.salary_mode ?? "full",
+					salary_mode: normalizeSalaryMode(s?.salary_mode),
 					base_salary: s?.base_salary ?? 0,
 				};
 			});
@@ -5849,7 +5850,7 @@ api
 					 (employee_uuid, employee_name, salary_mode, base_salary, updated_at)
 					 VALUES (?, ?, ?, ?, datetime('now'))`,
 				)
-				.bind(uuid, body.employee_name, body.salary_mode, body.base_salary)
+				.bind(uuid, body.employee_name, normalizeSalaryMode(body.salary_mode), body.base_salary)
 				.run();
 			return c.json({ ok: true });
 		} catch (err) {

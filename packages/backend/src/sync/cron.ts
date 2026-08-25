@@ -7,6 +7,7 @@ import {
   saveNewIndexDocuments,
   getAllUuid,
   getUuidsByParentUuidList,
+  normalizeSalaryMode,
 } from "../utils";
 import {
   createProductsTableIfNotExists,
@@ -547,7 +548,7 @@ export async function getDataForCurrentDate(env: SyncEnv): Promise<void> {
       } catch { /* promo table may not exist yet */ }
 
       // --- Персональные настройки продавца ---
-      let sellerMode = "full";
+      let sellerMode = normalizeSalaryMode(undefined);
       let sellerBaseSalary = 0;
       try {
         const sellerRow = await env.DB
@@ -555,13 +556,13 @@ export async function getDataForCurrentDate(env: SyncEnv): Promise<void> {
           .bind(employeeUuid)
           .first<{ salary_mode: string; base_salary: number }>();
         if (sellerRow) {
-          sellerMode = sellerRow.salary_mode;
+          sellerMode = normalizeSalaryMode(sellerRow.salary_mode);
           sellerBaseSalary = sellerRow.base_salary;
         }
       } catch { /* table may not exist */ }
 
-      // Если full — бонус с аксессуаров не платим
-      const effectiveBonusAccessories = sellerMode === "bonus" ? bonusAccessories : 0;
+      // Если oklad (без бонуса) — бонус с аксессуаров не платим
+      const effectiveBonusAccessories = sellerMode === "oklad_bonus" ? bonusAccessories : 0;
       // Оклад: персональный > глобальный (из настроек)
       const globalBaseSalary = await getNumberSetting(env.DB, "base_salary", 0);
       const effectiveBaseSalary = sellerBaseSalary > 0 ? sellerBaseSalary : globalBaseSalary;

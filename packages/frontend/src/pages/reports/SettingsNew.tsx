@@ -908,21 +908,21 @@ function SellersCard() {
           )}
 
           {!loading && sellers.map((seller) => {
-            const isBonus = seller.salary_mode === "bonus";
+            const isBonus = seller.salary_mode === "oklad_bonus";
             const isSaving = saving.has(seller.uuid);
 
             return (
               <div key={seller.uuid} className="pb-3 border-b border-border last:border-b-0">
                 <div className="text-sm text-foreground font-medium mb-2">{seller.name}</div>
 
-                {/* Галка full/bonus */}
+                {/* Галка oklad/oklad_bonus */}
                 <div className="flex items-center gap-4 mb-2">
                   <label className="flex items-center gap-1.5 cursor-pointer text-xs">
                     <input
                       type="radio"
                       name={`mode-${seller.uuid}`}
                       checked={!isBonus}
-                      onChange={() => updateSeller(seller, { salary_mode: "full" })}
+                      onChange={() => updateSeller(seller, { salary_mode: "oklad" })}
                       disabled={isSaving}
                       className="accent-blue-500"
                     />
@@ -935,7 +935,7 @@ function SellersCard() {
                       type="radio"
                       name={`mode-${seller.uuid}`}
                       checked={isBonus}
-                      onChange={() => updateSeller(seller, { salary_mode: "bonus" })}
+                      onChange={() => updateSeller(seller, { salary_mode: "oklad_bonus" })}
                       disabled={isSaving}
                       className="accent-amber-500"
                     />

@@ -20,6 +20,14 @@ export function assert(
 	if (!statement) throw new Error(message);
 }
 
+export type SalaryMode = "oklad" | "oklad_bonus";
+
+/** Приводит режим оплаты к канону: full→oklad, bonus→oklad_bonus. */
+export function normalizeSalaryMode(mode: string | null | undefined): SalaryMode {
+	if (mode === "bonus" || mode === "oklad_bonus") return "oklad_bonus";
+	return "oklad";
+}
+
 export const buf2hex = (buffer: ArrayBuffer) =>
 	[...new Uint8Array(buffer)]
 		.map((b) => b.toString(16).padStart(2, "0"))

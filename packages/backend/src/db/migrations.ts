@@ -266,7 +266,7 @@ export async function runMigrations(db: D1Database): Promise<void> {
 
 	// Дополнительные колонки для существующих таблиц
 	await addColumnIfMissing(db, "salaryData", "bonusPromo", "INTEGER NOT NULL DEFAULT 0");
-	await addColumnIfMissing(db, "salaryData", "salaryMode", "TEXT NOT NULL DEFAULT 'full'");
+	await addColumnIfMissing(db, "salaryData", "salaryMode", "TEXT NOT NULL DEFAULT 'oklad'");
 	await addColumnIfMissing(db, "salaryData", "baseSalary", "INTEGER NOT NULL DEFAULT 0");
 
 	// ══════════════════════════════════════════════════════════
@@ -276,7 +276,7 @@ export async function runMigrations(db: D1Database): Promise<void> {
 		CREATE TABLE IF NOT EXISTS seller_settings (
 			employee_uuid TEXT PRIMARY KEY,
 			employee_name TEXT DEFAULT '',
-			salary_mode TEXT NOT NULL DEFAULT 'full',
+			salary_mode TEXT NOT NULL DEFAULT 'oklad',
 			base_salary REAL NOT NULL DEFAULT 0,
 			updated_at TEXT DEFAULT (datetime('now'))
 		)

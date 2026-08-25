@@ -1,4 +1,5 @@
 import type { D1Database } from "@cloudflare/workers-types";
+import { normalizeSalaryMode } from "../utils";
 
 // ============================================================================
 // Helpers
@@ -228,7 +229,7 @@ export async function createSalaryTable(db: D1Database): Promise<void> {
         dataPlan INTEGER NOT NULL,
         salesDataVape INTEGER NOT NULL,
         bonusPlan INTEGER NOT NULL,
-        salaryMode TEXT NOT NULL DEFAULT 'full',
+        salaryMode TEXT NOT NULL DEFAULT 'oklad',
         baseSalary INTEGER NOT NULL DEFAULT 0,
         totalBonus INTEGER NOT NULL,
         UNIQUE(date, shopUuid)
@@ -258,7 +259,7 @@ export async function saveSalaryData(
       dataReport.dataPlan as number,
       dataReport.salesDataVape as number,
       dataReport.bonusPlan as number,
-      (dataReport.salaryMode as string) ?? "full",
+      normalizeSalaryMode(dataReport.salaryMode as string),
       (dataReport.baseSalary as number) ?? 0,
       dataReport.totalBonus as number,
     )
