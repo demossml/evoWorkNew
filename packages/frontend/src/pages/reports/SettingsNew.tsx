@@ -47,11 +47,6 @@ function formatLabel(key: string): string {
     dead_stock_days: "Мёртвый сток, дней",
     category_threshold: "Значимость категории, доля",
     refund_trend: "Тренд возвратов, коэф.",
-    sync_delay_shops: "Задержка: магазины, мс",
-    sync_delay_requests: "Задержка: запросы, мс",
-    upload_max_attempts: "Макс. попыток загрузки",
-    upload_lock_ttl: "Блокировка очереди, мс",
-    api_timeout: "Таймаут API, мс",
   };
   return map[key] ?? key;
 }
@@ -1257,9 +1252,18 @@ export default function SettingsNew() {
   // Группировка по категориям
   const grouped = useMemo(() => {
     const map: Record<string, AppSetting[]> = {};
+    // Инфраструктурные ключи не показываем в UI (читаются бэком как константы/env)
+    const hiddenInfraKeys = new Set([
+      "sync_delay_shops",
+      "sync_delay_requests",
+      "upload_max_attempts",
+      "upload_lock_ttl",
+      "api_timeout",
+    ]);
     for (const s of settings ?? []) {
       // salary-категория скрыта — настройки продавцов в отдельной плитке
       if (s.key === "vape_group_uuids" || s.category === "salary") continue;
+      if (hiddenInfraKeys.has(s.key)) continue;
       const cat = s.category || "general";
       if (!map[cat]) map[cat] = [];
       map[cat].push(s);
