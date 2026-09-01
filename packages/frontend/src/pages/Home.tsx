@@ -32,7 +32,7 @@ import { useNavigate } from "react-router-dom";
 import { getAuthHeaders } from "@shared/api";
 import { AuthCard } from "../components/AuthCard";
 
-type WidgetKey = "revenue" | "tempo" | "finance" | "best" | "products" | "accessories";
+type WidgetKey = "revenue" | "tempo" | "finance" | "best" | "products" | "accessories" | "sync";
 
 function getTodayRange(): DateFilterValue {
   const d = new Date();
@@ -126,7 +126,10 @@ export default function Home() {
 
         {can("home.sync_status") && (
           <ErrorBoundary variant="widget" name="Синхронизация">
-            <SyncStatusWidget />
+            <SyncStatusWidget
+              expanded={isExpanded("sync")}
+              onToggle={() => toggle("sync")}
+            />
           </ErrorBoundary>
         )}
 

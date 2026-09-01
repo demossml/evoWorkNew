@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { UsersAccessCard, EvotorTokenCard } from "../../components/UsersAccessCard";
 import { FeaturePermissionsCard } from "../../components/FeaturePermissionsCard";
+import { SettingsCollapsibleCard } from "../../components/SettingsCollapsibleCard";
 import { AiProviderCard } from "../../components/AiProviderCard";
 import { ProductProfileCard, ModeIndicator } from "../../components/ProductProfileCard";
 
@@ -235,6 +236,7 @@ function SettingsCard({
 }) {
   const icon = CATEGORY_ICONS[category] ?? <Settings2 className="w-5 h-5" />;
   const borderColor = CATEGORY_COLORS[category] ?? "border-l-slate-400";
+  const [open, setOpen] = useState(false);
 
   if (settings.length === 0) return null;
 
@@ -245,25 +247,36 @@ function SettingsCard({
       className={`bg-card border border-border rounded-xl overflow-hidden`}
     >
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 px-4 py-2.5 text-left"
+      >
         <span className="text-muted-foreground">{icon}</span>
-        <h3 className="text-sm font-semibold">{getCategoryLabel(category)}</h3>
-        <span className="text-muted-foreground text-xs ml-auto">{settings.length}</span>
-      </div>
+        <h3 className="text-sm font-semibold flex-1">{getCategoryLabel(category)}</h3>
+        <span className="text-muted-foreground text-xs">{settings.length}</span>
+        {open ? (
+          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        )}
+      </button>
 
       {/* Rows */}
-      <div className="px-4 py-1.5">
-        {settings.map((s) => (
-          <SettingRow
-            key={s.key}
-            setting={s}
-            value={editedValues[s.key] ?? s.value}
-            onChange={(v) => onEdit(s.key, v)}
-            onSave={() => onSaveOne(s.key)}
-            saving={savingKeys.has(s.key)}
-          />
-        ))}
-      </div>
+      {open && (
+        <div className="px-4 py-1.5 border-t border-border">
+          {settings.map((s) => (
+            <SettingRow
+              key={s.key}
+              setting={s}
+              value={editedValues[s.key] ?? s.value}
+              onChange={(v) => onEdit(s.key, v)}
+              onSave={() => onSaveOne(s.key)}
+              saving={savingKeys.has(s.key)}
+            />
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -1486,15 +1499,35 @@ export default function SettingsNew() {
         {!isLoading && !error && <SellersCard />}
 
         {/* Пользователи и доступ (только SUPERADMIN — компоненты сами проверяют роль) */}
-        {!isLoading && !error && <UsersAccessCard />}
-        {!isLoading && !error && <FeaturePermissionsCard />}
-        {!isLoading && !error && <EvotorTokenCard />}
+        {!isLoading && !error && (
+          <SettingsCollapsibleCard title="Пользователи и доступ" icon={<Users className="w-5 h-5" />}>
+            <UsersAccessCard />
+          </SettingsCollapsibleCard>
+        )}
+        {!isLoading && !error && (
+          <SettingsCollapsibleCard title="Права: отчёты и главный экран" icon={<Settings2 className="w-5 h-5" />}>
+            <FeaturePermissionsCard />
+          </SettingsCollapsibleCard>
+        )}
+        {!isLoading && !error && (
+          <SettingsCollapsibleCard title="Токен Эвотор" icon={<Store className="w-5 h-5" />}>
+            <EvotorTokenCard />
+          </SettingsCollapsibleCard>
+        )}
 
         {/* ИИ-провайдер (только SUPERADMIN) */}
-        {!isLoading && !error && <AiProviderCard />}
+        {!isLoading && !error && (
+          <SettingsCollapsibleCard title="ИИ-провайдер" icon={<Zap className="w-5 h-5" />}>
+            <AiProviderCard />
+          </SettingsCollapsibleCard>
+        )}
 
         {/* Режим приложения (только SUPERADMIN) */}
-        {!isLoading && !error && <ProductProfileCard />}
+        {!isLoading && !error && (
+          <SettingsCollapsibleCard title="Режим приложения" icon={<Globe className="w-5 h-5" />}>
+            <ProductProfileCard />
+          </SettingsCollapsibleCard>
+        )}
 
         {/* Фокус-категория (доступна в vape и universal) */}
         {!isLoading && !error && (

@@ -79,9 +79,17 @@ async function fetchSyncStatus(): Promise<SyncStatusResponse> {
   return resp.json();
 }
 
-export function SyncStatusWidget() {
-  const [expanded, setExpanded] = useState(false);
+export function SyncStatusWidget({
+  expanded,
+  onToggle,
+}: {
+  expanded?: boolean;
+  onToggle?: () => void;
+}) {
+  const [internalExpanded, setInternalExpanded] = useState(false);
   const [running, setRunning] = useState(false);
+  const isExpanded = expanded ?? internalExpanded;
+  const toggleExpanded = onToggle ?? (() => setInternalExpanded((v) => !v));
 
   const { data, isError } = useQuery<SyncStatusResponse>({
     queryKey: ["sync-status"],
@@ -148,15 +156,28 @@ export function SyncStatusWidget() {
             Запустить сейчас
           </button>
           <button
-            onClick={() => setExpanded((v) => !v)}
+            onClick={toggleExpanded}
             className="p-1 text-muted-foreground hover:text-foreground transition"
             aria-label="Подробнее"
           >
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
+      {/* Свёрнутый статус одной строкой */}
+      {!isExpanded && (
+        <div className="mt-2 text-xs text-muted-foreground">
+          {anyError
+            ? "есть ошибки синхронизации"
+            : anyRunning
+              ? "идёт синхронизация…"
+              : "синхронизация в норме"}
+        </div>
+      )}
+
+      {isExpanded && (
+      <>
       {/* Сводка */}
       <div className="mt-3 flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
         {data && (
@@ -207,7 +228,7 @@ export function SyncStatusWidget() {
       </div>
 
       {/* Детали */}
-      {expanded && (
+      {isExpanded && (
         <div className="mt-3 space-y-3">
           {errors.length > 0 && (
             <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3">
@@ -267,6 +288,8 @@ export function SyncStatusWidget() {
             </div>
           )}
         </div>
+      )}
+      </>
       )}
     </div>
   );
