@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TrendingUp } from "lucide-react";
 import { getAuthHeaders } from "@shared/api";
+import { useEmployeeRole } from "@/hooks/useApi";
+import { canSeeProfit } from "@features/dashboard/model/homePageModel";
 import { SkeletonCard } from "./widgetUtils";
 
 interface HighMarginItem {
@@ -35,12 +37,14 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
   const [data, setData] = useState<HighMarginResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<MarginScope>("high");
+  const { data: roleData } = useEmployeeRole();
+  const canSeeProfitValue = canSeeProfit(roleData?.employeeRole);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const qs = new URLSearchParams({ since, until });
+        const qs = new URLSearchParams({ since, until, scope: "all" });
         const res = await fetch(`/api/evotor/high-margin-products?${qs}`, {
           headers: getAuthHeaders(),
         });
@@ -190,7 +194,9 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
                   <span className={`font-semibold tabular-nums ${marginColor}`}>
                     маржа {item.margin_pct.toFixed(1)}%
                   </span>
-                  <span className="text-foreground/70 tabular-nums">приб. {fmtRub(item.profit)} ₽</span>
+                  {canSeeProfitValue && (
+                    <span className="text-foreground/70 tabular-nums">приб. {fmtRub(item.profit)} ₽</span>
+                  )}
                 </div>
               </div>
             );

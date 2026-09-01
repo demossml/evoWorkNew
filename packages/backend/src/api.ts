@@ -1754,13 +1754,16 @@ export const api = new Hono<IEnv>()
 
 			const tenantId = c.get("tenantId") || "default";
 			const shopUuids = await getTenantShopUuids(db, tenantId);
+			const scope = c.req.query("scope") || "high"; // high | low | all
 
 			const { getNumberSetting } = await import("./services/settingsService.js");
 			const threshold = await getNumberSetting(db, "high_margin_threshold", 40, tenantId);
 
-			// Берём топ-200 по выручке; фильтруем на клиенте по порогу (high/low).
-			const top = await getTopProductsFromD1(db, since, until, 200, shopUuids);
-			const items = top
+			// Агрегируем ВСЕ товары по имени (не ограничиваемся топ-200 по выручке),
+			// затем фильтруем по порогу на сервере. Один товар из разных магазинов
+			// уже схлопнут в одну строку внутри getTopProductsFromD1.
+			const top = await getTopProductsFromD1(db, since, until, 100000, shopUuids);
+			let items = top
 				.filter((p) => p.netRevenue > 0)
 				.map((p) => ({
 					name: p.productName,
@@ -1770,6 +1773,16 @@ export const api = new Hono<IEnv>()
 					profit: p.grossProfit,
 					margin_pct: p.marginPct,
 				}));
+
+			if (scope === "high") {
+				items = items.filter((i) => i.margin_pct >= threshold);
+			} else if (scope === "low") {
+				items = items.filter((i) => i.margin_pct < threshold);
+			}
+
+			items = items
+				.sort((a, b) => b.sum - a.sum)
+				.slice(0, scope === "all" ? 500 : 100);
 
 			return c.json({ since: since.slice(0, 10), until: until.slice(0, 10), threshold, items });
 		} catch (err) {
