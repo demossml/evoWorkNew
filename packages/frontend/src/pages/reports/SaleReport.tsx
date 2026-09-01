@@ -137,7 +137,7 @@ export default function SalesReport() {
 
   const isFormValid =
     !!startDate && !!endDate && !!selectedShop &&
-    (selectedGroups.length > 0 || selectedShop === "all");
+    selectedGroups.length > 0;
 
   // Проверяем, что все модальные окна закрыты
   const areAllModalsClosed =
@@ -285,13 +285,6 @@ export default function SalesReport() {
 
   // 🔹 Загрузка групп
   const fetchGroups = async (shopUuid: string) => {
-    // Для «Все магазины» группы не загружаем — показываем все товары
-    if (shopUuid === "all") {
-      setGroupOptions([]);
-      setSelectedGroups([]);
-      setIsLoadingGroups(false);
-      return;
-    }
     setIsLoadingGroups(true);
     try {
       const data = await queryClient.fetchQuery({

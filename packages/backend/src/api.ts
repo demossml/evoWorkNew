@@ -73,6 +73,7 @@ import {
 import {
 	getDocumentsByCashOutcomeData,
 	getProductNamesByGroup,
+	getProductNamesByGroupNames,
 	getSalesByProductFromD1,
 	getSalesDataG,
 	getSalesgardenReportData,
@@ -1026,34 +1027,41 @@ export const api = new Hono<IEnv>()
 	.post("/api/evotor/groups-by-shop", async (c) => {
 		const data = await c.req.json();
 		const { shopUuid } = data;
-		// console.log("Полученные данные:", data);
-		// await createProductsTableIfNotExists(c.get("db"));
+		const db = c.get("db");
 
-		// const shopUuids = await c.var.evotor.getShopUuids();
-		// console.log(shopUuids);
+		const excludedUuids = [
+			"3f51bb7f-f3a2-11e8-b973-ccb0da458b5a",
+			"be7939b7-d6e6-11ea-b9a5-ccb0da458b5a",
+		];
 
-		// for (const shopU of shopUuids) {
-		// 	const test = await c.var.evotor.getProductsShopUuidsT(shopU);
-		// 	console.log(test);
-		// 	await updateOrInsertData(test, c.get("db"));
-		// }
+		// Режим «Все магазины»: собираем группы по всем магазинам tenant,
+		// дедуп по нормализованному имени (uuid — первого представителя).
+		if (shopUuid === "all") {
+			const tenantId = c.get("tenantId") || "default";
+			const shopUuids = await getTenantShopUuids(db, tenantId);
+			const byName = new Map<string, { name: string; uuid: string }>();
+			for (const sid of shopUuids) {
+				const rows = await getGroupsByNameUuid(db, sid);
+				for (const g of rows ?? []) {
+					if (excludedUuids.includes(g.uuid)) continue;
+					const key = g.name.trim().toLowerCase();
+					if (!byName.has(key)) {
+						byName.set(key, { name: g.name.trim(), uuid: g.uuid });
+					}
+				}
+			}
+			const groups = Array.from(byName.values()).sort((a, b) =>
+				a.name.localeCompare(b.name, "ru"),
+			);
+			return c.json({ groups });
+		}
 
-		const groupsData = await getGroupsByNameUuid(c.get("db"), shopUuid);
-		// console.log(groupsData);
-		// Получение списка магазинов
-		// const groupsData = await c.var.evotor.getGroupsByNameUuid(shopUuid);
+		const groupsData = await getGroupsByNameUuid(db, shopUuid);
 		if (groupsData) {
-			const excludedUuids = [
-				"3f51bb7f-f3a2-11e8-b973-ccb0da458b5a",
-				"be7939b7-d6e6-11ea-b9a5-ccb0da458b5a",
-			];
-
 			const groups = groupsData.filter(
 				(group) => !excludedUuids.includes(group.uuid),
 			);
-
 			assert(groups, "not an result");
-
 			return c.json({ groups });
 		}
 
@@ -5005,12 +5013,26 @@ ${otherShopsInfo}
 				const shopUuids = await getShopUuidsFromDB(db);
 				const merged: Record<string, { quantitySale: number; sum: number }> = {};
 
+				// Разрешаем выбранные uuid групп в их имена, чтобы матчить
+				// товары по имени группы в каждом магазине (uuid разные).
+				let selectedNames: string[] = [];
+				if (Array.isArray(groups) && groups.length > 0) {
+					const placeholders = groups.map(() => "?").join(",");
+					const nameRows = await db
+						.prepare(
+							`SELECT DISTINCT TRIM(name) as name FROM shopProduct
+							 WHERE product_group = 1 AND uuid IN (${placeholders})`,
+						)
+						.bind(...groups)
+						.all<{ name: string }>();
+					selectedNames = (nameRows.results ?? []).map((r) => r.name.trim());
+				}
+
 				for (const sid of shopUuids) {
-					const productNames = await getProductNamesByGroup(
-						c.get("db"),
-						sid,
-						groups,
-					);
+					const productNames =
+						selectedNames.length > 0
+							? await getProductNamesByGroupNames(c.get("db"), sid, selectedNames)
+							: await getProductNamesByGroup(c.get("db"), sid, groups ?? []);
 					const shopSales = await getSalesByProductFromD1(
 						c.env.DB,
 						sid,

@@ -29,19 +29,23 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
     onOpenChange?.(showAllShops);
   }, [showAllShops, onOpenChange]);
 
-  // Сортируем магазины по названию
-  const sortedShops = Object.entries(shopOptions).sort(([, a], [, b]) =>
-    a.localeCompare(b)
-  );
+  // Сортируем магазины по названию; «Все магазины» (uuid "all") — всегда последний
+  const sortedShops = Object.entries(shopOptions)
+    .filter(([id]) => id !== "all")
+    .sort(([, a], [, b]) => a.localeCompare(b, "ru"));
+  const shopsForUi =
+    shopOptions.all != null
+      ? [...sortedShops, ["all", shopOptions.all] as [string, string]]
+      : sortedShops;
 
-  // Устанавливаем первый магазин по умолчанию
+  // Устанавливаем первый магазин по умолчанию (реальный, не «all»)
   useEffect(() => {
-    if (!selectedShop && sortedShops.length > 0) {
-      const firstShopUuid = sortedShops[0][0];
+    if (!selectedShop && shopsForUi.length > 0) {
+      const firstShopUuid = shopsForUi[0][0];
       setSelectedShop(firstShopUuid);
       fetchGroups(firstShopUuid);
     }
-  }, [sortedShops, selectedShop, fetchGroups, setSelectedShop]);
+  }, [shopsForUi, selectedShop, fetchGroups, setSelectedShop]);
 
   useEffect(() => {
     setTempSelectedShop(selectedShop);
@@ -78,7 +82,7 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
     setShowAllShops(false);
   };
 
-  const filteredShops = sortedShops.filter(([, name]) =>
+  const filteredShops = shopsForUi.filter(([, name]) =>
     name.toLowerCase().includes(searchTerm.toLowerCase().trim())
   );
 
@@ -237,7 +241,7 @@ export const ShopSelector: React.FC<ShopSelectorProps> = ({
             <div className="w-8 h-8 border-4 border-t-transparent border-primary border-solid rounded-full animate-spin" />
           </div>
         ) : (
-          sortedShops.slice(0, 5).map(([uuid, name], idx) => (
+          shopsForUi.slice(0, 5).map(([uuid, name], idx) => (
             <motion.button
               key={uuid}
               className={`

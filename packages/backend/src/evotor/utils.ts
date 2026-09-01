@@ -622,6 +622,50 @@ export async function getProductNamesByGroup(
 }
 
 /**
+ * Получает имена товаров по НАЗВАНИЯМ групп (для режима «все магазины»,
+ * где uuid групп в разных магазинах различаются, а имена совпадают).
+ */
+export async function getProductNamesByGroupNames(
+	db: D1Database,
+	shopId: string,
+	groupNames: string[],
+): Promise<string[]> {
+	try {
+		const names = groupNames.map((n) => n.trim()).filter(Boolean);
+		if (names.length === 0) return [];
+
+		const placeholders = names.map(() => "?").join(", ");
+		const query = `
+			SELECT DISTINCT TRIM(p.name) as name
+			FROM shopProduct p
+			WHERE p.shopId = ?1
+			  AND p.parentUuid IN (
+				SELECT g.uuid FROM shopProduct g
+				WHERE g.shopId = ?1 AND g.product_group = 1
+				  AND LOWER(TRIM(g.name)) IN (${placeholders})
+			  )
+		`;
+
+		const result = await db
+			.prepare(query)
+			.bind(shopId, ...names.map((n) => n.toLowerCase()))
+			.all();
+
+		if (!result || !result.results || result.results.length === 0) {
+			return [];
+		}
+
+		return (result.results as { name: string }[]).map((row) => row.name.trim());
+	} catch (err) {
+		console.error(
+			`getProductNamesByGroupNames: ошибка для магазина ${shopId}:`,
+			err,
+		);
+		throw err;
+	}
+}
+
+/**
  * Получает данные по продажам аксессуаров и не-аксессуаров из D1.
  * Классификация: товар считается аксессуаром, если его родительская группа
  * в shopProduct содержит "аксессуар" в названии (case-insensitive).
