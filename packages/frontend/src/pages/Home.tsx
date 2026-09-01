@@ -21,6 +21,7 @@ import { FinanceWidget } from "@widgets/home/FinanceWidget";
 import { BestShopWidget } from "@widgets/home/BestShopWidget";
 import { TopProductWidget } from "@widgets/home/TopProductWidget";
 import { AccessoriesWidget } from "@widgets/home/AccessoriesWidget";
+import { HighMarginProductsWidget } from "@widgets/home/HighMarginProductsWidget";
 import { PromoEarningsWidget } from "@widgets/home/PromoEarningsWidget";
 import { FocusCategoryWidget } from "@widgets/home/FocusCategoryWidget";
 import { isTelegramMiniApp } from "../helpers/telegram";
@@ -118,9 +119,11 @@ export default function Home() {
           <DateFilter value={dateFilter} onChange={setDateFilter} />
           <ShareReportButton since={since} until={until} reportType="revenue" />
         </div>
-        <ErrorBoundary variant="widget" name="План по магазинам">
-          <PlanStatusWidget date={since} />
-        </ErrorBoundary>
+        {!isUniversal && (
+          <ErrorBoundary variant="widget" name="План по магазинам">
+            <PlanStatusWidget date={since} />
+          </ErrorBoundary>
+        )}
 
         {isSuperAdmin && (
           <ErrorBoundary variant="widget" name="Синхронизация">
@@ -169,7 +172,13 @@ export default function Home() {
             </ErrorBoundary>
           </div>
 
-          {!isUniversal && (
+          {isUniversal ? (
+            <div className={isExpanded("accessories") ? "col-span-2" : ""}>
+              <ErrorBoundary variant="widget" name="Высокомаржинальные товары">
+                <HighMarginProductsWidget since={since} until={until} expanded={isExpanded("accessories")} onToggle={() => toggle("accessories")} />
+              </ErrorBoundary>
+            </div>
+          ) : (
             <div className={isExpanded("accessories") ? "col-span-2" : ""}>
               <ErrorBoundary variant="widget" name="Продажи">
                 <AccessoriesWidget since={since} until={until} expanded={isExpanded("accessories")} onToggle={() => toggle("accessories")} />

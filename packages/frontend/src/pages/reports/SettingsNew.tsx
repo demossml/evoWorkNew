@@ -20,6 +20,7 @@ import {
   type AppSetting,
 } from "../../hooks/useSettings";
 import { getAuthHeaders } from "@shared/api";
+import { useProductProfile } from "../../hooks/useProductProfile";
 import { subscribeToPush, unsubscribeFromPush } from "../../pwa";
 import {
   Settings2, Gift, Gauge, RefreshCcw, Upload, Globe, Bell,
@@ -45,6 +46,7 @@ const SETTING_RULES: Record<string, SettingRule> = {
   plan_yellow: { min: 0, max: 100, unit: "%" },
   accessory_share_target: { min: 0, max: 100, unit: "%" },
   dead_stock_days: { min: 1, max: 365, unit: "дн." },
+  high_margin_threshold: { min: 0, max: 100, unit: "%" },
 };
 
 const SETTING_DEFAULTS: Record<string, string> = {
@@ -58,6 +60,7 @@ const SETTING_DEFAULTS: Record<string, string> = {
   plan_yellow: "70",
   accessory_share_target: "12",
   dead_stock_days: "14",
+  high_margin_threshold: "40",
 };
 
 function formatLabel(key: string): string {
@@ -72,6 +75,7 @@ function formatLabel(key: string): string {
     plan_yellow: "План: жёлтый, ≥ %",
     accessory_share_target: "Цель аксессуаров, %",
     dead_stock_days: "Мёртвый сток, дней",
+    high_margin_threshold: "Порог высокомаржинального товара, %",
   };
   return map[key] ?? key;
 }
@@ -1247,6 +1251,7 @@ export default function SettingsNew() {
   useTelegramBackButton();
 
   const { data: settings, isLoading, error } = useSettings();
+  const { isUniversal } = useProductProfile();
   const updateMutation = useUpdateSetting();
   const batchMutation = useBatchUpdateSettings();
 
@@ -1320,10 +1325,13 @@ export default function SettingsNew() {
       "upload_lock_ttl",
       "api_timeout",
     ]);
+    // В коммерческом режиме план-настройки не показываем
+    const hiddenUniversalPlanKeys = new Set(["plan_green", "plan_yellow", "bonus_plan_amount"]);
     for (const s of settings ?? []) {
       // salary-категория скрыта — настройки продавцов в отдельной плитке
       if (s.key === "vape_group_uuids" || s.category === "salary") continue;
       if (hiddenInfraKeys.has(s.key)) continue;
+      if (isUniversal && hiddenUniversalPlanKeys.has(s.key)) continue;
       const cat = s.category || "general";
       if (!map[cat]) map[cat] = [];
       map[cat].push(s);
@@ -1331,7 +1339,7 @@ export default function SettingsNew() {
     // Порядок секций
     const order = ["bonus", "thresholds", "sync", "upload", "general"];
     return order.filter((k) => map[k]).map((k) => ({ category: k, items: map[k] }));
-  }, [settings]);
+  }, [settings, isUniversal]);
 
   const dirtyCount = Object.keys(editedValues).length;
 
@@ -1423,8 +1431,8 @@ export default function SettingsNew() {
             />
           ))}
 
-        {/* Группы планов */}
-        {!isLoading && !error && (
+        {/* Группы планов (только vape) */}
+        {!isLoading && !error && !isUniversal && (
           <GroupPickerCard
             title="Группы планов"
             icon={<Zap className="w-5 h-5" />}
@@ -1448,8 +1456,8 @@ export default function SettingsNew() {
           />
         )}
 
-        {/* Аксессуар-группы */}
-        {!isLoading && !error && (
+        {/* Аксессуар-группы (только vape) */}
+        {!isLoading && !error && !isUniversal && (
           <GroupPickerCard
             title="Аксессуар-группы"
             icon={<Package className="w-5 h-5" />}

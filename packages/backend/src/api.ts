@@ -1731,6 +1731,45 @@ export const api = new Hono<IEnv>()
 		}
 	})
 
+	// ─── Высокомаржинальные товары (commercial/universal) ─────────────
+	// Товары за период с маржой выше порога high_margin_threshold (tenant shops).
+	.get("/api/evotor/high-margin-products", async (c) => {
+		try {
+			const db = c.get("db");
+			const sinceParam = c.req.query("since");
+			const untilParam = c.req.query("until");
+			if (!sinceParam || !untilParam) {
+				return c.json({ error: "since и until обязательны (YYYY-MM-DD)" }, 400);
+			}
+			const since = sinceParam.length <= 10 ? sinceParam + "T00:00:00" : sinceParam;
+			const until = untilParam.length <= 10 ? untilParam + "T23:59:59" : untilParam;
+
+			const tenantId = c.get("tenantId") || "default";
+			const shopUuids = await getTenantShopUuids(db, tenantId);
+
+			const { getNumberSetting } = await import("./services/settingsService.js");
+			const threshold = await getNumberSetting(db, "high_margin_threshold", 40, tenantId);
+
+			// Берём топ-200 по выручке, фильтруем по марже выше порога.
+			const top = await getTopProductsFromD1(db, since, until, 200, shopUuids);
+			const items = top
+				.filter((p) => p.marginPct > threshold && p.netRevenue > 0)
+				.map((p) => ({
+					name: p.productName,
+					sum: p.netRevenue,
+					quantity: p.netQuantity,
+					cost: Math.max(0, Math.round(p.netRevenue - p.grossProfit)),
+					profit: p.grossProfit,
+					margin_pct: p.marginPct,
+				}));
+
+			return c.json({ since: since.slice(0, 10), until: until.slice(0, 10), threshold, items });
+		} catch (err) {
+			console.error("[high-margin-products] error:", err);
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+
 	// ─── Home tile: Revenue ────────────────────────────────────────────
 	// Агрегированные данные для плитки «Выручка» (продажи без себестоимости)
 	.get("/api/evotor/home/revenue-tile", async (c) => {

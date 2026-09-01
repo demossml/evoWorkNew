@@ -5,6 +5,7 @@ import { useEmployeeNameAndUuid } from "@/hooks/useApi";
 import { useGetReportAndPlan } from "@/hooks/useReportData";
 import { useWorkingByShops } from "@/hooks/useApi";
 import { useSellerEffectiveness } from "@/hooks/dashboard/useSellerEffectiveness";
+import { useProductProfile } from "@/hooks/useProductProfile";
 import { isTelegramMiniApp, telegram } from "@/helpers/telegram";
 
 function timeGreeting(): string {
@@ -74,6 +75,7 @@ export function DailyBriefing() {
   const { data: reportData } = useGetReportAndPlan(true);
   const { data: workingData } = useWorkingByShops();
   const { data: effData } = useSellerEffectiveness({ period: 30 });
+  const { isUniversal } = useProductProfile();
   const isMiniApp = isTelegramMiniApp();
 
   const name = emp?.employeeNameAndUuid?.[0]?.name ?? null;
@@ -122,7 +124,7 @@ export function DailyBriefing() {
   // Build stat chips
   const chips: { label: string; value: string; icon: JSX.Element; color: string }[] = [];
 
-  if (todayShop) {
+  if (!isUniversal && todayShop) {
     chips.push({
       label: "Сегодня",
       value: todayShop,
@@ -131,7 +133,7 @@ export function DailyBriefing() {
     });
   }
 
-  if (todayPlan) {
+  if (!isUniversal && todayPlan) {
     chips.push({
       label: "План",
       value: todayFact != null ? `${fmtRub(todayFact)} / ${fmtRub(todayPlan)} ₽` : `${fmtRub(todayPlan)} ₽`,
@@ -184,7 +186,7 @@ export function DailyBriefing() {
             </h2>
           </div>
 
-          {planProgress != null && (
+          {!isUniversal && planProgress != null && (
             <div className="relative shrink-0">
               <PlanRing percent={planProgress} />
               <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold">
@@ -209,7 +211,7 @@ export function DailyBriefing() {
           </div>
         )}
 
-        {!todayShop && (
+        {!isUniversal && !todayShop && (
           <div className="mt-2 text-primary-foreground/50 text-xs">
             Нет данных о сегодняшней смене
           </div>
