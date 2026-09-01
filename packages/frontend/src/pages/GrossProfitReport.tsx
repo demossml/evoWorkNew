@@ -65,13 +65,7 @@ const CHART_COLORS = [
 ];
 
 function fmtRub(n: number): string {
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M ₽`;
-  if (Math.abs(n) >= 1_000) return `${Math.round(n / 1000)}k ₽`;
-  return `${Math.round(n)} ₽`;
-}
-
-function fmtRubFull(n: number): string {
-  return `${Math.round(n).toLocaleString("ru-RU")} ₽`;
+  return `${Math.round(Number(n) || 0).toLocaleString("ru-RU")} ₽`;
 }
 
 function fmtPct(n: number): string {
@@ -334,7 +328,7 @@ export default function GrossProfitReport() {
                           {g.groupName}
                         </span>
                         <span className="text-sm font-semibold text-foreground tabular-nums shrink-0">
-                          {fmtRubFull(g.profit)}
+                          {fmtRub(g.profit)}
                         </span>
                         <span
                           className={`text-xs tabular-nums shrink-0 w-12 text-right ${
