@@ -2728,6 +2728,11 @@ export async function createOpenStorsTable(db: D1Database): Promise<void> {
 		} catch {
 			// колонка уже существует — ок
 		}
+		try {
+			await db.prepare("ALTER TABLE openStors ADD COLUMN answers TEXT").run();
+		} catch {
+			// колонка уже существует — ок
+		}
 
 		const createTableQuery =
 			"CREATE TABLE IF NOT EXISTS openStors (" +
@@ -2739,7 +2744,8 @@ export async function createOpenStorsTable(db: D1Database): Promise<void> {
 			"user_name TEXT, " +
 			"cash REAL, " +
 			"sign TEXT CHECK(sign IN ('+', '-')), " +
-			"ok INTEGER" +
+			"ok INTEGER, " +
+			"answers TEXT" +
 			");";
 		await db.prepare(createTableQuery).run();
 	} catch (err) {
@@ -2750,18 +2756,18 @@ export async function createOpenStorsTable(db: D1Database): Promise<void> {
 export async function updateOpenStore(
 	db: D1Database,
 	userId: string,
-	data: { cash: number | null; sign: string | null },
+	data: { cash: number | null; sign: string | null; answers?: string | null },
 ): Promise<void> {
 	try {
 		await db
 			.prepare(
 				"UPDATE openStors " +
-					"SET cash = ?, sign = ? " +
+					"SET cash = ?, sign = ?, answers = COALESCE(?, answers) " +
 					"WHERE userId = ? " +
 					"ORDER BY id DESC " +
 					"LIMIT 1",
 			)
-			.bind(data.cash, data.sign, userId)
+			.bind(data.cash, data.sign, data.answers ?? null, userId)
 			.run();
 	} catch (err) {
 		console.error("Ошибка при обновлении openStors:", err);

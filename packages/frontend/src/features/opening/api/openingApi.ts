@@ -1,4 +1,5 @@
 import { client } from "@shared/api";
+import type { OpeningAnswer, OpeningPointConfig } from "../../../pages/opening/types";
 
 export type OpenStorePayload = {
   timestamp: string;
@@ -18,6 +19,7 @@ export type FinishOpeningPayload = {
     | null;
   userId: string;
   shopUuid: string;
+  answers?: OpeningAnswer[];
 };
 
 export type ShopOpeningStatus = {
@@ -88,6 +90,19 @@ export async function finishOpening(payload: FinishOpeningPayload) {
   if (!response.ok) {
     throw new Error(`Ошибка завершения открытия: ${response.status}`);
   }
+}
+
+export async function fetchOpeningConfig(): Promise<OpeningPointConfig> {
+  const response = await client.api.tenant["opening-config"].$get();
+  if (!response.ok) throw new Error(`Ошибка загрузки конфига: ${response.status}`);
+  return response.json() as Promise<OpeningPointConfig>;
+}
+
+export async function saveOpeningConfig(config: OpeningPointConfig): Promise<void> {
+  const response = await client.api.tenant["opening-config"].$put({
+    json: config as unknown as Record<string, unknown>,
+  });
+  if (!response.ok) throw new Error(`Ошибка сохранения конфига: ${response.status}`);
 }
 
 export async function fetchIsOpenStore(params: {

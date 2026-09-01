@@ -1,57 +1,109 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import type { StoreOpeningStep } from "./types";
+import type { OpeningAnswer, OpeningPointConfig } from "./types";
 import { useUser } from "../../hooks/userProvider";
+import { useEmployeeRole } from "../../hooks/useApi";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { isTelegramMiniApp, telegram } from "../../helpers/telegram";
-import { loadProgress, saveProgress } from "../../helpers/openingProgress";
-import { CashCheckStep, InitialStep, PhotoStep, ProgressSteps, ShopStep } from "@widgets/opening";
+import { loadProgress, saveProgress, clearProgress } from "../../helpers/openingProgress";
+import { ShopStep } from "@widgets/opening";
+import { Settings } from "lucide-react";
+import {
+  fetchOpeningConfig,
+  saveOpeningConfig,
+  openStore,
+  finishOpening,
+} from "@features/opening/api";
+import OpeningConfigEditor from "../../widgets/opening/ui/OpeningConfigEditor";
+import DynamicOpeningFlow from "../../widgets/opening/ui/DynamicOpeningFlow";
 
 export default function StoreOpeningPage() {
-  const [currentStep, setCurrentStep] = useState<StoreOpeningStep>("shop");
+  const [phase, setPhase] = useState<"shop" | "run" | "config">("shop");
   const [selectedShop, setSelectedShop] = useState<string | null>(null);
   const [selectedShopName, setSelectedShopName] = useState<string | null>(null);
+  const [config, setConfig] = useState<OpeningPointConfig | null>(null);
+  const [finished, setFinished] = useState(false);
   const isMiniApp = isTelegramMiniApp();
 
   const tg = useUser();
   const userId = tg?.id?.toString() || "";
   const userName = `${tg?.first_name ?? ""} ${tg?.last_name ?? ""}`.trim();
+  const { data: roleData } = useEmployeeRole();
+  const isSuperAdmin = roleData?.employeeRole === "SUPERADMIN";
 
   useTelegramBackButton();
 
-  // загрузка сохранённого шага
+  useEffect(() => {
+    let cancelled = false;
+    void fetchOpeningConfig()
+      .then((c) => { if (!cancelled) setConfig(c); })
+      .catch(() => { if (!cancelled) setConfig(null); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Восстановление магазина из progress
   useEffect(() => {
     const saved = loadProgress();
     const today = new Date().toISOString().slice(0, 10);
-
-    if (saved && saved.date === today) {
-      if (saved.shopUuid) {
-        setSelectedShop(saved.shopUuid);
-        if (saved.shopName) {
-          setSelectedShopName(saved.shopName);
-        }
-        setCurrentStep(saved.step as StoreOpeningStep);
-      } else {
-        setCurrentStep("shop");
-      }
-    } else {
-      setCurrentStep("shop");
+    if (saved && saved.date === today && saved.shopUuid) {
+      setSelectedShop(saved.shopUuid);
+      setSelectedShopName(saved.shopName ?? null);
     }
   }, []);
 
-  // сохранение шага при изменении
   useEffect(() => {
-    saveProgress(
-      currentStep,
-      selectedShop ?? undefined,
-      selectedShopName ?? undefined,
-    );
-  }, [currentStep, selectedShop, selectedShopName]);
+    saveProgress("shop", selectedShop ?? undefined, selectedShopName ?? undefined);
+  }, [selectedShop, selectedShopName]);
 
   useEffect(() => {
     if (!isMiniApp) return;
     telegram.WebApp.MainButton.hide();
   }, [isMiniApp]);
+
+  // Первый запуск: SUPERADMIN без завершённого setup → редактор
+  useEffect(() => {
+    if (config && isSuperAdmin && !config.setup_completed && phase === "shop") {
+      setPhase("config");
+    }
+  }, [config, isSuperAdmin, phase]);
+
+  const handleStart = async () => {
+    if (!selectedShop) return;
+    try {
+      const today = new Date().toISOString();
+      await openStore({ timestamp: today, userId, shopUuid: selectedShop, date: today.slice(0, 10), userName });
+      setPhase("run");
+    } catch {
+      /* показать? */
+    }
+  };
+
+  const handleFinish = async (answers: OpeningAnswer[]) => {
+    if (!selectedShop) return;
+    try {
+      await finishOpening({ ok: true, discrepancy: null, userId, shopUuid: selectedShop, answers });
+      clearProgress();
+      setFinished(true);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleSaveConfig = async (next: OpeningPointConfig) => {
+    await saveOpeningConfig(next);
+    setConfig(next);
+    setPhase("shop");
+  };
+
+  if (!config) {
+    return (
+      <div className="app-page w-full px-5 py-4 bg-background text-foreground">
+        <div className="max-w-xl mx-auto text-sm text-muted-foreground">Загрузка…</div>
+      </div>
+    );
+  }
+
+  const title = config.title || "Открытие торговой точки";
 
   return (
     <motion.div
@@ -63,72 +115,45 @@ export default function StoreOpeningPage() {
         scrollPaddingBottom: "calc(var(--app-bottom-clearance, 72px) + 56px)",
       }}
     >
-      <div className="max-w-xl mx-auto space-y-6">
-        <ProgressSteps
-          current={currentStep}
-          onStepClick={(step) => {
-            const order: StoreOpeningStep[] = [
-              "shop",
-              "initial",
-              "photos",
-              "cash_check",
-            ];
-            const currentIndex = order.indexOf(currentStep);
-            const targetIndex = order.indexOf(step);
-            if (targetIndex <= currentIndex) {
-              setCurrentStep(step);
-            }
-          }}
-        />
-
-        {currentStep !== "shop" && selectedShop && (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2">
-            <div className="text-sm">
-              <span className="text-muted-foreground">Магазин: </span>
-              <span className="font-medium">
-                {selectedShopName || selectedShop}
-              </span>
-            </div>
+      <div className="max-w-xl mx-auto space-y-4">
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-base font-bold text-foreground">{title}</h1>
+          {isSuperAdmin && phase !== "config" && (
             <button
-              type="button"
-              onClick={() => setCurrentStep("shop")}
-              className="text-xs px-2 py-1 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              onClick={() => setPhase("config")}
+              className="p-2 rounded-lg bg-muted text-muted-foreground"
+              title="Настроить"
             >
-              Сменить
+              <Settings className="w-4 h-4" />
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
-        {!userId ? (
-          <div className="p-4 rounded-lg bg-warning/10 text-warning text-sm">
-            Не удалось определить пользователя. Перезапустите Mini App.
+        {phase === "config" ? (
+          <OpeningConfigEditor
+            initial={config}
+            onSave={handleSaveConfig}
+            onCancel={() => setPhase(config.setup_completed ? "shop" : "shop")}
+          />
+        ) : finished ? (
+          <div className="text-center py-8">
+            <div className="text-lg font-semibold text-emerald-500">Готово</div>
+            <p className="text-sm text-muted-foreground mt-1">Точка открыта</p>
           </div>
-        ) : currentStep === "shop" ? (
+        ) : phase === "shop" ? (
           <ShopStep
             userId={userId}
             selectedShop={selectedShop}
             setSelectedShop={setSelectedShop}
             setSelectedShopName={setSelectedShopName}
-            onContinue={() => setCurrentStep("initial")}
-          />
-        ) : currentStep === "initial" ? (
-          <InitialStep
-            setCurrentStep={setCurrentStep}
-            userId={userId}
-            selectedShop={selectedShop}
-            userName={userName || undefined}
-          />
-        ) : currentStep === "photos" ? (
-          <PhotoStep
-            setCurrentStep={setCurrentStep}
-            userId={userId}
-            selectedShop={selectedShop}
+            onContinue={handleStart}
           />
         ) : (
-          <CashCheckStep
-            setCurrentStep={setCurrentStep}
+          <DynamicOpeningFlow
+            config={config}
             userId={userId}
             selectedShop={selectedShop}
+            onFinish={(answers) => void handleFinish(answers)}
           />
         )}
       </div>

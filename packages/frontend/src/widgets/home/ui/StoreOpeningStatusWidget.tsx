@@ -1,8 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Store, Clock, User, AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Store, Clock, User, AlertCircle, Settings } from "lucide-react";
+import { useEmployeeRole } from "@/hooks/useApi";
 import {
   fetchShopsOpeningStatus,
+  fetchOpeningConfig,
   type ShopOpeningStatus,
 } from "@features/opening/api";
 
@@ -10,6 +13,16 @@ export function StoreOpeningStatusWidget() {
   const [shops, setShops] = useState<ShopOpeningStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [title, setTitle] = useState("Открытие торговой точки");
+  const { data: roleData } = useEmployeeRole();
+  const isSuperAdmin = roleData?.employeeRole === "SUPERADMIN";
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    void fetchOpeningConfig()
+      .then((c) => setTitle(c.title || "Открытие торговой точки"))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -92,6 +105,18 @@ export function StoreOpeningStatusWidget() {
 
   return (
     <div className="w-full mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold text-muted-foreground">{title}</span>
+        {isSuperAdmin && (
+          <button
+            onClick={() => navigate("/evotor/open-store")}
+            className="p-1 rounded-md text-muted-foreground hover:bg-muted"
+            title="Настроить"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
       <div className="grid grid-cols-3 gap-3">
         {sortedShops.map((shop, idx) => {
           const status = getStatus(shop);

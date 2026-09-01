@@ -18,7 +18,7 @@ import { hashMetrics, getCachedAnalysis, saveCachedAnalysis, saveConversation, g
 import { computeSellerAdvancedStats, computeWeekdayComparison, computeWeekdayBreakdown } from "./services/sellerAdvancedStats";
 import { generateSellerInsights } from "./services/sellerInsights";
 import { computeHourlyCompare } from "./services/sellerHourlyCompare";
-import { requireAdmin, assertShopAccess, getTenantShopUuids } from "./helpers";
+import { requireAdmin, requireSuperAdmin, assertShopAccess, getTenantShopUuids } from "./helpers";
 import { registerAuthRoutes } from "./modules/auth/routes";
 import { registerAiProviderRoutes } from "./modules/ai/providerRoutes";
 import { resolveDeepseekKey } from "./services/deepseek";
@@ -3183,14 +3183,15 @@ export const api = new Hono<IEnv>()
 	.post("/api/stores/finish-opening", async (c) => {
 		const db = c.env.DB;
 		const data = await c.req.json();
-		const { ok, discrepancy, userId } = data;
+		const { ok, discrepancy, userId, answers } = data;
 		let cash: number | null = null;
 		let sign: string | null = null;
 		if (!ok && discrepancy) {
 			cash = Number(discrepancy.amount);
 			sign = discrepancy.type;
 		}
-		await updateOpenStore(db, userId, { cash, sign });
+		const answersJson = answers ? JSON.stringify(answers) : null;
+		await updateOpenStore(db, userId, { cash, sign, answers: answersJson });
 		return c.json({ success: true });
 	})
 	.post("/api/stores/is-open-store", async (c) => {
@@ -6079,6 +6080,31 @@ api
 			const { batchUpdateSettings } = await import("./services/settingsService.js");
 			await batchUpdateSettings(db, body, tenantId);
 			return c.json({ ok: true });
+		} catch (err) {
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+	.get("/api/tenant/opening-config", async (c) => {
+		try {
+			const db = c.get("db");
+			const tenantId = c.get("tenantId") || "default";
+			const { getOpeningConfig } = await import("./services/openingConfigService.js");
+			return c.json(await getOpeningConfig(db, tenantId));
+		} catch (err) {
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+	.put("/api/tenant/opening-config", requireSuperAdmin, async (c) => {
+		try {
+			const db = c.get("db");
+			const tenantId = c.get("tenantId") || "default";
+			const body = await c.req.json();
+			const { saveOpeningConfig } = await import("./services/openingConfigService.js");
+			const result = await saveOpeningConfig(db, tenantId, body);
+			if (!result.ok) {
+				return c.json({ success: false, error: result.error }, 400);
+			}
+			return c.json({ success: true, config: result.config });
 		} catch (err) {
 			return c.json({ error: String(err) }, 500);
 		}
