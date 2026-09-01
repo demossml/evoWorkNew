@@ -82,7 +82,6 @@ export default function StoreOpeningsAdminReport() {
     other: "Прочее",
   };
 
-  const categoryOrder = ["area", "stock", "cash", "mrc", "other"];
   const formatDate = (date: Date) =>
     date.toLocaleDateString("ru-RU", {
       day: "2-digit",
@@ -468,46 +467,55 @@ export default function StoreOpeningsAdminReport() {
 
             {previewPhotos.length > 0 && (
               <div className="space-y-4">
-                {categoryOrder.map((category) => {
-                  const categoryPhotos = previewPhotos.filter(
-                    (photo) => (photo.category || "other") === category,
-                  );
-                  if (!categoryPhotos.length) return null;
+                {(() => {
+                  // Рендерим все категории из ответа (в порядке появления),
+                  // а не только фиксированный список — иначе фото новых шагов
+                  // (category = step_id) не отображаются.
+                  const cats: string[] = [];
+                  for (const p of previewPhotos) {
+                    const c = p.category || "other";
+                    if (!cats.includes(c)) cats.push(c);
+                  }
+                  return cats.map((category) => {
+                    const categoryPhotos = previewPhotos.filter(
+                      (photo) => (photo.category || "other") === category,
+                    );
+                    if (!categoryPhotos.length) return null;
 
-                  return (
-                    <div key={category} className="space-y-2">
-                      <h3 className="text-sm font-semibold">
-                        {categoryTitle[category] || category}
-                      </h3>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {categoryPhotos.map((photo, idx) => {
-                          const slotLabel =
-                            category === "area"
-                              ? `Территория #${idx + 1}`
-                              : category === "stock"
-                                ? `Витрина #${idx + 1}`
-                                : category === "cash"
-                                  ? "Касса"
-                                  : category === "mrc"
-                                    ? "МРЦ"
-                                    : `Фото #${idx + 1}`;
+                    return (
+                      <div key={category} className="space-y-2">
+                        <h3 className="text-sm font-semibold">
+                          {categoryTitle[category] || category}
+                        </h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {categoryPhotos.map((photo, idx) => {
+                            const slotLabel =
+                              category === "area"
+                                ? `Территория #${idx + 1}`
+                                : category === "stock"
+                                  ? `Витрина #${idx + 1}`
+                                  : category === "cash"
+                                    ? "Касса"
+                                    : category === "mrc"
+                                      ? "МРЦ"
+                                      : `Фото #${idx + 1}`;
 
-                          return (
-                            <a
-                              key={photo.key}
-                              href={photo.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="block rounded-lg overflow-hidden border border-border bg-background"
-                            >
-                              <img
-                                src={photo.url}
-                                alt={slotLabel}
-                                className="w-full h-40 object-cover"
-                                loading="lazy"
-                              />
-                              <div className="px-2 py-1 text-xs text-muted-foreground">
-                                {slotLabel}
+                            return (
+                              <a
+                                key={photo.key}
+                                href={photo.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block rounded-lg overflow-hidden border border-border bg-background"
+                              >
+                                <img
+                                  src={photo.url}
+                                  alt={slotLabel}
+                                  className="w-full h-40 object-cover"
+                                  loading="lazy"
+                                />
+                                <div className="px-2 py-1 text-xs text-muted-foreground">
+                                  {slotLabel}
                               </div>
                             </a>
                           );
@@ -515,7 +523,8 @@ export default function StoreOpeningsAdminReport() {
                       </div>
                     </div>
                   );
-                })}
+                  });
+                })()}
               </div>
             )}
           </div>
