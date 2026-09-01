@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LabelList } from "recharts";
 import {
   ChevronDown, ChevronUp, TrendingUp, DollarSign,
   PieChartIcon, Package, Percent,
@@ -69,6 +68,10 @@ function fmtRub(n: number): string {
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M ₽`;
   if (Math.abs(n) >= 1_000) return `${Math.round(n / 1000)}k ₽`;
   return `${Math.round(n)} ₽`;
+}
+
+function fmtRubFull(n: number): string {
+  return `${Math.round(n).toLocaleString("ru-RU")} ₽`;
 }
 
 function fmtPct(n: number): string {
@@ -198,18 +201,18 @@ export default function GrossProfitReport() {
     enabled: !!dateFilter.since && !!dateFilter.until,
   });
 
-  // Данные для круговой диаграммы: группы с положительной прибылью
-  const pieData = useMemo(() => {
+  // Данные для горизонтальных баров: группы, отсортированные по прибыли
+  const barData = useMemo(() => {
     if (!data?.groups) return [];
-    return data.groups
-      .filter(g => g.revenue > 0)
-      .map(g => ({
+    return [...data.groups]
+      .filter((g) => g.revenue > 0)
+      .map((g) => ({
         groupName: g.groupName,
         profit: g.profit,
         revenue: g.revenue,
-        margin: g.margin,
         share: g.share,
-      }));
+      }))
+      .sort((a, b) => b.profit - a.profit);
   }, [data]);
 
   // Порог для скрытия мелких групп
@@ -309,56 +312,50 @@ export default function GrossProfitReport() {
           ]}
         />
 
-        {/* Круговая диаграмма */}
-        {pieData.length > 0 && (
+        {/* Горизонтальные бары: распределение прибыли по группам */}
+        {barData.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">Распределение прибыли по группам</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={360}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    dataKey="profit"
-                    nameKey="groupName"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={115}
-                    innerRadius={55}
-                    paddingAngle={2}
-                    label={renderCustomLabel}
-                    labelLine={false}
-                    isAnimationActive={true}
-                  >
-                    {pieData.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                    {/* % внутри сектора */}
-                    <LabelList
-                      dataKey="share"
-                      position="inside"
-                      formatter={(v: number) => `${v.toFixed(0)}%`}
-                      className="text-xs font-bold"
-                      fill="hsl(var(--primary-foreground))"
-                    />
-                  </Pie>
-                  <Tooltip content={<PieTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-
-              {/* Легенда снизу */}
-              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
-                {pieData.map((g, i) => (
-                  <div key={g.groupName} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
-                    />
-                    <span className="truncate max-w-[100px]">{g.groupName}</span>
-                    <span className="font-mono tabular-nums ml-auto">{fmtRub(g.profit)}</span>
-                  </div>
-                ))}
+              <div className="space-y-2 max-h-[420px] overflow-y-auto">
+                {barData.map((g, i) => {
+                  const maxAbs = Math.max(1, ...barData.map((b) => Math.abs(b.profit)));
+                  const widthPct = Math.max(g.profit !== 0 ? 2 : 0, (Math.abs(g.profit) / maxAbs) * 100);
+                  return (
+                    <div key={g.groupName} className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                        />
+                        <span className="text-sm text-foreground leading-snug break-words min-w-0 flex-1">
+                          {g.groupName}
+                        </span>
+                        <span className="text-sm font-semibold text-foreground tabular-nums shrink-0">
+                          {fmtRubFull(g.profit)}
+                        </span>
+                        <span
+                          className={`text-xs tabular-nums shrink-0 w-12 text-right ${
+                            g.share >= 0 ? "text-muted-foreground" : "text-red-500"
+                          }`}
+                        >
+                          {g.share.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted/60 overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${widthPct}%`,
+                            backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
