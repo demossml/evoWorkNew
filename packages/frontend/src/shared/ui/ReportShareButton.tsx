@@ -23,12 +23,37 @@ export function ReportShareButton({ targetRef, filename = "report", label = "П�
     setShareUrl(null);
     setErrorMsg(null);
 
+    // Снимаем ограничения высоты/overflow у node и его родителей,
+    // чтобы захватить весь отчёт, а не только видимую область.
+    const touched: { el: HTMLElement; maxHeight: string; overflow: string }[] = [];
+    let el: HTMLElement | null = targetRef.current;
+    while (el && el !== document.body) {
+      const st = getComputedStyle(el);
+      if (st.overflowY === "auto" || st.overflowY === "scroll" || st.maxHeight !== "none") {
+        touched.push({ el, maxHeight: el.style.maxHeight, overflow: el.style.overflow });
+        el.style.maxHeight = "none";
+        el.style.overflow = "visible";
+      }
+      el = el.parentElement;
+    }
+
     try {
       const { toJpeg } = await import("html-to-image");
-      const dataUrl = await toJpeg(targetRef.current, {
+      const node = targetRef.current;
+      const width = node.scrollWidth || node.clientWidth;
+      const height = node.scrollHeight || node.clientHeight;
+
+      const dataUrl = await toJpeg(node, {
         backgroundColor: "#ffffff",
         pixelRatio: 2,
         quality: 0.92,
+        width,
+        height,
+        style: {
+          height: `${height}px`,
+          overflow: "visible",
+        },
+        cacheBust: true,
       });
 
       setState("uploading");
@@ -56,6 +81,11 @@ export function ReportShareButton({ targetRef, filename = "report", label = "П�
     } catch (err: any) {
       setErrorMsg(err?.message || "Ошибка загрузки");
       setState("error");
+    } finally {
+      for (const t of touched) {
+        t.el.style.maxHeight = t.maxHeight;
+        t.el.style.overflow = t.overflow;
+      }
     }
   }, [targetRef, filename]);
 
