@@ -15,10 +15,8 @@ type FocusSales = {
   sharePct: number;
 };
 
-function compactRub(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}м ₽`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}к ₽`;
-  return `${Math.round(n)} ₽`;
+function fmtRubExact(n: number): string {
+  return `${Math.round(n).toLocaleString("ru-RU")} ₽`;
 }
 
 function shareColor(share: number): { accent: string; fill: string; pill: string } {
@@ -114,7 +112,7 @@ export function FocusCategoryWidget() {
             {/* ₽ + pill */}
             <div className="flex items-center gap-1.5 shrink-0">
               <span className="text-sm font-bold text-foreground tabular-nums">
-                {compactRub(data!.focusRevenue)}
+                {fmtRubExact(data!.focusRevenue)}
               </span>
               <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full tabular-nums ${c.pill}`}>
                 {share.toFixed(1)}%
