@@ -6108,6 +6108,28 @@ api
 		} catch (err) {
 			return c.json({ error: String(err) }, 500);
 		}
+	})
+	.get("/api/tenant/feature-permissions", async (c) => {
+		try {
+			const db = c.get("db");
+			const tenantId = c.get("tenantId") || "default";
+			const { getFeaturePermissions } = await import("./services/featurePermissionsService.js");
+			return c.json(await getFeaturePermissions(db, tenantId));
+		} catch (err) {
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+	.put("/api/tenant/feature-permissions", requireSuperAdmin, async (c) => {
+		try {
+			const db = c.get("db");
+			const tenantId = c.get("tenantId") || "default";
+			const body = await c.req.json();
+			const { saveFeaturePermissions } = await import("./services/featurePermissionsService.js");
+			const result = await saveFeaturePermissions(db, tenantId, body);
+			return c.json({ success: true, config: result.config });
+		} catch (err) {
+			return c.json({ error: String(err) }, 500);
+		}
 	});
 
 // Auth / Users / Tenants (modules/auth)

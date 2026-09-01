@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { isTelegramMiniApp, telegram } from "@/helpers/telegram";
 import { useProductProfile, type ProductProfile } from "@/hooks/useProductProfile";
+import { useFeaturePermissions } from "@/hooks/useFeaturePermissions";
 
 interface BottomNavigationProps {
   employeeRole?: "CASHIER" | "ADMIN" | "SUPERADMIN";
@@ -70,7 +71,7 @@ const mainNav = [
 
 const moreGroups: Array<{
   title: string;
-  items: Array<{ to: string; label: string; icon: typeof Home; roles: string[]; profiles?: ProductProfile[] }>;
+  items: Array<{ to: string; label: string; icon: typeof Home; roles: string[]; profiles?: ProductProfile[]; permissionId?: string }>;
 }> = [
   {
     title: "Продажи",
@@ -80,6 +81,7 @@ const moreGroups: Array<{
         label: "Сравнение периодов",
         icon: TrendingUp,
         roles: ["SUPERADMIN"],
+        permissionId: "report.period_comparison",
       },
     ],
   },
@@ -91,18 +93,21 @@ const moreGroups: Array<{
         label: "Зарплата сотрудников",
         icon: HandCoins,
         roles: ["SUPERADMIN"],
+        permissionId: "report.salary",
       },
       {
         to: "/evotor/sales-for-the-period",
         label: "Финансовый отчёт",
         icon: FileBarChart,
         roles: ["SUPERADMIN"],
+        permissionId: "report.sales_period",
       },
       {
         to: "/evotor/gross-profit",
         label: "Валовая прибыль",
         icon: PieChart,
         roles: ["SUPERADMIN", "ADMIN"],
+        permissionId: "report.profit_gross",
       },
     ],
   },
@@ -114,18 +119,21 @@ const moreGroups: Array<{
         label: "Заказ товара",
         icon: Package,
         roles: ["CASHIER", "ADMIN", "SUPERADMIN"],
+        permissionId: "report.orders",
       },
       {
         to: "/evotor/stock-realization-report",
         label: "Товарные остатки",
         icon: Wallet,
         roles: ["ADMIN", "SUPERADMIN"],
+        permissionId: "report.stock_realization",
       },
       {
         to: "/evotor/dead-stock",
         label: "Dead stock",
         icon: NotepadText,
         roles: ["SUPERADMIN"],
+        permissionId: "report.dead_stock",
       },
     ],
   },
@@ -138,18 +146,21 @@ const moreGroups: Array<{
         icon: Users,
         roles: ["SUPERADMIN"],
         profiles: ["vape"],
+        permissionId: "report.seller_dna",
       },
       {
         to: "/evotor/product-analysis",
         label: "Товары",
         icon: Boxes,
         roles: ["SUPERADMIN"],
+        permissionId: "report.product_analysis",
       },
       {
         to: "/evotor/store-analysis",
         label: "Магазины",
         icon: Store,
         roles: ["SUPERADMIN"],
+        permissionId: "report.store_analysis",
       },
     ],
   },
@@ -167,6 +178,7 @@ const moreGroups: Array<{
         label: "Открытия (сводка)",
         icon: ClipboardCheck,
         roles: ["SUPERADMIN"],
+        permissionId: "report.store_openings",
       },
     ],
   },
@@ -183,9 +195,13 @@ export function BottomNavigation({
 
   const isMiniApp = isTelegramMiniApp();
   const { profile } = useProductProfile();
+  const { can } = useFeaturePermissions();
 
   const showInProfile = (i: { profiles?: ProductProfile[] }) =>
     !i.profiles || i.profiles.includes(profile);
+
+  const canItem = (i: { permissionId?: string }) =>
+    !i.permissionId || can(i.permissionId);
 
   const filteredMainNav = mainNav.filter(
     (i) => i.roles.includes(employeeRole) && showInProfile(i)
@@ -194,7 +210,7 @@ export function BottomNavigation({
     .map((group) => ({
       ...group,
       items: group.items.filter(
-        (i) => i.roles.includes(employeeRole) && showInProfile(i)
+        (i) => i.roles.includes(employeeRole) && showInProfile(i) && canItem(i)
       ),
     }))
     .filter((group) => group.items.length > 0);

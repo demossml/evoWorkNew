@@ -2,6 +2,7 @@ import { ErrorState } from "@shared/ui/states";
 import { ErrorBoundary } from "@shared/ui/states/ErrorBoundary";
 import { RegisterUserCard } from "@features/employees";
 import { useEmployeeRole } from "../hooks/useApi";
+import { useFeaturePermissions } from "../hooks/useFeaturePermissions";
 import { useProductProfile } from "../hooks/useProductProfile";
 import { useIsFetching, useQuery } from "@tanstack/react-query";
 import {
@@ -42,6 +43,7 @@ function getTodayRange(): DateFilterValue {
 
 export default function Home() {
   const { data, error, isPending } = useEmployeeRole();
+  const { can } = useFeaturePermissions();
   const { isUniversal } = useProductProfile();
   const miniApp = isTelegramMiniApp();
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getTodayRange);
@@ -111,36 +113,40 @@ export default function Home() {
         )}
 
         <ErrorBoundary variant="widget" name="Фокус">
-          <FocusCategoryWidget />
+          {can("home.focus") && <FocusCategoryWidget />}
         </ErrorBoundary>
         <div className="flex items-center gap-2">
           <DateFilter value={dateFilter} onChange={setDateFilter} />
           <ShareReportButton since={since} until={until} reportType="revenue" />
         </div>
-        {!isUniversal && (
+        {!isUniversal && can("home.plan") && (
           <ErrorBoundary variant="widget" name="План по магазинам">
             <PlanStatusWidget date={since} />
           </ErrorBoundary>
         )}
 
-        {isSuperAdmin && (
+        {can("home.sync_status") && (
           <ErrorBoundary variant="widget" name="Синхронизация">
             <SyncStatusWidget />
           </ErrorBoundary>
         )}
 
-        <ErrorBoundary variant="widget" name="Акционные товары">
-          <PromoEarningsWidget />
-        </ErrorBoundary>
+        {can("home.promo") && (
+          <ErrorBoundary variant="widget" name="Акционные товары">
+            <PromoEarningsWidget />
+          </ErrorBoundary>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
-          <div className={isExpanded("revenue") ? "col-span-2" : ""}>
-            <ErrorBoundary variant="widget" name="Выручка">
-              <RevenueWidget since={since} until={until} expanded={isExpanded("revenue")} onToggle={() => toggle("revenue")} />
-            </ErrorBoundary>
-          </div>
+          {can("home.revenue") && (
+            <div className={isExpanded("revenue") ? "col-span-2" : ""}>
+              <ErrorBoundary variant="widget" name="Выручка">
+                <RevenueWidget since={since} until={until} expanded={isExpanded("revenue")} onToggle={() => toggle("revenue")} />
+              </ErrorBoundary>
+            </div>
+          )}
 
-          {(isSuperAdmin || isAdmin) && (
+          {can("home.tempo") && (
             <div className={isExpanded("tempo") ? "col-span-2" : ""}>
               <ErrorBoundary variant="widget" name="Темп продаж">
                 <SalesTempoWidget since={since} until={until} expanded={isExpanded("tempo")} onToggle={() => toggle("tempo")} />
@@ -148,7 +154,7 @@ export default function Home() {
             </div>
           )}
 
-          {(isSuperAdmin || isAdmin) && (
+          {can("home.finance") && (
             <div className={isExpanded("finance") ? "col-span-2" : ""}>
               <ErrorBoundary variant="widget" name="Финансы">
                 <FinanceWidget since={since} until={until} expanded={isExpanded("finance")} onToggle={() => toggle("finance")} />
@@ -156,7 +162,7 @@ export default function Home() {
             </div>
           )}
 
-          {(isSuperAdmin || isAdmin) && (
+          {can("home.best_shop") && (
             <div className={isExpanded("best") ? "col-span-2" : ""}>
             <ErrorBoundary variant="widget" name="Эффективность">
                 <BestShopWidget since={since} until={until} dateMode={dateMode} expanded={isExpanded("best")} onToggle={() => toggle("best")} />
@@ -164,40 +170,42 @@ export default function Home() {
             </div>
           )}
 
-          <div className={isExpanded("products") ? "col-span-2" : ""}>
-            <ErrorBoundary variant="widget" name="Топ продуктов">
-              <TopProductWidget since={since} until={until} expanded={isExpanded("products")} onToggle={() => toggle("products")} />
-            </ErrorBoundary>
-          </div>
-
-          {isUniversal ? (
-            <div className={isExpanded("accessories") ? "col-span-2" : ""}>
-              <ErrorBoundary variant="widget" name="Высокомаржинальные товары">
-                <HighMarginProductsWidget since={since} until={until} expanded={isExpanded("accessories")} onToggle={() => toggle("accessories")} />
+          {can("home.top_products") && (
+            <div className={isExpanded("products") ? "col-span-2" : ""}>
+              <ErrorBoundary variant="widget" name="Топ продуктов">
+                <TopProductWidget since={since} until={until} expanded={isExpanded("products")} onToggle={() => toggle("products")} />
               </ErrorBoundary>
             </div>
-          ) : (
+          )}
+
+          {can(isUniversal ? "home.high_margin" : "home.accessories") && (
             <div className={isExpanded("accessories") ? "col-span-2" : ""}>
-              <ErrorBoundary variant="widget" name="Продажи">
-                <AccessoriesWidget since={since} until={until} expanded={isExpanded("accessories")} onToggle={() => toggle("accessories")} />
+              <ErrorBoundary variant="widget" name={isUniversal ? "Высокомаржинальные товары" : "Продажи"}>
+                {isUniversal ? (
+                  <HighMarginProductsWidget since={since} until={until} expanded={isExpanded("accessories")} onToggle={() => toggle("accessories")} />
+                ) : (
+                  <AccessoriesWidget since={since} until={until} expanded={isExpanded("accessories")} onToggle={() => toggle("accessories")} />
+                )}
               </ErrorBoundary>
             </div>
           )}
         </div>
 
-        {isSuperAdmin && (
+        {can("home.alerts") && (
           <ErrorBoundary variant="widget" name="Алерты">
             <TodayAlertsWidget />
           </ErrorBoundary>
         )}
-        {(isSuperAdmin || isAdmin) && (
+        {can("home.stock") && (
           <ErrorBoundary variant="widget" name="Состояние склада">
             <StockHealthWidget />
           </ErrorBoundary>
         )}
-        <ErrorBoundary variant="widget" name="Быстрые действия">
-          <QuickActionsWidget employeeRole={data.employeeRole} />
-        </ErrorBoundary>
+        {can("home.quick_actions") && (
+          <ErrorBoundary variant="widget" name="Быстрые действия">
+            <QuickActionsWidget employeeRole={data.employeeRole} />
+          </ErrorBoundary>
+        )}
         <LastUpdated />
         <SyncStatusLine />
       </div>
