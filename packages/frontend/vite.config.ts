@@ -159,6 +159,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": "http://localhost:3000",
+      "/reports": "http://localhost:3000",
     },
   },
   build: {

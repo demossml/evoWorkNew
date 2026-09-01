@@ -27,6 +27,15 @@
 		reverse_proxy 127.0.0.1:3000
 	}
 
+	# Shared HTML-отчёты → бэкенд (полный путь, без отрезания)
+	handle /reports/* {
+		reverse_proxy 127.0.0.1:3000 {
+			header_up Host {host}
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+
 	# Статика (SPA — всё на index.html)
 	handle {
 		root * /opt/evo-app/packages/frontend/dist

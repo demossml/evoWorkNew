@@ -5665,13 +5665,49 @@ ${storesList}
 				httpMetadata: { contentType: "text/html; charset=utf-8" },
 			});
 
-			const baseUrl = c.env.R2_PUBLIC_URL || `http://localhost:8787`;
-			const shareUrl = `${baseUrl}/${key}`;
+			// Ссылку строим от реального домена (Host), а не от R2_PUBLIC_URL,
+			// чтобы на проде получался https://gimolost2.ru/reports/<id>.html
+			const host = c.req.header("Host") || `localhost:${process.env.PORT || 3000}`;
+			const proto = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
+			const shareUrl = `${proto}://${host}/reports/${reportId}.html`;
 
 			return c.json({ shareUrl, reportId, expiresIn: "14 дней" });
 		} catch (err) {
 			console.error("[reports/share] error:", err);
 			return c.json({ error: String(err) }, 500);
+		}
+	})
+
+	// --- /reports/:key — публичная раздача сохранённого HTML-отчёта из R2 ---
+	.get("/reports/:key", async (c) => {
+		try {
+			const key = c.req.param("key");
+			if (!key || key.includes("/")) return c.text("Отчёт не найден", 404);
+			const object = await c.env.R2.get(`reports/${key}`);
+			if (!object) return c.text("Отчёт не найден или истёк", 404);
+
+			let data: Uint8Array;
+			if (typeof (object as any).arrayBuffer === "function") {
+				data = new Uint8Array(await (object as any).arrayBuffer());
+			} else {
+				// LocalR2Bucket: body — Node stream / ReadableStream
+				const chunks: Uint8Array[] = [];
+				const stream = (object as any).body as AsyncIterable<Uint8Array>;
+				for await (const chunk of stream) chunks.push(chunk);
+				const total = chunks.reduce((s, ch) => s + ch.length, 0);
+				data = new Uint8Array(total);
+				let off = 0;
+				for (const ch of chunks) { data.set(ch, off); off += ch.length; }
+			}
+			return new Response(data, {
+				headers: {
+					"Content-Type": "text/html; charset=utf-8",
+					"Cache-Control": "public, max-age=3600",
+				},
+			});
+		} catch (err) {
+			console.error("[reports/:key] error:", err);
+			return c.text("Ошибка загрузки отчёта", 500);
 		}
 	})
 
