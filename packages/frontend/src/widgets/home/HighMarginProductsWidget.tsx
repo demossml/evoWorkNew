@@ -61,11 +61,11 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
 
   const threshold = data?.threshold ?? 0;
 
-  // high: маржа строго выше порога; low: ≤ порога.
+  // high: маржа ≥ порога; low: < порога.
   const scopedItems = useMemo(() => {
     const all = data?.items ?? [];
     return all
-      .filter((i) => (scope === "high" ? i.margin_pct > threshold : i.margin_pct <= threshold))
+      .filter((i) => (scope === "high" ? i.margin_pct >= threshold : i.margin_pct < threshold))
       .sort((a, b) => b.sum - a.sum);
   }, [data, scope, threshold]);
 
@@ -74,7 +74,7 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
   const overallMargin = totalSum > 0 ? Math.round((totalProfit / totalSum) * 100) : 0;
 
   const title = scope === "high" ? "Высокомаржинальные товары" : "Низкомаржинальные товары";
-  const hint = scope === "high" ? `маржа > ${threshold}%` : `маржа ≤ ${threshold}%`;
+  const hint = scope === "high" ? `маржа ≥ ${threshold}%` : `маржа < ${threshold}%`;
 
   const toggle = (
     <div
@@ -158,7 +158,7 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
 
       {scopedItems.length === 0 ? (
         <div className="text-xs text-muted-foreground py-4 text-center">
-          Нет товаров с маржой {scope === "high" ? `выше ${threshold}%` : `не выше ${threshold}%`} за период
+          Нет товаров с маржой {scope === "high" ? `≥ ${threshold}%` : `< ${threshold}%`} за период
         </div>
       ) : (
         <div className="space-y-2">

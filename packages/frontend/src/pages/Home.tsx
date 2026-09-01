@@ -21,7 +21,6 @@ import { SalesTempoWidget } from "@widgets/home/SalesTempoWidget";
 import { FinanceWidget } from "@widgets/home/FinanceWidget";
 import { BestShopWidget } from "@widgets/home/BestShopWidget";
 import { TopProductWidget } from "@widgets/home/TopProductWidget";
-import { AccessoriesWidget } from "@widgets/home/AccessoriesWidget";
 import { HighMarginProductsWidget } from "@widgets/home/HighMarginProductsWidget";
 import { PromoEarningsWidget } from "@widgets/home/PromoEarningsWidget";
 import { FocusCategoryWidget } from "@widgets/home/FocusCategoryWidget";
@@ -180,12 +179,8 @@ export default function Home() {
 
           {can(isUniversal ? "home.high_margin" : "home.accessories") && (
             <div className={isExpanded("accessories") ? "col-span-2" : ""}>
-              <ErrorBoundary variant="widget" name={isUniversal ? "Высокомаржинальные товары" : "Продажи"}>
-                {isUniversal ? (
-                  <HighMarginProductsWidget since={since} until={until} expanded={isExpanded("accessories")} onToggle={() => toggle("accessories")} />
-                ) : (
-                  <AccessoriesWidget since={since} until={until} expanded={isExpanded("accessories")} onToggle={() => toggle("accessories")} />
-                )}
+              <ErrorBoundary variant="widget" name="Высокомаржинальные товары">
+                <HighMarginProductsWidget since={since} until={until} expanded={isExpanded("accessories")} onToggle={() => toggle("accessories")} />
               </ErrorBoundary>
             </div>
           )}

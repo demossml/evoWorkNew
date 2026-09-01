@@ -1463,7 +1463,7 @@ export default function SettingsNew() {
             title="Аксессуар-группы"
             icon={<Package className="w-5 h-5" />}
             borderColor="border-l-4 border-l-violet-500"
-            description="Товары этих групп считаются аксессуарами. Участвуют в расчёте бонуса с аксессуаров."
+            description="Товары этих групп считаются аксессуарами. Используются ТОЛЬКО для расчёта зарплаты/бонуса — не для отчёта маржи на главной."
             loadSelected={async () => {
               const res = await fetch("/api/evotor/settings-config", {
                 headers: getAuthHeaders(),
