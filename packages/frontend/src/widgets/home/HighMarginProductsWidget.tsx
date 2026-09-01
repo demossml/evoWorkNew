@@ -17,6 +17,7 @@ interface HighMarginItem {
 
 interface HighMarginResponse {
   threshold: number;
+  shopOptions?: Record<string, string>;
   items: HighMarginItem[];
 }
 
@@ -37,6 +38,7 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
   const [data, setData] = useState<HighMarginResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<MarginScope>("high");
+  const [shopId, setShopId] = useState<string>("all");
   const { data: roleData } = useEmployeeRole();
   const canSeeProfitValue = canSeeProfit(roleData?.employeeRole);
 
@@ -45,6 +47,7 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
     const load = async () => {
       try {
         const qs = new URLSearchParams({ since, until, scope: "all" });
+        if (shopId !== "all") qs.set("shopUuid", shopId);
         const res = await fetch(`/api/evotor/high-margin-products?${qs}`, {
           headers: getAuthHeaders(),
         });
@@ -61,7 +64,7 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
     return () => {
       cancelled = true;
     };
-  }, [since, until]);
+  }, [since, until, shopId]);
 
   const threshold = data?.threshold ?? 0;
 
@@ -144,6 +147,17 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
         </div>
         {toggle}
       </div>
+
+      <select
+        value={shopId}
+        onChange={(e) => setShopId(e.target.value)}
+        className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+      >
+        <option value="all">Все магазины</option>
+        {Object.entries(data?.shopOptions ?? {}).map(([id, name]) => (
+          <option key={id} value={id}>{name}</option>
+        ))}
+      </select>
 
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-xl bg-muted p-2.5 text-center">

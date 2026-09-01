@@ -1753,11 +1753,25 @@ export const api = new Hono<IEnv>()
 			const until = untilParam.length <= 10 ? untilParam + "T23:59:59" : untilParam;
 
 			const tenantId = c.get("tenantId") || "default";
-			const shopUuids = await getTenantShopUuids(db, tenantId);
 			const scope = c.req.query("scope") || "high"; // high | low | all
+			const shopUuidParam = c.req.query("shopUuid") || "all";
+			const allShopUuids = await getTenantShopUuids(db, tenantId);
+			// Конкретный магазин, если выбран; иначе все магазины тенанта
+			const shopUuids =
+				shopUuidParam !== "all" && allShopUuids.includes(shopUuidParam)
+					? [shopUuidParam]
+					: allShopUuids;
 
 			const { getNumberSetting } = await import("./services/settingsService.js");
 			const threshold = await getNumberSetting(db, "high_margin_threshold", 40, tenantId);
+
+			// Список магазинов тенанта для селектора выбора торговой точки
+			const shopRows = await db
+				.prepare("SELECT uuid, name FROM shops WHERE tenant_id = ? ORDER BY name")
+				.bind(tenantId)
+				.all<{ uuid: string; name: string }>();
+			const shopOptions: Record<string, string> = {};
+			for (const row of shopRows.results ?? []) shopOptions[row.uuid] = row.name;
 
 			// Агрегируем ВСЕ товары по имени (не ограничиваемся топ-200 по выручке),
 			// затем фильтруем по порогу на сервере. Один товар из разных магазинов
@@ -1784,7 +1798,7 @@ export const api = new Hono<IEnv>()
 				.sort((a, b) => b.sum - a.sum)
 				.slice(0, scope === "all" ? 500 : 100);
 
-			return c.json({ since: since.slice(0, 10), until: until.slice(0, 10), threshold, items });
+			return c.json({ since: since.slice(0, 10), until: until.slice(0, 10), threshold, shopOptions, items });
 		} catch (err) {
 			console.error("[high-margin-products] error:", err);
 			return c.json({ error: String(err) }, 500);
