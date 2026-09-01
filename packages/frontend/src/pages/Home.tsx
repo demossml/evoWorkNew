@@ -110,11 +110,9 @@ export default function Home() {
           </p>
         )}
 
-        {isUniversal && (
-          <ErrorBoundary variant="widget" name="Фокус">
-            <FocusCategoryWidget />
-          </ErrorBoundary>
-        )}
+        <ErrorBoundary variant="widget" name="Фокус">
+          <FocusCategoryWidget />
+        </ErrorBoundary>
         <div className="flex items-center gap-2">
           <DateFilter value={dateFilter} onChange={setDateFilter} />
           <ShareReportButton since={since} until={until} reportType="revenue" />

@@ -1,13 +1,12 @@
 /**
- * FocusCategoryWidget — компактная карточка «Фокус» для режима universal.
+ * FocusCategoryWidget — компактная карточка «Фокус».
  * Показывает выбранные группы товаров и их долю в выручке за сегодня.
- * В vape не рендерится (аксессуарные KPI остаются на своих местах).
+ * Скрывается сам, если focus-группы не выбраны.
  */
 
 import { useQuery } from "@tanstack/react-query";
 import { Crosshair } from "lucide-react";
 import { getAuthHeaders } from "@shared/api";
-import { useProductProfile } from "@/hooks/useProductProfile";
 
 type FocusSales = {
   groups: Array<{ uuid: string; name: string }>;
@@ -21,8 +20,6 @@ function formatRub(n: number): string {
 }
 
 export function FocusCategoryWidget() {
-  const { isUniversal } = useProductProfile();
-
   const { data, isLoading } = useQuery<FocusSales>({
     queryKey: ["focus-category-sales"],
     queryFn: async () => {
@@ -39,10 +36,8 @@ export function FocusCategoryWidget() {
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     retry: false,
-    enabled: isUniversal,
   });
 
-  if (!isUniversal) return null;
   if (isLoading) return null;
 
   const groups = data?.groups ?? [];

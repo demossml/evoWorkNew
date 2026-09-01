@@ -1494,13 +1494,13 @@ export default function SettingsNew() {
         {/* Режим приложения (только SUPERADMIN) */}
         {!isLoading && !error && <ProductProfileCard />}
 
-        {/* Фокус-категория (универсальный KPI) */}
+        {/* Фокус-категория (доступна в vape и universal) */}
         {!isLoading && !error && (
           <GroupPickerCard
             title="Фокус-категория"
             icon={<Crosshair className="w-5 h-5" />}
             borderColor="border-l-4 border-l-slate-400"
-            description="Группы товаров для отдельного контроля (любой бизнес). В универсальном режиме показываются на главной."
+            description="Группы товаров для отдельного контроля (любой бизнес). Показываются на главной, если выбраны."
             loadSelected={async () => {
               const res = await fetch("/api/tenant/focus-category", { headers: getAuthHeaders() });
               if (!res.ok) return [];
