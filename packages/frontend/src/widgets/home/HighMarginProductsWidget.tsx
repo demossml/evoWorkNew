@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { TrendingUp, Package } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { getAuthHeaders } from "@shared/api";
 import { SkeletonCard } from "./widgetUtils";
 
@@ -18,6 +18,8 @@ interface HighMarginResponse {
   items: HighMarginItem[];
 }
 
+type MarginScope = "high" | "low";
+
 interface Props {
   since: string;
   until: string;
@@ -32,6 +34,7 @@ function fmtRub(n: number): string {
 export function HighMarginProductsWidget({ since, until, expanded, onToggle }: Props) {
   const [data, setData] = useState<HighMarginResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [scope, setScope] = useState<MarginScope>("high");
 
   useEffect(() => {
     let cancelled = false;
@@ -56,14 +59,42 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
     };
   }, [since, until]);
 
-  const items = useMemo(
-    () => [...(data?.items ?? [])].sort((a, b) => b.sum - a.sum),
-    [data],
-  );
+  const threshold = data?.threshold ?? 0;
 
-  const totalSum = useMemo(() => items.reduce((s, i) => s + i.sum, 0), [items]);
-  const totalProfit = useMemo(() => items.reduce((s, i) => s + i.profit, 0), [items]);
+  // high: маржа строго выше порога; low: ≤ порога.
+  const scopedItems = useMemo(() => {
+    const all = data?.items ?? [];
+    return all
+      .filter((i) => (scope === "high" ? i.margin_pct > threshold : i.margin_pct <= threshold))
+      .sort((a, b) => b.sum - a.sum);
+  }, [data, scope, threshold]);
+
+  const totalSum = useMemo(() => scopedItems.reduce((s, i) => s + i.sum, 0), [scopedItems]);
+  const totalProfit = useMemo(() => scopedItems.reduce((s, i) => s + i.profit, 0), [scopedItems]);
   const overallMargin = totalSum > 0 ? Math.round((totalProfit / totalSum) * 100) : 0;
+
+  const title = scope === "high" ? "Высокомаржинальные товары" : "Низкомаржинальные товары";
+  const hint = scope === "high" ? `маржа > ${threshold}%` : `маржа ≤ ${threshold}%`;
+
+  const toggle = (
+    <div
+      className="inline-flex rounded-md border border-border p-0.5 text-[10px]"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        className={`rounded px-2 py-0.5 ${scope === "high" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+        onClick={() => setScope("high")}
+      >
+        Высокая маржа
+      </button>
+      <button
+        className={`rounded px-2 py-0.5 ${scope === "low" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+        onClick={() => setScope("low")}
+      >
+        Низкая маржа
+      </button>
+    </div>
+  );
 
   if (loading) return <SkeletonCard tone="emerald" />;
 
@@ -72,27 +103,26 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
       whileHover={{ scale: 1.02, y: -1 }}
       whileTap={{ scale: 0.98 }}
       className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full"
-      style={{ backgroundColor: "hsl(var(--chart-4))" }}
+      style={{ backgroundColor: scope === "high" ? "hsl(var(--chart-4))" : "hsl(var(--chart-5))" }}
     >
       <div className="relative p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <TrendingUp className="w-5 h-5 opacity-80 shrink-0" />
-            <span className="text-xs font-medium opacity-90 truncate">Высокомаржинальные товары</span>
+            <span className="text-xs font-medium opacity-90 truncate">{title}</span>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0 ml-1">
-            <span className="text-[9px] opacity-50">от {data?.threshold ?? 0}%</span>
-          </div>
+          <span className="text-[9px] opacity-50 shrink-0 ml-1">{hint}</span>
         </div>
-        <div className="flex items-end justify-between gap-1.5">
+        <div className="flex items-end justify-between gap-1.5 mb-2">
           <div className="min-w-0 flex-1">
             <div className="text-lg font-bold truncate leading-tight">{fmtRub(totalSum)} ₽</div>
             <div className="text-xs opacity-90 mt-1 truncate flex items-center gap-2">
-              <span>{items.length} поз.</span>
+              <span>{scopedItems.length} поз.</span>
               <span className="opacity-80">· маржа {overallMargin}%</span>
             </div>
           </div>
         </div>
+        {toggle}
       </div>
     </motion.div>
   );
@@ -103,23 +133,21 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
       animate={{ opacity: 1, y: 0 }}
       className="bg-card rounded-xl border border-border p-4 space-y-3 max-h-[55vh] overflow-y-auto"
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-chart-4" />
-          <h3 className="text-sm font-bold text-foreground">Высокомаржинальные товары</h3>
+          <h3 className="text-sm font-bold text-foreground">{title}</h3>
         </div>
-        <span className="text-[10px] text-muted-foreground">
-          маржа &gt; {data?.threshold ?? 0}%
-        </span>
+        {toggle}
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-xl bg-chart-4/10 p-2.5 text-center">
+        <div className="rounded-xl bg-muted p-2.5 text-center">
           <div className="text-sm font-bold text-foreground">{fmtRub(totalSum)}</div>
           <div className="text-[10px] text-muted-foreground">Выручка</div>
         </div>
         <div className="rounded-xl bg-muted p-2.5 text-center">
-          <div className="text-sm font-bold text-foreground">{items.length}</div>
+          <div className="text-sm font-bold text-foreground">{scopedItems.length}</div>
           <div className="text-[10px] text-muted-foreground">Позиций</div>
         </div>
         <div className="rounded-xl bg-muted p-2.5 text-center">
@@ -128,15 +156,16 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
         </div>
       </div>
 
-      {items.length === 0 ? (
+      {scopedItems.length === 0 ? (
         <div className="text-xs text-muted-foreground py-4 text-center">
-          Нет товаров с маржой выше {data?.threshold ?? 0}% за период
+          Нет товаров с маржой {scope === "high" ? `выше ${threshold}%` : `не выше ${threshold}%`} за период
         </div>
       ) : (
         <div className="space-y-2">
-          {items.map((item, idx) => {
-            const maxSum = items[0]?.sum || 1;
+          {scopedItems.map((item, idx) => {
+            const maxSum = scopedItems[0]?.sum || 1;
             const barW = (item.sum / maxSum) * 100;
+            const marginColor = item.margin_pct > threshold ? "text-emerald-500" : "text-amber-500";
             return (
               <div key={`${item.name}-${idx}`} className="pb-2 border-b border-border last:border-b-0">
                 <div className="flex items-start justify-between gap-2">
@@ -156,9 +185,9 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
                     style={{ backgroundColor: "hsl(var(--chart-4))", opacity: 0.4 }}
                   />
                 </div>
-                <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-1">
+                <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-1 flex-wrap">
                   <span className="text-foreground font-medium">{item.quantity} шт</span>
-                  <span className="font-semibold text-emerald-500 tabular-nums">
+                  <span className={`font-semibold tabular-nums ${marginColor}`}>
                     маржа {item.margin_pct.toFixed(1)}%
                   </span>
                   <span className="text-foreground/70 tabular-nums">приб. {fmtRub(item.profit)} ₽</span>

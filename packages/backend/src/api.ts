@@ -1750,10 +1750,10 @@ export const api = new Hono<IEnv>()
 			const { getNumberSetting } = await import("./services/settingsService.js");
 			const threshold = await getNumberSetting(db, "high_margin_threshold", 40, tenantId);
 
-			// Берём топ-200 по выручке, фильтруем по марже выше порога.
+			// Берём топ-200 по выручке; фильтруем на клиенте по порогу (high/low).
 			const top = await getTopProductsFromD1(db, since, until, 200, shopUuids);
 			const items = top
-				.filter((p) => p.marginPct > threshold && p.netRevenue > 0)
+				.filter((p) => p.netRevenue > 0)
 				.map((p) => ({
 					name: p.productName,
 					sum: p.netRevenue,
