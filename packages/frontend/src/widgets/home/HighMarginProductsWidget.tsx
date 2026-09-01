@@ -140,24 +140,25 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
       animate={{ opacity: 1, y: 0 }}
       className="bg-card rounded-xl border border-border p-4 space-y-3 max-h-[55vh] overflow-y-auto"
     >
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-chart-4" />
-          <h3 className="text-sm font-bold text-foreground">{title}</h3>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <TrendingUp className="w-4 h-4 text-chart-4 shrink-0" />
+          <h3 className="text-sm font-bold text-foreground truncate">{title}</h3>
         </div>
-        {toggle}
+        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+          {toggle}
+          <select
+            value={shopId}
+            onChange={(e) => setShopId(e.target.value)}
+            className="h-7 max-w-[104px] truncate rounded-md border border-border bg-card px-1.5 text-[11px] text-foreground"
+          >
+            <option value="all">Все магазины</option>
+            {Object.entries(data?.shopOptions ?? {}).map(([id, name]) => (
+              <option key={id} value={id}>{name}</option>
+            ))}
+          </select>
+        </div>
       </div>
-
-      <select
-        value={shopId}
-        onChange={(e) => setShopId(e.target.value)}
-        className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
-      >
-        <option value="all">Все магазины</option>
-        {Object.entries(data?.shopOptions ?? {}).map(([id, name]) => (
-          <option key={id} value={id}>{name}</option>
-        ))}
-      </select>
 
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-xl bg-muted p-2.5 text-center">
