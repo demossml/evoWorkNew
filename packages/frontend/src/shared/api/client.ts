@@ -53,9 +53,6 @@ export function getAuthHeaders(): Record<string, string> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const client = hc<any>("", {
   fetch: (input: RequestInfo | URL, init?: RequestInit) => {
-    const DEFAULT_TIMEOUT_MS = 15000;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
     const traceId = createTraceId();
 
     // Свежие auth-заголовки на КАЖДЫЙ запрос:
@@ -85,6 +82,13 @@ export const client = hc<any>("", {
       endpoint.includes("/api/evotor/financial") ||
       endpoint.includes("/api/evotor/sales-report") ||
       endpoint.includes("/api/stores/openings-report");
+
+    // Тяжёлые отчёты — увеличенный лимит (60с), остальное — 15с
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      isReportEndpoint ? 60_000 : 15_000,
+    );
 
     if (init?.signal) {
       init.signal.addEventListener("abort", () => controller.abort());

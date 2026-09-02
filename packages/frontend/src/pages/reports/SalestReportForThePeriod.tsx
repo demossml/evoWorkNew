@@ -87,18 +87,23 @@ export default function SalesSummaryReport() {
     setError(null);
     setReportData(null);
     try {
-      const response = await client.api.evotor.salesGardenReport.$post({
+      const response = await (client.api.evotor as any)["sales-garden-report"].$post({
         json: { startDate, endDate },
       });
 
       if (!response.ok) {
-        throw new Error(`Ошибка: ${response.status}`);
+        const errData = await response.json().catch(() => null);
+        throw new Error(
+          (errData as any)?.error ||
+            (errData as any)?.message ||
+            `Ошибка: ${response.status}`
+        );
       }
       const report: ReportData = await response.json();
       setReportData(report);
     } catch (err) {
       console.error(err);
-      setError("Не удалось получить отчёт");
+      setError((err as Error)?.message || "Не удалось получить отчёт");
     } finally {
       setLoading(false);
     }
@@ -244,8 +249,8 @@ export default function SalesSummaryReport() {
             </p>
             <ReportKPIBar items={[
               { label: "Продажи", value: formatMoney(reportData.grandTotalSell || 0) },
-              { label: "Возвраты", value: formatMoney(reportData.grandTotaRefund || 0) },
-              { label: "Выплаты", value: formatMoney(reportData.grandTotaCashOutcome || 0) },
+              { label: "Возвраты", value: formatMoney(reportData.grandTotalRefund || 0) },
+              { label: "Выплаты", value: formatMoney(reportData.grandTotalCashOutcome || 0) },
               { label: "Нетто", value: formatMoney(analytics.netTotal), emphasis: "primary" },
             ]} />
 
@@ -272,6 +277,12 @@ export default function SalesSummaryReport() {
               Сформировать новый отчёт
             </button>
           </div>
+
+          {analytics.shops.length === 0 && (
+            <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-900/45 p-4 text-center text-sm text-gray-500">
+              Нет данных за период
+            </div>
+          )}
 
           <div className="space-y-3">
             {analytics.shops.map((shop) => (

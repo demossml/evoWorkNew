@@ -2441,6 +2441,24 @@ export const api = new Hono<IEnv>()
 			const tenantId = c.get("tenantId") || "default";
 			const shopUuids = await getTenantShopUuids(db, tenantId);
 
+			// Пустой tenant → 200 с нулями, а не 400
+			if (shopUuids.length === 0) {
+				return c.json({
+					salesDataByShopName: {},
+					grandTotalSell: 0,
+					grandTotalRefund: 0,
+					grandTotalCashOutcome: 0,
+					dailySell: {},
+					startDate,
+					endDate,
+					cashOutcomeData: {},
+					cashBalanceByShop: {},
+					totalCashBalance: 0,
+					topProducts: [],
+					salesByGroup: { vape: 0, accessory: 0, other: 0 },
+				});
+			}
+
 			const sincetDate = new Date(startDate); // Преобразуем в объект Date
 			const untilDate = new Date(endDate); // Преобразуем в объект Date
 
@@ -2451,7 +2469,7 @@ export const api = new Hono<IEnv>()
 			// 	(uuid: string) => uuid !== "20231001-6611-407F-8068-AC44283C9196",
 			// );
 
-			const { salesDataByShopName, grandTotalSell, grandTotaRefund, dailySell } =
+			const { salesDataByShopName, grandTotalSell, grandTotalRefund, dailySell } =
 				await getSalesgardenReportData(db, shopUuids, since, until);
 
 			const cashOutcomeData = await getDocumentsByCashOutcomeData(
@@ -2511,7 +2529,7 @@ export const api = new Hono<IEnv>()
 			return c.json({
 				salesDataByShopName,
 				grandTotalSell,
-				grandTotalRefund: grandTotaRefund,
+				grandTotalRefund,
 				grandTotalCashOutcome,
 				dailySell,
 				startDate,
@@ -2523,8 +2541,8 @@ export const api = new Hono<IEnv>()
 				salesByGroup,
 			});
 		} catch (error) {
-			console.error("Ошибка при разборе JSON:", error);
-			return c.json({ message: "Ошибка обработки данных" }, 400);
+			console.error("[sales-garden-report] error:", error);
+			return c.json({ error: error instanceof Error ? error.message : String(error) }, 500);
 		}
 	})
 
