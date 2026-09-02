@@ -109,10 +109,10 @@ export function BestShopWidget({ since, until, dateMode: _dm, expanded, onToggle
     <motion.div
       whileHover={{ scale: 1.02, y: -1 }}
       whileTap={{ scale: 0.98 }}
-      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full"
+      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full h-full min-h-[132px] flex flex-col justify-between"
       style={{ backgroundColor: "hsl(var(--chart-2))" }}
     >
-      <div className="relative p-4">
+      <div className="relative p-4 flex-1 flex flex-col justify-between">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <Award className="w-5 h-5 opacity-80 shrink-0" />
@@ -308,8 +308,8 @@ export function BestShopWidget({ since, until, dateMode: _dm, expanded, onToggle
   );
 
   return (
-    <div>
-      <div onClick={onToggle}>{card}</div>
+    <div className="h-full">
+      <div onClick={onToggle} className="h-full">{card}</div>
       <AnimatePresence>{expanded && detail}</AnimatePresence>
     </div>
   );

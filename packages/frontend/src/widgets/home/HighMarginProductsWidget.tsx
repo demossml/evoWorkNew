@@ -109,10 +109,10 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
     <motion.div
       whileHover={{ scale: 1.02, y: -1 }}
       whileTap={{ scale: 0.98 }}
-      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full"
+      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full h-full min-h-[132px] flex flex-col justify-between"
       style={{ backgroundColor: scope === "high" ? "hsl(var(--chart-4))" : "hsl(var(--chart-5))" }}
     >
-      <div className="relative p-4">
+      <div className="relative p-4 flex-1 flex flex-col justify-between">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <TrendingUp className="w-5 h-5 opacity-80 shrink-0" />
@@ -120,7 +120,7 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
           </div>
           <span className="text-[9px] opacity-50 shrink-0 ml-1">{hint}</span>
         </div>
-        <div className="flex items-end justify-between gap-1.5 mb-2">
+        <div className="flex items-end justify-between gap-1.5">
           <div className="min-w-0 flex-1">
             <div className="text-lg font-bold truncate leading-tight">{fmtRub(totalSum)} ₽</div>
             <div className="text-xs opacity-90 mt-1 truncate flex items-center gap-2">
@@ -129,7 +129,6 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
             </div>
           </div>
         </div>
-        {toggle}
       </div>
     </motion.div>
   );
@@ -138,7 +137,7 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
     <motion.div
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-card rounded-xl border border-border p-4 space-y-3 max-h-[55vh] overflow-y-auto"
+      className="bg-card rounded-xl border border-border p-4 space-y-3"
     >
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
@@ -160,19 +159,10 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-xl bg-muted p-2.5 text-center">
-          <div className="text-sm font-bold text-foreground">{fmtRub(totalSum)}</div>
-          <div className="text-[10px] text-muted-foreground">Выручка</div>
-        </div>
-        <div className="rounded-xl bg-muted p-2.5 text-center">
-          <div className="text-sm font-bold text-foreground">{scopedItems.length}</div>
-          <div className="text-[10px] text-muted-foreground">Позиций</div>
-        </div>
-        <div className="rounded-xl bg-muted p-2.5 text-center">
-          <div className="text-sm font-bold text-emerald-500">{overallMargin}%</div>
-          <div className="text-[10px] text-muted-foreground">Маржа</div>
-        </div>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="text-sm font-bold text-foreground">{fmtRub(totalSum)} ₽</span>
+        <span>· {scopedItems.length} поз.</span>
+        <span>· маржа {overallMargin}%</span>
       </div>
 
       {scopedItems.length === 0 ? (
@@ -180,22 +170,22 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
           Нет товаров с маржой {scope === "high" ? `≥ ${threshold}%` : `< ${threshold}%`} за период
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1 max-h-[50vh] overflow-y-auto">
           {scopedItems.map((item, idx) => {
             const maxSum = scopedItems[0]?.sum || 1;
             const barW = (item.sum / maxSum) * 100;
             const marginColor = item.margin_pct > threshold ? "text-emerald-500" : "text-amber-500";
             return (
-              <div key={`${item.name}-${idx}`} className="pb-2 border-b border-border last:border-b-0">
+              <div key={`${item.name}-${idx}`} className="py-1.5 border-b border-border last:border-b-0">
                 <div className="flex items-start justify-between gap-2">
-                  <span className="text-sm text-foreground leading-snug break-words min-w-0">
+                  <span className="text-sm text-foreground leading-snug break-words min-w-0 line-clamp-2">
                     {item.name}
                   </span>
                   <span className="text-foreground tabular-nums ml-2 text-xs font-semibold shrink-0">
                     {fmtRub(item.sum)} ₽
                   </span>
                 </div>
-                <div className="h-3.5 rounded-full overflow-hidden flex bg-muted/50 mt-1">
+                <div className="h-1.5 rounded-full overflow-hidden flex bg-muted/50 mt-1">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${Math.min(barW, 100)}%` }}
@@ -204,7 +194,7 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
                     style={{ backgroundColor: "hsl(var(--chart-4))", opacity: 0.4 }}
                   />
                 </div>
-                <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-1 flex-wrap">
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
                   <span className="text-foreground font-medium">{item.quantity} шт</span>
                   <span className={`font-semibold tabular-nums ${marginColor}`}>
                     маржа {item.margin_pct.toFixed(1)}%
@@ -222,8 +212,8 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
   );
 
   return (
-    <div>
-      <div onClick={onToggle}>{card}</div>
+    <div className="h-full">
+      <div onClick={onToggle} className="h-full">{card}</div>
       <AnimatePresence>{expanded && detail}</AnimatePresence>
     </div>
   );

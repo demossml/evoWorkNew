@@ -51,10 +51,10 @@ export function TopProductWidget({ since, until, expanded, onToggle }: Props) {
     <motion.div
       whileHover={{ scale: 1.02, y: -1 }}
       whileTap={{ scale: 0.98 }}
-      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full"
+      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full h-full min-h-[132px] flex flex-col justify-between"
       style={{ backgroundColor: "hsl(var(--chart-5))" }}
     >
-      <div className="relative p-4">
+      <div className="relative p-4 flex-1 flex flex-col justify-between">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <Package className="w-5 h-5 opacity-80 shrink-0" />
@@ -66,13 +66,14 @@ export function TopProductWidget({ since, until, expanded, onToggle }: Props) {
         </div>
         <div className="flex items-end justify-between gap-1.5">
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold truncate leading-tight" title={top1.productName}>
+            <div className="text-lg font-bold truncate leading-tight" title={top1.productName}>
               {top1.productName}
             </div>
-            <div className="text-lg font-bold mt-0.5">{formatRub(top1.netRevenue)} ₽</div>
-            <div className="text-xs opacity-80 mt-0.5 flex items-center gap-2">
-              <span>{top1.netQuantity} шт</span>
-              {canSeeProfitValue && <span>· маржа {top1.marginPct.toFixed(0)}%</span>}
+            <div className="text-sm opacity-90 mt-1 truncate flex items-center gap-2">
+              <span>{formatRub(top1.netRevenue)} ₽</span>
+              <span className="text-[10px] opacity-75">
+                {top1.netQuantity} шт{canSeeProfitValue ? ` · ${top1.marginPct.toFixed(0)}%` : ""}
+              </span>
             </div>
           </div>
           {top1.dailyNetRevenue7?.length >= 2 && (
@@ -164,8 +165,8 @@ export function TopProductWidget({ since, until, expanded, onToggle }: Props) {
   );
 
   return (
-    <div>
-      <div onClick={onToggle}>{card}</div>
+    <div className="h-full">
+      <div onClick={onToggle} className="h-full">{card}</div>
       <AnimatePresence>{expanded && detail}</AnimatePresence>
     </div>
   );

@@ -123,7 +123,7 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
     <motion.div
       whileHover={{ scale: 1.02, y: -1 }}
       whileTap={{ scale: 0.98 }}
-      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full"
+      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full h-full min-h-[132px] flex flex-col justify-between"
     >
       <div className="absolute inset-0 flex rounded-xl overflow-hidden">
         <div className="h-full flex items-end justify-center pb-1.5 transition-all duration-500"
@@ -140,7 +140,7 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
         <div className="absolute top-0 left-0 right-0 h-[3px] z-10 rounded-t-xl"
           style={{ backgroundColor: marginColor(overallMarginPct) }} />
       )}
-      <div className="relative p-4">
+      <div className="relative p-4 flex-1 flex flex-col justify-between">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <DollarSign className="w-5 h-5 opacity-80 shrink-0" />

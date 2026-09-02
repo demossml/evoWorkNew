@@ -141,7 +141,7 @@ export default function Home() {
 
         <div className="grid grid-cols-2 gap-4">
           {can("home.revenue") && (
-            <div className={isExpanded("revenue") ? "col-span-2" : ""}>
+            <div className={isExpanded("revenue") ? "col-span-2" : "h-full"}>
               <ErrorBoundary variant="widget" name="Выручка">
                 <RevenueWidget since={since} until={until} expanded={isExpanded("revenue")} onToggle={() => toggle("revenue")} />
               </ErrorBoundary>
@@ -149,7 +149,7 @@ export default function Home() {
           )}
 
           {can("home.tempo") && (
-            <div className={isExpanded("tempo") ? "col-span-2" : ""}>
+            <div className={isExpanded("tempo") ? "col-span-2" : "h-full"}>
               <ErrorBoundary variant="widget" name="Темп продаж">
                 <SalesTempoWidget since={since} until={until} expanded={isExpanded("tempo")} onToggle={() => toggle("tempo")} />
               </ErrorBoundary>
@@ -157,7 +157,7 @@ export default function Home() {
           )}
 
           {can("home.finance") && (
-            <div className={isExpanded("finance") ? "col-span-2" : ""}>
+            <div className={isExpanded("finance") ? "col-span-2" : "h-full"}>
               <ErrorBoundary variant="widget" name="Финансы">
                 <FinanceWidget since={since} until={until} expanded={isExpanded("finance")} onToggle={() => toggle("finance")} />
               </ErrorBoundary>
@@ -165,7 +165,7 @@ export default function Home() {
           )}
 
           {can("home.best_shop") && (
-            <div className={isExpanded("best") ? "col-span-2" : ""}>
+            <div className={isExpanded("best") ? "col-span-2" : "h-full"}>
             <ErrorBoundary variant="widget" name="Эффективность">
                 <BestShopWidget since={since} until={until} dateMode={dateMode} expanded={isExpanded("best")} onToggle={() => toggle("best")} />
               </ErrorBoundary>
@@ -173,7 +173,7 @@ export default function Home() {
           )}
 
           {can("home.top_products") && (
-            <div className={isExpanded("products") ? "col-span-2" : ""}>
+            <div className={isExpanded("products") ? "col-span-2" : "h-full"}>
               <ErrorBoundary variant="widget" name="Топ продуктов">
                 <TopProductWidget since={since} until={until} expanded={isExpanded("products")} onToggle={() => toggle("products")} />
               </ErrorBoundary>
@@ -181,7 +181,7 @@ export default function Home() {
           )}
 
           {can(isUniversal ? "home.high_margin" : "home.accessories") && (
-            <div className={isExpanded("accessories") ? "col-span-2" : ""}>
+            <div className={isExpanded("accessories") ? "col-span-2" : "h-full"}>
               <ErrorBoundary variant="widget" name="Высокомаржинальные товары">
                 <HighMarginProductsWidget since={since} until={until} expanded={isExpanded("accessories")} onToggle={() => toggle("accessories")} />
               </ErrorBoundary>
