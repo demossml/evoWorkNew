@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { HelpButton } from "@shared/help/HelpSheet";
 
 import { Card, CardContent, CardHeader, CardTitle, Button, ReportShareButton } from "@shared/ui";
 import { Label } from "../../components/ui/label";
@@ -191,9 +192,12 @@ export default function SalaryReport() {
         paddingBottom: "calc(var(--app-bottom-clearance) + 0.5rem)",
       }}
     >
-      <h2 className="text-xl sm:text-2xl font-semibold text-center mb-2">
-        💰 Отчёт по зарплате
-      </h2>
+      <div className="flex items-center justify-center gap-2">
+        <h2 className="text-xl sm:text-2xl font-semibold text-center mb-2">
+          💰 Отчёт по зарплате
+        </h2>
+        <HelpButton helpId="salary-report" className="mb-2" />
+      </div>
       <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 text-center">
         Выберите период и получите детализацию начислений
       </p>

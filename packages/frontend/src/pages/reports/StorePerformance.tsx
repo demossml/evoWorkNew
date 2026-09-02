@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { HelpButton } from "@shared/help/HelpSheet";
 import {
   ChevronDown, ChevronUp, TrendingUp, TrendingDown,
   AlertTriangle, BarChart3, DollarSign, Store,
@@ -88,7 +89,10 @@ export default function StorePerformancePage({ embedded, period: externalPeriod 
       <>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-bold">Глубокий анализ торговых точек</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-lg font-bold">Глубокий анализ торговых точек</h1>
+          <HelpButton helpId="store-analysis" />
+        </div>
         <ReportShareButton targetRef={reportRef} filename="store-performance" />
       </div>
 

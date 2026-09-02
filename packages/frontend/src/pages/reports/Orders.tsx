@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { DateRange } from "react-day-picker";
 import { motion } from "framer-motion";
+import { HelpButton } from "@shared/help/HelpSheet";
 import { useMe } from "../../hooks/useApi";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { Calendar, Popover, PopoverContent, PopoverTrigger } from "../../components/ui";
@@ -287,9 +288,12 @@ export default function Orders() {
       }}
     >
       <div className="text-center">
-        <h1 className="text-xl font-bold tracking-tight text-slate-900">
-          Прогноз закупки
-        </h1>
+        <div className="flex items-center justify-center gap-2">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+            Прогноз закупки
+          </h1>
+          <HelpButton helpId="orders-forecast" />
+        </div>
         <p className="mt-0.5 text-[13px] text-slate-400">
           Выберите период, магазины и группы
         </p>

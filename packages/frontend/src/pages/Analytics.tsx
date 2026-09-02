@@ -4,6 +4,7 @@ import { ArrowLeft, Users, Boxes, Store } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import SellerPerformancePage from "./SellerPerformance";
 import ProductPerformancePage from "./reports/ProductPerformance";
+import { HelpButton } from "@shared/help/HelpSheet";
 import StorePerformancePage from "./reports/StorePerformance";
 
 const TABS = [
@@ -37,6 +38,7 @@ export default function Analytics() {
               <ArrowLeft className="w-5 h-5 text-muted-foreground" />
             </button>
             <h1 className="text-sm font-bold text-foreground">Аналитика</h1>
+            <HelpButton helpId="analytics" className="ml-auto" />
           </div>
           <div className="flex gap-1 bg-muted rounded-lg p-0.5">
             {TABS.map(tab => (

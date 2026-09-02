@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { client } from "../../helpers/api";
+import { HelpButton } from "@shared/help/HelpSheet";
 import { LoadingState, ErrorState } from "@shared/ui/states";
 import { Trash2, Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, X, Calendar, Info } from "lucide-react";
 import { telegram } from "../../helpers/telegram";
@@ -169,9 +170,12 @@ export default function CostPriceUploadPage() {
 		<div className="app-safe-top min-h-screen bg-background">
 			{/* Заголовок */}
 			<div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-4 app-safe-top">
-				<h1 className="text-lg font-semibold text-foreground">
-					Загрузка себестоимости
-				</h1>
+				<div className="flex items-center gap-2">
+					<h1 className="text-lg font-semibold text-foreground">
+						Загрузка себестоимости
+					</h1>
+					<HelpButton helpId="cost-prices" />
+				</div>
 				<p className="text-sm text-muted-foreground mt-1">
 					Загрузите CSV-файл с колонками «Название товара» и «Себестоимость»
 				</p>

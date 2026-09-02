@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { client } from "../../helpers/api";
+import { HelpButton } from "@shared/help/HelpSheet";
 
 // Определяем тип данных, которые мы ожидаем от сервера
 interface ResponseData {
@@ -123,6 +124,10 @@ export default function StoreOpeningReport() {
       transition={{ duration: 0.4, ease: "easeOut" }}
       className="bg-custom-gray shadow-md rounded-lg p-4 mt-4"
     >
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-bold text-gray-800">Отчёт по открытию магазина</h2>
+        <HelpButton helpId="store-opening" />
+      </div>
       {!isReportGenerated && (
         <motion.form
           onSubmit={handleSubmit}

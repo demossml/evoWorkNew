@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { DateFilter, type DateFilterValue } from "@widgets/home/DateFilter";
 import { SellerDNAWidget } from "@widgets/sellers";
 import { ErrorBoundary } from "@shared/ui/states/ErrorBoundary";
+import { HelpButton } from "@shared/help/HelpSheet";
 import { useEmployeeRole } from "@/hooks/useApi";
 import { buildHomeAccessModel } from "@features/dashboard/model/homePageModel";
 
@@ -77,6 +78,7 @@ export default function SellersAnalytics() {
               <Users className="w-5 h-5 text-primary" />
               Аналитика продавцов
             </h1>
+            <HelpButton helpId="sellers-analytics" className="ml-auto" />
           </div>
         </div>
       </div>

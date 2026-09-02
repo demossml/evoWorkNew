@@ -1,5 +1,6 @@
 import { useSchedules } from "../../hooks/useApi";
 import { motion } from "framer-motion";
+import { HelpButton } from "@shared/help/HelpSheet";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 
 export default function SchedulesReport() {
@@ -70,9 +71,12 @@ export default function SchedulesReport() {
       transition={{ duration: 0.4, ease: "easeOut" }}
       className="app-page w-full px-4 bg-background text-foreground"
     >
-      <h2 className="text-xl font-bold text-foreground mb-4">
-        Отчёт о времени открытия
-      </h2>
+      <div className="flex items-center gap-2">
+        <h2 className="text-xl font-bold text-foreground mb-4">
+          Отчёт о времени открытия
+        </h2>
+        <HelpButton helpId="schedules" className="mb-4" />
+      </div>
       <div className="space-y-4">
         {Object.entries(dataReport).map(([key, value], idx) => (
           <motion.div

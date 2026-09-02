@@ -3,6 +3,7 @@ import type { DateRange } from "react-day-picker";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { useEmployeeRole } from "../../hooks/useApi";
 import { client } from "../../helpers/api";
+import { HelpButton } from "@shared/help/HelpSheet";
 import { Calendar, Popover, PopoverContent, PopoverTrigger } from "../../components/ui";
 
 interface OpeningsSummary {
@@ -214,7 +215,10 @@ export default function StoreOpeningsAdminReport() {
   return (
     <div className="app-page p-4 pb-6 bg-background text-foreground">
       <div className="max-w-6xl mx-auto space-y-4">
-        <h1 className="text-xl font-semibold">Отчёт по открытиям магазинов</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-semibold">Отчёт по открытиям магазинов</h1>
+          <HelpButton helpId="store-openings-admin" />
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-card rounded-xl p-4 border border-border">
           <div className="md:col-span-4 grid grid-cols-3 gap-2">

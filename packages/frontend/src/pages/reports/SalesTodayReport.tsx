@@ -54,7 +54,7 @@ export default function SalesTodayReport() {
 
   return (
     <div ref={reportRef} className="container mx-auto px-4 py-6">
-      <ReportHeader title="Отчёт о продажах за сегодня" />
+      <ReportHeader title="Отчёт о продажах за сегодня" helpId="sales-today" />
       <ul className="mt-4 space-y-4">
         {Object.entries(salesData).map(([shopName, paymentTypes]) => (
           <li key={shopName} className="bg-card border border-border shadow-sm rounded-lg p-4">

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { telegram, isTelegramMiniApp } from "../../helpers/telegram";
 import { client } from "../../helpers/api";
+import { HelpButton } from "@shared/help/HelpSheet";
 import type { DateRange } from "react-day-picker";
 import { Popover, PopoverContent, PopoverTrigger, Calendar } from "../../components/ui";
 import { ErrorState, LoadingState } from "@shared/ui/states";
@@ -473,6 +474,7 @@ export default function DeadSt() {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              <HelpButton helpId="dead-stock" />
               {plannedActions.length > 0 && (
                 <button
                   type="button"

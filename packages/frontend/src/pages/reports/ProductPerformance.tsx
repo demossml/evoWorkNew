@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { HelpButton } from "@shared/help/HelpSheet";
 import {
   ChevronDown, ChevronUp, TrendingUp, TrendingDown,
   AlertTriangle, Zap, BarChart3, DollarSign, ShoppingBag,
@@ -89,7 +90,10 @@ export default function ProductPerformancePage({ embedded, period: externalPerio
       <>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-bold">Глубокий анализ товаров</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-lg font-bold">Глубокий анализ товаров</h1>
+          <HelpButton helpId="product-analysis" />
+        </div>
         <ReportShareButton targetRef={reportRef} filename="product-performance" />
       </div>
 

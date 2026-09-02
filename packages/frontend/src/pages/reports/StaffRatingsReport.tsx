@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { client } from "../../helpers/api";
+import { HelpButton } from "@shared/help/HelpSheet";
 
 type StaffRating = {
   user_id: string;
@@ -39,9 +40,12 @@ export default function StaffRatingsReport() {
       transition={{ duration: 0.5, ease: "easeOut" }}
       style={{ maxWidth: 700, margin: "40px auto", fontFamily: "sans-serif" }}
     >
-      <h2 style={{ textAlign: "center" }}>
-        AI-отчёт по эффективности сотрудников
-      </h2>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        <h2 style={{ textAlign: "center" }}>
+          AI-отчёт по эффективности сотрудников
+        </h2>
+        <HelpButton helpId="staff-ratings" />
+      </div>
       {loading ? (
         <motion.div
           initial={{ opacity: 0, scale: 0.97 }}
