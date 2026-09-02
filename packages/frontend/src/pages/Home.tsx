@@ -145,7 +145,7 @@ export default function Home() {
         {homeLoading && (
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="animate-pulse rounded-xl bg-card border border-border p-4 shadow-sm min-h-[148px]" />
+              <div key={i} className="animate-pulse rounded-xl bg-card border border-border p-4 shadow-sm min-h-[100px]" />
             ))}
           </div>
         )}
@@ -389,7 +389,7 @@ function SkeletonHome() {
       {/* Grid of skeleton tiles */}
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
         {[...Array(6)].map((_, i) => (
-          <div key={i} className="animate-pulse rounded-xl bg-card border border-border p-4 shadow-sm min-h-[148px]" />
+          <div key={i} className="animate-pulse rounded-xl bg-card border border-border p-4 shadow-sm min-h-[100px]" />
         ))}
       </div>
       {/* Bottom widgets */}
