@@ -112,10 +112,10 @@ export function BestShopWidget({ since, until, dateMode: _dm, expanded, onToggle
       className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full h-full min-h-[148px] flex flex-col justify-between"
       style={{ backgroundColor: "hsl(var(--chart-2))" }}
     >
-      <div className="relative p-4 flex-1 flex flex-col justify-between">
+      <div className="relative p-3 flex-1 flex flex-col justify-between">
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Award className="w-5 h-5 opacity-80 shrink-0" />
+          <div className="flex items-center gap-1 min-w-0">
+            <Award className="w-4 h-4 opacity-80 shrink-0" />
             <span className="text-xs font-medium opacity-90 truncate">Эффективность</span>
           </div>
           <div className="flex items-center gap-1 shrink-0 ml-1">
@@ -130,7 +130,7 @@ export function BestShopWidget({ since, until, dateMode: _dm, expanded, onToggle
         <div className="flex items-end justify-between gap-1.5">
           <div className="min-w-0 flex-1">
             <div className="text-lg font-bold truncate leading-tight">#{1} {leader.name}</div>
-            <div className="text-sm opacity-90 mt-1 truncate flex items-center gap-1.5">
+            <div className="text-xs opacity-90 mt-0.5 truncate flex items-center gap-1.5">
               <TrendingUp className="w-3 h-3" />
               <span>{formatRub(leader.netRevenue)} ₽</span>
               {canSeeProfitValue && leaderMargin && (

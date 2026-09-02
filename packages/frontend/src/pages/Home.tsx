@@ -60,7 +60,7 @@ export default function Home() {
   // При наличии кэша — сразу рисуем UI, фоновый refetch обновит на месте.
   if (isPending && !data) {
     return (
-      <div className="flex flex-col items-center w-full min-h-screen bg-background pt-[calc(var(--tg-app-top-offset,var(--tg-safe-top,0px))+3.5rem)] px-4 sm:px-6 pb-24">
+      <div className="flex flex-col items-center w-full min-h-screen bg-background pt-[calc(var(--tg-app-top-offset,var(--tg-safe-top,0px))+3.5rem)] px-3 sm:px-6 pb-24">
         <div className="w-full max-w-7xl space-y-4">
           <SkeletonHome />
         </div>
@@ -98,7 +98,7 @@ export default function Home() {
   const { isLoading: homeLoading } = useHomeDashboard(since, until, isUniversal);
 
   return (
-    <div className="flex flex-col items-center w-full min-h-screen bg-background pt-[calc(var(--tg-app-top-offset,var(--tg-safe-top,0px))+3.5rem)] px-4 sm:px-6 pb-24">
+    <div className="flex flex-col items-center w-full min-h-screen bg-background pt-[calc(var(--tg-app-top-offset,var(--tg-safe-top,0px))+3.5rem)] px-3 sm:px-6 pb-24">
       <HomeTopBar queryClient={queryClient} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
       <div className="w-full max-w-7xl space-y-4">
         {isFetching && (
@@ -143,16 +143,16 @@ export default function Home() {
         )}
 
         {homeLoading && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="animate-pulse rounded-xl bg-card border border-border p-4 shadow-sm min-h-[148px]" />
             ))}
           </div>
         )}
 
-        <div className={`grid grid-cols-2 gap-4 ${homeLoading ? "hidden" : ""}`}>
+        <div className={`grid grid-cols-2 gap-2.5 sm:gap-3 ${homeLoading ? "hidden" : ""}`}>
           {can("home.revenue") && (
-            <div className={isExpanded("revenue") ? "col-span-2" : "h-full"}>
+            <div className={isExpanded("revenue") ? "col-span-2" : "h-full min-w-0"}>
               <ErrorBoundary variant="widget" name="Выручка">
                 <RevenueWidget since={since} until={until} expanded={isExpanded("revenue")} onToggle={() => toggle("revenue")} />
               </ErrorBoundary>
@@ -160,7 +160,7 @@ export default function Home() {
           )}
 
           {can("home.tempo") && (
-            <div className={isExpanded("tempo") ? "col-span-2" : "h-full"}>
+            <div className={isExpanded("tempo") ? "col-span-2" : "h-full min-w-0"}>
               <ErrorBoundary variant="widget" name="Темп продаж">
                 <SalesTempoWidget since={since} until={until} expanded={isExpanded("tempo")} onToggle={() => toggle("tempo")} />
               </ErrorBoundary>
@@ -168,7 +168,7 @@ export default function Home() {
           )}
 
           {can("home.finance") && (
-            <div className={isExpanded("finance") ? "col-span-2" : "h-full"}>
+            <div className={isExpanded("finance") ? "col-span-2" : "h-full min-w-0"}>
               <ErrorBoundary variant="widget" name="Финансы">
                 <FinanceWidget since={since} until={until} expanded={isExpanded("finance")} onToggle={() => toggle("finance")} />
               </ErrorBoundary>
@@ -176,7 +176,7 @@ export default function Home() {
           )}
 
           {can("home.best_shop") && (
-            <div className={isExpanded("best") ? "col-span-2" : "h-full"}>
+            <div className={isExpanded("best") ? "col-span-2" : "h-full min-w-0"}>
             <ErrorBoundary variant="widget" name="Эффективность">
                 <BestShopWidget since={since} until={until} dateMode={dateMode} expanded={isExpanded("best")} onToggle={() => toggle("best")} />
               </ErrorBoundary>
@@ -184,7 +184,7 @@ export default function Home() {
           )}
 
           {can("home.top_products") && (
-            <div className={isExpanded("products") ? "col-span-2" : "h-full"}>
+            <div className={isExpanded("products") ? "col-span-2" : "h-full min-w-0"}>
               <ErrorBoundary variant="widget" name="Топ продуктов">
                 <TopProductWidget since={since} until={until} expanded={isExpanded("products")} onToggle={() => toggle("products")} />
               </ErrorBoundary>
@@ -192,7 +192,7 @@ export default function Home() {
           )}
 
           {can(isUniversal ? "home.high_margin" : "home.accessories") && (
-            <div className={isExpanded("accessories") ? "col-span-2" : "h-full"}>
+            <div className={isExpanded("accessories") ? "col-span-2" : "h-full min-w-0"}>
               <ErrorBoundary variant="widget" name="Высокомаржинальные товары">
                 <HighMarginProductsWidget since={since} until={until} expanded={isExpanded("accessories")} onToggle={() => toggle("accessories")} />
               </ErrorBoundary>
@@ -387,9 +387,9 @@ function SkeletonHome() {
       {/* Spacer */}
       <div className="animate-pulse rounded-xl bg-card border border-border p-4 shadow-sm h-10" />
       {/* Grid of skeleton tiles */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
         {[...Array(6)].map((_, i) => (
-          <div key={i} className="animate-pulse rounded-xl bg-card border border-border p-4 shadow-sm min-h-[120px]" />
+          <div key={i} className="animate-pulse rounded-xl bg-card border border-border p-4 shadow-sm min-h-[148px]" />
         ))}
       </div>
       {/* Bottom widgets */}

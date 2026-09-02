@@ -54,10 +54,10 @@ export function TopProductWidget({ since, until, expanded, onToggle }: Props) {
       className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full h-full min-h-[148px] flex flex-col justify-between"
       style={{ backgroundColor: "hsl(var(--chart-5))" }}
     >
-      <div className="relative p-4 flex-1 flex flex-col justify-between">
+      <div className="relative p-3 flex-1 flex flex-col justify-between">
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Package className="w-5 h-5 opacity-80 shrink-0" />
+          <div className="flex items-center gap-1 min-w-0">
+            <Package className="w-4 h-4 opacity-80 shrink-0" />
             <span className="text-xs font-medium opacity-90 truncate">Топ продукт</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0 ml-1">
@@ -69,7 +69,7 @@ export function TopProductWidget({ since, until, expanded, onToggle }: Props) {
             <div className="text-lg font-bold truncate leading-tight" title={top1.productName}>
               {top1.productName}
             </div>
-            <div className="text-sm opacity-90 mt-1 truncate flex items-center gap-2">
+            <div className="text-xs opacity-90 mt-0.5 truncate flex items-center gap-2">
               <span>{formatRub(top1.netRevenue)} ₽</span>
               <span className="text-[10px] opacity-75">
                 {top1.netQuantity} шт{canSeeProfitValue ? ` · ${top1.marginPct.toFixed(0)}%` : ""}

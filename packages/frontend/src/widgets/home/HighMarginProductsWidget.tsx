@@ -101,18 +101,18 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
       className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full h-full min-h-[148px] flex flex-col justify-between"
       style={{ backgroundColor: scope === "high" ? "hsl(var(--chart-4))" : "hsl(var(--chart-5))" }}
     >
-      <div className="relative p-4 flex-1 flex flex-col justify-between">
+      <div className="relative p-3 flex-1 flex flex-col justify-between">
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <TrendingUp className="w-5 h-5 opacity-80 shrink-0" />
+          <div className="flex items-center gap-1 min-w-0">
+            <TrendingUp className="w-4 h-4 opacity-80 shrink-0" />
             <span className="text-xs font-medium opacity-90 truncate">{title}</span>
           </div>
           <span className="text-[9px] opacity-50 shrink-0 ml-1">{hint}</span>
         </div>
         <div className="flex items-end justify-between gap-1.5">
           <div className="min-w-0 flex-1">
-            <div className="text-lg font-bold truncate leading-tight">{fmtRub(totalSum)} ₽</div>
-            <div className="text-xs opacity-90 mt-1 truncate flex items-center gap-2">
+            <div className="text-xl font-bold tabular-nums truncate leading-tight">{fmtRub(totalSum)} ₽</div>
+            <div className="text-xs opacity-90 mt-0.5 truncate flex items-center gap-2">
               <span>{scopedItems.length} поз.</span>
               <span className="opacity-80">· маржа {overallMargin}%</span>
             </div>

@@ -140,10 +140,10 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
         <div className="absolute top-0 left-0 right-0 h-[3px] z-10 rounded-t-xl"
           style={{ backgroundColor: marginColor(overallMarginPct) }} />
       )}
-      <div className="relative p-4 flex-1 flex flex-col justify-between">
+      <div className="relative p-3 flex-1 flex flex-col justify-between">
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <DollarSign className="w-5 h-5 opacity-80 shrink-0" />
+          <div className="flex items-center gap-1 min-w-0">
+            <DollarSign className="w-4 h-4 opacity-80 shrink-0" />
             <span className="text-xs font-medium opacity-90 truncate">Выручка</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0 ml-1">
@@ -157,8 +157,8 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
         </div>
         <div className="flex items-end justify-between gap-1.5">
           <div className="min-w-0 flex-1">
-            <div className="text-lg font-bold truncate leading-tight">{formatRub(netSales)} ₽</div>
-            <div className="text-sm opacity-90 mt-1 truncate">{recText}</div>
+            <div className="text-xl font-bold tabular-nums truncate leading-tight">{formatRub(netSales)} ₽</div>
+            <div className="text-xs opacity-90 mt-0.5 truncate">{recText}</div>
           </div>
           {trend7.length >= 2 && (
             <Sparkline values={trend7} width={48} height={18} className="text-white/60 shrink-0 mb-0.5" />
