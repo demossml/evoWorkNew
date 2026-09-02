@@ -134,6 +134,7 @@ export default function SalesSummaryReport() {
       <ReportHeader
         title="Сводный финансовый отчёт"
         subtitle="Продажи, возвраты, выплаты и остаток наличных по магазинам"
+        helpId="financial-summary"
       />
 
       {!reportData && (

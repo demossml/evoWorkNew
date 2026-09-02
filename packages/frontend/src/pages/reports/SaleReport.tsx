@@ -447,6 +447,7 @@ export default function SalesReport() {
               <ReportHeader
                 title="Отчёт по продажам"
                 subtitle={formatPeriod(shopName, startDate, endDate)}
+                helpId="sales-report"
               />
               <div className="flex items-center gap-2 shrink-0">
                 {isAdmin && (

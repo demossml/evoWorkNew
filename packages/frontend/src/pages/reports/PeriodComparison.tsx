@@ -69,7 +69,7 @@ export default function PeriodComparisonPage() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="pb-24">
       {/* Header */}
       <div className="bg-card border-b border-border px-4 py-4">
-        <ReportHeader title="Сравнение периодов" />
+        <ReportHeader title="Сравнение периодов" helpId="period-comparison" />
         <div className="flex gap-2 mt-3">
           {[
             { d: 1, label: "День" },

@@ -4,6 +4,7 @@ import { LoadingState } from "@shared/ui/states";
 import { GroupSelector, ShopSelector } from "@widgets/reports";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { client } from "../../helpers/api";
+import { HelpButton } from "@shared/help/HelpSheet";
 
 const fmtQty = (n: number) =>
   Math.round(Number(n) || 0).toLocaleString("ru-RU");
@@ -249,7 +250,10 @@ export default function QuantityTableProps() {
 
   return (
     <div className="app-page-scroll px-4 bg-custom-gray dark:text-muted-foreground dark:bg-background">
-      <h1 className="text-xl font-bold"> Товарные остатки</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold"> Товарные остатки</h1>
+        <HelpButton helpId="stock-report" />
+      </div>
 
       <div className="w-full">
         {/* Передаем userId как строку, даже если он пустой */}

@@ -12,6 +12,7 @@ import { useTelegramBackButton } from "../hooks/useSimpleTelegramBackButton";
 import { useEmployeeRole } from "../hooks/useApi";
 import { canSeeProfit } from "@features/dashboard/model/homePageModel";
 import { getAuthHeaders } from "@shared/api";
+import { HelpButton } from "@shared/help/HelpSheet";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -250,10 +251,13 @@ export default function GrossProfitReport() {
     <div className="app-page min-h-screen bg-background">
       {/* Шапка */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-3 app-safe-top">
-        <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <PieChartIcon className="w-5 h-5 text-primary" />
-          Валовая прибыль
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <PieChartIcon className="w-5 h-5 text-primary" />
+            Валовая прибыль
+          </h1>
+          <HelpButton helpId="gross-profit" className="ml-auto" />
+        </div>
 
         {/* Фильтры */}
         <div className="mt-3 flex flex-col sm:flex-row gap-2">

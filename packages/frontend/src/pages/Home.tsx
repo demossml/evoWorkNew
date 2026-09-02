@@ -30,6 +30,7 @@ import { Wifi, WifiOff, RefreshCw, LogOut } from "lucide-react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { getAuthHeaders } from "@shared/api";
+import { HelpButton } from "@shared/help/HelpSheet";
 import { AuthCard } from "../components/AuthCard";
 
 type WidgetKey = "revenue" | "tempo" | "finance" | "best" | "products" | "accessories" | "sync";
@@ -333,6 +334,7 @@ function HomeTopBar({ queryClient, isAdmin, isSuperAdmin }: { queryClient: Query
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-foreground">🏠 Evo App</span>
+          <HelpButton helpId="home" />
           {online ? (
             <Wifi className="w-3.5 h-3.5 text-success" />
           ) : (

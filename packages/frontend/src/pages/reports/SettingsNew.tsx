@@ -31,6 +31,7 @@ import {
 import { UsersAccessCard, EvotorTokenCard } from "../../components/UsersAccessCard";
 import { FeaturePermissionsCard } from "../../components/FeaturePermissionsCard";
 import { SettingsCollapsibleCard } from "../../components/SettingsCollapsibleCard";
+import { HelpButton } from "@shared/help/HelpSheet";
 import { AiProviderCard } from "../../components/AiProviderCard";
 import { ProductProfileCard, ModeIndicator } from "../../components/ProductProfileCard";
 
@@ -1385,6 +1386,7 @@ export default function SettingsNew() {
             </div>          </div>
 
           <div className="flex items-center gap-2">
+            <HelpButton helpId="settings" />
             {dirtyCount > 0 && (
               <>
                 <button
@@ -1500,7 +1502,7 @@ export default function SettingsNew() {
 
         {/* Пользователи и доступ (только SUPERADMIN — компоненты сами проверяют роль) */}
         {!isLoading && !error && (
-          <SettingsCollapsibleCard title="Пользователи и доступ" icon={<Users className="w-5 h-5" />}>
+          <SettingsCollapsibleCard title="Пользователи и доступ" icon={<Users className="w-5 h-5" />} helpId="settings-users">
             <UsersAccessCard />
           </SettingsCollapsibleCard>
         )}
@@ -1524,7 +1526,7 @@ export default function SettingsNew() {
 
         {/* Режим приложения (только SUPERADMIN) */}
         {!isLoading && !error && (
-          <SettingsCollapsibleCard title="Режим приложения" icon={<Globe className="w-5 h-5" />}>
+          <SettingsCollapsibleCard title="Режим приложения" icon={<Globe className="w-5 h-5" />} helpId="settings-product-profile">
             <ProductProfileCard />
           </SettingsCollapsibleCard>
         )}
