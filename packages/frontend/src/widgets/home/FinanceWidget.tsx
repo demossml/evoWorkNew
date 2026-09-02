@@ -42,7 +42,7 @@ export function FinanceWidget({ since, until, expanded, onToggle }: Props) {
     <motion.div
       whileHover={{ scale: 1.02, y: -1 }}
       whileTap={{ scale: 0.98 }}
-      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full h-full min-h-[132px] flex flex-col justify-between"
+      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full h-full min-h-[148px] flex flex-col justify-between"
       style={{ backgroundColor: "hsl(var(--warning))" }}
     >
       <div className="relative p-4 flex-1 flex flex-col justify-between">

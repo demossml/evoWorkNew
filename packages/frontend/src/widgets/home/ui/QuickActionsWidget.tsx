@@ -43,23 +43,23 @@ export function QuickActionsWidget({ employeeRole }: QuickActionsWidgetProps) {
   const getActionIcon = (action: QuickActionModel) => {
     switch (action.iconKey) {
       case "door_open":
-        return <DoorOpen className="w-6 h-6" />;
+        return <DoorOpen className="w-5 h-5" />;
       case "package":
-        return <Package className="w-6 h-6" />;
+        return <Package className="w-5 h-5" />;
       case "file_text":
-        return <FileText className="w-6 h-6" />;
+        return <FileText className="w-5 h-5" />;
       case "trending_up":
-        return <TrendingUp className="w-6 h-6" />;
+        return <TrendingUp className="w-5 h-5" />;
       case "store":
-        return <Store className="w-6 h-6" />;
+        return <Store className="w-5 h-5" />;
       case "calculator":
-        return <Calculator className="w-6 h-6" />;
+        return <Calculator className="w-5 h-5" />;
       case "sparkles":
-        return <Sparkles className="w-6 h-6" />;
+        return <Sparkles className="w-5 h-5" />;
       case "upload":
-        return <Upload className="w-6 h-6" />;
+        return <Upload className="w-5 h-5" />;
       default:
-        return <Store className="w-6 h-6" />;
+        return <Store className="w-5 h-5" />;
     }
   };
 
@@ -67,10 +67,10 @@ export function QuickActionsWidget({ employeeRole }: QuickActionsWidgetProps) {
 
   return (
     <div className="mb-6">
-      <h2 className="text-sm font-semibold text-foreground mb-3">
+      <h2 className="text-sm font-semibold text-foreground mb-2">
         Быстрые действия
       </h2>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-4 gap-2">
         {availableActions.map((action) => {
           const badge = getBadgeValue(action);
           const isDisabled = false; // AI Director removed — all actions available
@@ -85,36 +85,24 @@ export function QuickActionsWidget({ employeeRole }: QuickActionsWidgetProps) {
                 navigate(action.path);
               }}
               disabled={isDisabled}
-              title={
-                isDisabled ? "Недоступно при работе через Elvator" : undefined
-              }
-              className={`relative bg-gradient-to-br ${action.color} text-white p-4 rounded-lg shadow-lg transition-all duration-200 ${
+              title={action.description}
+              className={`relative bg-gradient-to-br ${action.color} text-white p-2.5 rounded-xl flex flex-col items-center justify-center gap-1.5 min-h-[72px] shadow-md transition-all duration-200 ${
                 isDisabled
                   ? "opacity-60 cursor-not-allowed"
-                  : "hover:shadow-xl hover:scale-105 active:scale-95"
+                  : "hover:shadow-lg hover:scale-105 active:scale-95"
               }`}
             >
               {/* Badge */}
               {badge && (
-                <span className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold shadow-md ring-2 ring-white dark:ring-gray-800">
+                <span className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold shadow-md ring-2 ring-white dark:ring-gray-800">
                   {badge}
                 </span>
               )}
 
-              <div className="flex flex-col items-center text-center gap-2">
-                {getActionIcon(action)}
-                <div>
-                  <div className="font-semibold text-sm">{action.title}</div>
-                  <div className="text-xs opacity-80 mt-1">
-                    {action.description}
-                  </div>
-                  {isDisabled && (
-                    <div className="text-xs mt-1 opacity-90">
-                      Недоступно при работе через Elvator
-                    </div>
-                  )}
-                </div>
-              </div>
+              {getActionIcon(action)}
+              <span className="text-[10px] sm:text-xs font-medium leading-tight text-center line-clamp-2">
+                {action.title}
+              </span>
             </button>
           );
         })}

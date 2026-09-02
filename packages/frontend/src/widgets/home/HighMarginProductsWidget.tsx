@@ -98,7 +98,7 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
     <motion.div
       whileHover={{ scale: 1.02, y: -1 }}
       whileTap={{ scale: 0.98 }}
-      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full h-full min-h-[132px] flex flex-col justify-between"
+      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full h-full min-h-[148px] flex flex-col justify-between"
       style={{ backgroundColor: scope === "high" ? "hsl(var(--chart-4))" : "hsl(var(--chart-5))" }}
     >
       <div className="relative p-4 flex-1 flex flex-col justify-between">

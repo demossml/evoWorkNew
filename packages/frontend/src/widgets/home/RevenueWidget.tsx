@@ -123,7 +123,7 @@ export function RevenueWidget({ since, until, expanded, onToggle }: Props) {
     <motion.div
       whileHover={{ scale: 1.02, y: -1 }}
       whileTap={{ scale: 0.98 }}
-      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full h-full min-h-[132px] flex flex-col justify-between"
+      className="cursor-pointer rounded-xl text-white shadow-lg relative overflow-hidden w-full h-full min-h-[148px] flex flex-col justify-between"
     >
       <div className="absolute inset-0 flex rounded-xl overflow-hidden">
         <div className="h-full flex items-end justify-center pb-1.5 transition-all duration-500"
