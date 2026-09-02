@@ -1805,6 +1805,144 @@ export const api = new Hono<IEnv>()
 		}
 	})
 
+	// ─── Сравнение периодов (POST /api/period-comparison) ───────────────
+	// Сравнивает [since, until] с предыдущим отрезком той же длины.
+	.post("/api/period-comparison", async (c) => {
+		try {
+			const db = c.get("db");
+			const body = await c.req.json<{ since?: string; until?: string }>();
+			const since = body?.since;
+			const until = body?.until;
+			if (!since || !until) {
+				return c.json({ error: "since и until обязательны (YYYY-MM-DD)" }, 400);
+			}
+
+			const tenantId = c.get("tenantId") || "default";
+			const shopUuids = await getTenantShopUuids(db, tenantId);
+
+			const shopNameMap = new Map<string, string>();
+			const shopRows = await db
+				.prepare("SELECT uuid, name FROM shops WHERE tenant_id = ?")
+				.bind(tenantId)
+				.all<{ uuid: string; name: string }>();
+			for (const r of shopRows.results ?? []) shopNameMap.set(r.uuid, r.name);
+
+			// Календарная арифметика в локальной TZ
+			const parseLocal = (s: string): Date => {
+				const [y, m, d] = s.split("-").map(Number);
+				return new Date(y, m - 1, d);
+			};
+			const fmtLocal = (d: Date): string =>
+				`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+			const addDays = (d: Date, n: number): Date => {
+				const r = new Date(d);
+				r.setDate(r.getDate() + n);
+				return r;
+			};
+			const days =
+				Math.round((parseLocal(until).getTime() - parseLocal(since).getTime()) / 86400000) + 1;
+			const prevUntil = fmtLocal(addDays(parseLocal(since), -1));
+			const prevSince = fmtLocal(addDays(parseLocal(prevUntil), -(days - 1)));
+
+			const pct = (cur: number, prev: number) =>
+				prev === 0 ? 0 : Math.round(((cur - prev) / prev) * 100);
+
+			const aggregate = async (s: string, u: string) => {
+				const byShop = new Map<string, { revenue: number; checks: number }>();
+				let revenue = 0;
+				let checks = 0;
+				if (shopUuids.length === 0) return { revenue, checks, byShop };
+
+				const inClause = shopUuids.map(() => "?").join(",");
+				const docs = await db
+					.prepare(`SELECT shop_id, type, transactions FROM index_documents
+					          WHERE close_date >= ? AND close_date <= ?
+					            AND type IN ('SELL', 'PAYBACK')
+					            AND shop_id IN (${inClause})`)
+					.bind(s + "T00:00:00", u + "T23:59:59", ...shopUuids)
+					.all<{ shop_id: string; type: string; transactions: string }>();
+
+				for (const doc of docs.results ?? []) {
+					const sid = doc.shop_id;
+					if (!byShop.has(sid)) byShop.set(sid, { revenue: 0, checks: 0 });
+					const sShop = byShop.get(sid)!;
+					if (doc.type === "SELL") {
+						sShop.checks += 1;
+						checks += 1;
+					}
+					const sign = doc.type === "PAYBACK" ? -1 : 1;
+					let txs: any[];
+					try { txs = JSON.parse(doc.transactions); } catch { continue; }
+					if (!Array.isArray(txs)) continue;
+					for (const tx of txs) {
+						if (tx.type !== "REGISTER_POSITION") continue;
+						const sum = (tx.sum ?? 0) * sign;
+						sShop.revenue += sum;
+						revenue += sum;
+					}
+				}
+				return { revenue, checks, byShop };
+			};
+
+			const current = await aggregate(since, until);
+			const previous = await aggregate(prevSince, prevUntil);
+
+			const stores = shopUuids
+				.map((uuid) => {
+					const cur = current.byShop.get(uuid) ?? { revenue: 0, checks: 0 };
+					const prev = previous.byShop.get(uuid) ?? { revenue: 0, checks: 0 };
+					return {
+						name: shopNameMap.get(uuid) || uuid,
+						currentRevenue: Math.round(cur.revenue),
+						prevRevenue: Math.round(prev.revenue),
+						revenueChange: pct(cur.revenue, prev.revenue),
+						currentChecks: cur.checks,
+						prevChecks: prev.checks,
+					};
+				})
+				.sort((a, b) => b.currentRevenue - a.currentRevenue);
+
+			const totals = {
+				revenue: {
+					current: Math.round(current.revenue),
+					previous: Math.round(previous.revenue),
+					change: pct(current.revenue, previous.revenue),
+				},
+				checks: {
+					current: current.checks,
+					previous: previous.checks,
+					change: pct(current.checks, previous.checks),
+				},
+			};
+
+			const top = await getTopProductsFromD1(
+				db,
+				since + "T00:00:00",
+				until + "T23:59:59",
+				15,
+				shopUuids,
+			);
+			const topProducts = top.map((p) => ({
+				productName: p.productName,
+				netQuantity: p.netQuantity,
+				netRevenue: Math.round(p.netRevenue),
+				averagePrice: p.averagePrice,
+				dailyNetRevenue7: p.dailyNetRevenue7,
+			}));
+
+			return c.json({
+				period: { since, until },
+				prevPeriod: { since: prevSince, until: prevUntil },
+				totals,
+				stores,
+				topProducts,
+			});
+		} catch (err) {
+			console.error("[period-comparison] error:", err);
+			return c.json({ error: String(err) }, 500);
+		}
+	})
+
 	// ─── Home tile: Revenue ────────────────────────────────────────────
 	// Агрегированные данные для плитки «Выручка» (продажи без себестоимости)
 	.get("/api/evotor/home/revenue-tile", async (c) => {

@@ -40,8 +40,10 @@ export default function PeriodComparisonPage() {
   useTelegramBackButton();
   const [days, setDays] = useState(7);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const today = new Date().toISOString().slice(0, 10);
-  const since = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
+  const fmtLocalDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const today = fmtLocalDate(new Date());
+  const since = fmtLocalDate(new Date(Date.now() - (days - 1) * 86400000));
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["period-comparison", since, today],
