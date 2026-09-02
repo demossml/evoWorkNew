@@ -1,18 +1,36 @@
 import { useEffect, useState } from "react";
 import { useMe } from "../../hooks/useApi";
-import { ErrorState, LoadingState } from "@shared/ui/states";
-import { DynamicTable, GroupSelector, ShopSelector } from "@widgets/reports";
+import { LoadingState } from "@shared/ui/states";
+import { GroupSelector, ShopSelector } from "@widgets/reports";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { client } from "../../helpers/api";
+
+const fmtQty = (n: number) =>
+  Math.round(Number(n) || 0).toLocaleString("ru-RU");
+const fmtSum = (n: number) =>
+  (Number(n) || 0).toLocaleString("ru-RU", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
 
 interface GroupOption {
   name: string;
   uuid: string;
 }
 
+interface StockItem {
+  name: string;
+  quantity: number;
+  sum: number;
+  groupName?: string;
+  article?: string;
+}
+
 interface ReportData {
-  stockData: Record<string, { sum: number; quantity: number }>;
   shopName: string;
+  items: StockItem[];
+  totals: { skuCount: number; quantity: number; sum: number };
+  stockData?: Record<string, { sum: number; quantity: number }>;
 }
 
 export default function QuantityTableProps() {
@@ -27,6 +45,8 @@ export default function QuantityTableProps() {
 
   const [isLoadingShops, setIsLoadingShops] = useState<boolean>(false);
   const [selectedShop, setSelectedShop] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"quantity" | "sum">("quantity");
 
   const { data } = useMe();
   const userId = data?.id.toString();
@@ -100,11 +120,12 @@ export default function QuantityTableProps() {
   };
 
   const submitForecast = async () => {
-    // Проверяем, что все необходимые данные выбраны
     if (!selectedShop || selectedGroups.length === 0) {
-      alert("Пожалуйста, выберите все параметры для формирования прогноза.");
+      setError("Выберите магазин и хотя бы одну группу товаров.");
       return;
     }
+    setError(null);
+
     const data = {
       shopUuid: selectedShop,
       groups: selectedGroups,
@@ -118,14 +139,19 @@ export default function QuantityTableProps() {
       });
 
       if (!response.ok) {
-        throw new Error(`Ошибка: ${response.status}`);
+        const errData = await response.json().catch(() => null);
+        throw new Error(
+          (errData as any)?.error ||
+            (errData as any)?.message ||
+            `Ошибка: ${response.status}`
+        );
       }
 
       const report: ReportData = await response.json();
       setReportData(report);
     } catch (err) {
       console.error(err);
-      setError("Не удалось получить отчёт");
+      setError((err as Error)?.message || "Не удалось получить отчёт");
     } finally {
       setIsLoadingReport(false);
     }
@@ -133,10 +159,6 @@ export default function QuantityTableProps() {
 
   if (isLoadingReport) {
     return <LoadingState />;
-  }
-
-  if (error) {
-    return <ErrorState error={error} />;
   }
 
   if (!Object.keys(shopOptions).length) {
@@ -150,23 +172,77 @@ export default function QuantityTableProps() {
   }
 
   if (reportData) {
-    const { stockData, shopName } = reportData;
+    const { shopName, items, totals } = reportData;
+    const q = search.trim().toLowerCase();
+    const filtered = (items || [])
+      .filter((it) => !q || it.name.toLowerCase().includes(q))
+      .sort((a, b) =>
+        sortBy === "sum" ? b.sum - a.sum : b.quantity - a.quantity
+      );
 
-    const tableData = Object.entries(stockData).map(
-      ([productName, { sum, quantity }]) => ({
-        productName,
-        quantity,
-        sum,
-      })
-    );
     return (
-      <div className="p-4 flex flex-col items-start bg-background gap-4 max-w-md mx-auto">
-        {/* Заголовок с информацией */}
-        <div className="text-sm text-muted-foreground">
-          <p className="font-semibold">{shopName}</p>
+      <div className="app-page w-full px-4 sm:px-6 py-6 flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold truncate">{shopName}</h1>
+            <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
+              {totals?.skuCount ?? filtered.length} SKU · {fmtQty(totals?.quantity ?? 0)} шт · {fmtSum(totals?.sum ?? 0)} ₽
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setReportData(null);
+              setSearch("");
+            }}
+            className="shrink-0 text-sm text-blue-600 dark:text-blue-400"
+          >
+            Новый отчёт
+          </button>
         </div>
-        {/* Таблица */}
-        <DynamicTable data={tableData} /> {/* Передаем данные в DynamicTable */}
+
+        <div className="flex items-center gap-2">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Поиск по названию"
+            className="flex-1 min-w-0 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+          />
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as "quantity" | "sum")}
+            className="shrink-0 rounded-lg border border-border bg-card px-2 py-2 text-sm text-foreground"
+          >
+            <option value="quantity">По кол-ву</option>
+            <option value="sum">По сумме</option>
+          </select>
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+            Нет остатков по выбранным группам
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {filtered.map((it, idx) => (
+              <div
+                key={`${it.name}-${idx}`}
+                className="rounded-xl border border-border bg-card p-3"
+              >
+                <div className="text-sm text-foreground break-words leading-snug">
+                  {it.name}
+                  {it.groupName ? (
+                    <span className="text-xs text-muted-foreground ml-1">
+                      · {it.groupName}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1 tabular-nums">
+                  {fmtQty(it.quantity)} шт · {fmtSum(it.sum)} ₽
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -195,20 +271,24 @@ export default function QuantityTableProps() {
         />
       </div>
 
-      {/* Кнопка "Сформировать прогноз" */}
+      {/* Кнопка формирования отчёта по остаткам */}
       <button
-        onClick={submitForecast} // Вызываем функцию отправки данных
+        onClick={submitForecast}
         className={`w-full p-2 rounded-md text-white mt-8 ${
           selectedShop && selectedGroups.length
             ? "bg-blue-500 hover:bg-primary dark:bg-blue-400 dark:hover:bg-blue-500"
             : "bg-muted"
         }`}
-        disabled={
-          !(selectedShop && selectedGroups.length) // Блокируем кнопку, если не выбраны все параметры
-        }
+        disabled={!(selectedShop && selectedGroups.length)}
       >
-        Сгенерировать отчет
+        Сгенерировать отчёт
       </button>
+
+      {error && (
+        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-300 mt-3">
+          {error}
+        </div>
+      )}
     </div>
   );
 }

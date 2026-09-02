@@ -2314,37 +2314,117 @@ export const api = new Hono<IEnv>()
 
 	.post("/api/evotor/stock-report", async (c) => {
 		try {
-			// Получаем данные из запроса
-			const data = await c.req.json();
-			// console.log("Полученные данные:", data);
+			const db = c.get("db");
+			const data = await c.req.json<{ shopUuid?: string; groups?: string[] }>();
+			const shopUuid = data?.shopUuid;
+			const groups = Array.isArray(data?.groups) ? data.groups : [];
 
-			const { shopUuid, groups } = data;
-
-			// Получаем список товаров для заданных групп
-			const stockDataResponse = await c.var.evotor.getStockByGroup(
-				shopUuid,
-				groups,
-				"price",
-			);
-			// console.log("данные:", stockDataResponse);
-
-			// Проверяем, что данные о товарах получены
-			if (!stockDataResponse || Object.keys(stockDataResponse).length === 0) {
-				return c.json({ error: "Не удалось получить данные о товаре." }, 500);
+			if (!shopUuid || groups.length === 0) {
+				return c.json({ error: "shopUuid и groups обязательны" }, 400);
 			}
 
-			// // Сортируем данные о товарах
-			// const sortedStockData = sortStockData(stockDataResponse, sortCriteria);
-			// // console.log("Отсортированные данные:", sortedStockData);
-			const shopNameRow = await c.get("db").prepare("SELECT name FROM shops WHERE uuid = ?").bind(shopUuid).first<{ name: string }>();
-			const shopName = shopNameRow?.name || shopUuid;
+			const tenantId = c.get("tenantId") || "default";
+			const tenantShops = await getTenantShopUuids(db, tenantId);
 
-			// Отправляем ответ
-			return c.json({ stockData: stockDataResponse, shopName });
+			let shopIds: string[];
+			let shopName: string;
+			if (shopUuid === "all") {
+				shopIds = tenantShops;
+				shopName = "Все магазины";
+			} else {
+				if (!tenantShops.includes(shopUuid)) {
+					return c.json({ error: "Магазин не найден или нет доступа" }, 403);
+				}
+				shopIds = [shopUuid];
+				const nameRow = await db
+					.prepare("SELECT name FROM shops WHERE uuid = ?")
+					.bind(shopUuid)
+					.first<{ name: string }>();
+				shopName = nameRow?.name || shopUuid;
+			}
+
+			if (shopIds.length === 0) {
+				return c.json({
+					shopName,
+					items: [],
+					totals: { skuCount: 0, quantity: 0, sum: 0 },
+					stockData: {},
+				});
+			}
+
+			const inShops = shopIds.map(() => "?").join(",");
+			const inGroups = groups.map(() => "?").join(",");
+
+			// Имена групп: uuid → name
+			const groupRows = await db
+				.prepare(
+					`SELECT uuid, name FROM shopProduct WHERE product_group = 1 AND uuid IN (${inGroups})`
+				)
+				.bind(...groups)
+				.all<{ uuid: string; name: string }>();
+			const groupNameMap = new Map<string, string>();
+			for (const r of groupRows.results ?? []) groupNameMap.set(r.uuid, r.name);
+
+			// Остатки из D1 (только quantity > 0), стоимость = price × quantity
+			const rows = await db
+				.prepare(
+					`SELECT name, quantity, price, parentUuid, article FROM shopProduct
+					 WHERE shopId IN (${inShops}) AND parentUuid IN (${inGroups}) AND quantity > 0`
+				)
+				.bind(...shopIds, ...groups)
+				.all<{
+					name: string;
+					quantity: number;
+					price: number;
+					parentUuid: string | null;
+					article: string | null;
+				}>();
+
+			// Схлопывание по имени (для «Все магазины» суммируем остатки)
+			const agg = new Map<
+				string,
+				{ name: string; quantity: number; sum: number; groupName?: string; article?: string }
+			>();
+			for (const r of rows.results ?? []) {
+				const qty = Number(r.quantity) || 0;
+				if (qty <= 0) continue;
+				const sum = (Number(r.price) || 0) * qty;
+				const key = (r.name || "").trim().toLowerCase();
+				const existing = agg.get(key);
+				if (existing) {
+					existing.quantity += qty;
+					existing.sum += sum;
+				} else {
+					agg.set(key, {
+						name: (r.name || "").trim(),
+						quantity: qty,
+						sum,
+						groupName: r.parentUuid ? groupNameMap.get(r.parentUuid) : undefined,
+						article: r.article || undefined,
+					});
+				}
+			}
+
+			const items = [...agg.values()]
+				.sort((a, b) => b.quantity - a.quantity)
+				.map((it) => ({ ...it, sum: Math.round(it.sum * 100) / 100 }));
+
+			const totals = {
+				skuCount: items.length,
+				quantity: items.reduce((s, i) => s + i.quantity, 0),
+				sum: Math.round(items.reduce((s, i) => s + i.sum, 0) * 100) / 100,
+			};
+
+			// Обратная совместимость со старым UI
+			const stockData: Record<string, { sum: number; quantity: number }> = {};
+			for (const it of items) {
+				stockData[it.name] = { sum: it.sum, quantity: it.quantity };
+			}
+
+			return c.json({ shopName, items, totals, stockData });
 		} catch (error) {
-			// Логируем ошибку и возвращаем 500
-			console.error("Ошибка при обработке запроса:", error);
-			return c.json({ error: "Произошла ошибка при обработке запроса." }, 500);
+			console.error("[stock-report] error:", error);
+			return c.json({ error: error instanceof Error ? error.message : String(error) }, 500);
 		}
 	})
 
