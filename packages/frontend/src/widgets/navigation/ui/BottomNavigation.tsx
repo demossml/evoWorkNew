@@ -2,7 +2,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useCallback, useLayoutEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
-  BarChart3,
   Settings,
   MoreHorizontal,
   X,
@@ -12,7 +11,6 @@ import {
   Wallet,
   HandCoins,
   Home,
-  DoorOpen,
   NotepadText,
   Maximize2,
   TrendingUp,
@@ -45,22 +43,10 @@ const mainNav = [
     roles: ["SUPERADMIN"],
   },
   {
-    to: "/evotor/sales-report",
-    label: "Прод. отчёт",
-    icon: BarChart3,
-    roles: ["ADMIN", "SUPERADMIN", "CASHIER"],
-  },
-  {
     to: "/evotor/salary-user-report",
     label: "Моя зарплата",
     icon: HandCoins,
     roles: ["CASHIER", "ADMIN"],
-  },
-  {
-    to: "/evotor/open-store",
-    label: "Открытие магазина",
-    icon: DoorOpen,
-    roles: ["CASHIER", "SUPERADMIN"],
   },
 ];
 
