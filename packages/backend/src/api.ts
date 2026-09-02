@@ -5348,10 +5348,11 @@ ${otherShopsInfo}
 			const since = formatDateWithTime(new Date(startDate), false);
 			const until = formatDateWithTime(new Date(endDate), true);
 
-			// Если выбран «все магазины» — агрегируем по всем
+			// Если выбран «все магазины» — агрегируем по всем магазинам tenant
 			if (shopUuid === "all") {
-				const shopUuids = await getShopUuidsFromDB(db);
-				const merged: Record<string, { quantitySale: number; sum: number }> = {};
+				const tenantId = c.get("tenantId") || "default";
+				const shopUuids = await getTenantShopUuids(db, tenantId);
+				const merged: Record<string, { quantitySale: number; sum: number; costTotal: number }> = {};
 
 				// Разрешаем выбранные uuid групп в их имена, чтобы матчить
 				// товары по имени группы в каждом магазине (uuid разные).
@@ -5381,9 +5382,10 @@ ${otherShopsInfo}
 						productNames,
 					);
 					for (const [name, vals] of Object.entries(shopSales)) {
-						if (!merged[name]) merged[name] = { quantitySale: 0, sum: 0 };
+						if (!merged[name]) merged[name] = { quantitySale: 0, sum: 0, costTotal: 0 };
 						merged[name].quantitySale += vals.quantitySale;
 						merged[name].sum += vals.sum;
+						merged[name].costTotal += vals.costTotal;
 					}
 				}
 

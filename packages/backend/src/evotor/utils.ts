@@ -379,11 +379,11 @@ export async function getSalesByProductFromD1(
 	since: string,
 	until: string,
 	productNames: string[],
-): Promise<Record<string, { quantitySale: number; sum: number }>> {
+): Promise<Record<string, { quantitySale: number; sum: number; costTotal: number }>> {
 	try {
 		const docs = await getDocumentsBySales(db, shopId, since, until);
 
-		const result: Record<string, { quantitySale: number; sum: number }> = {};
+		const result: Record<string, { quantitySale: number; sum: number; costTotal: number }> = {};
 		const nameSet =
 			productNames.length > 0
 				? new Set(productNames.map((n) => n.trim()))
@@ -402,10 +402,31 @@ export async function getSalesByProductFromD1(
 				if (nameSet && !nameSet.has(name)) continue;
 
 				if (!result[name]) {
-					result[name] = { quantitySale: 0, sum: 0 };
+					result[name] = { quantitySale: 0, sum: 0, costTotal: 0 };
 				}
-				result[name].quantitySale += (tx.quantity || 0) * sign;
+				const quantity = tx.quantity || 0;
+				// costPrice — себестоимость за единицу (не за строку), поэтому
+				// умножаем на количество; знак учитывает PAYBACK (возврат).
+				const lineCost = (tx.costPrice ?? 0) * quantity;
+				result[name].quantitySale += quantity * sign;
 				result[name].sum += tx.sum * sign;
+				result[name].costTotal += lineCost * sign;
+			}
+		}
+
+		// Обогащение: загруженная себестоимость из 1С — авторитетный источник
+		// (цена, актуальная на начало периода). Если её нет — остаётся costPrice
+		// из документов Эвотора.
+		const allNames = Object.keys(result);
+		if (allNames.length > 0) {
+			const uploadedCosts = await getCostPricesForPeriod(db, allNames, since);
+			if (uploadedCosts.size > 0) {
+				for (const [name, d] of Object.entries(result)) {
+					const uploadedPrice = uploadedCosts.get(name);
+					if (uploadedPrice) {
+						d.costTotal = uploadedPrice * d.quantitySale;
+					}
+				}
 			}
 		}
 

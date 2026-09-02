@@ -493,6 +493,13 @@ export default function SalesReport() {
             ]} />
           </div>
 
+          {showProfit && isAdmin && totalCost === 0 && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+              Себестоимость не загружена — прибыль пока считается как выручка.
+              Загрузите цены 1С, чтобы увидеть реальную валовую прибыль.
+            </div>
+          )}
+
           <div className="flex-1 min-h-0 w-full">
             <DynamicTableSalesReport
               data={tableData}
