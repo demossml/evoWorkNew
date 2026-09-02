@@ -31,6 +31,7 @@ import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { getAuthHeaders } from "@shared/api";
 import { HelpButton } from "@shared/help/HelpSheet";
+import { useHomeDashboard } from "../hooks/dashboard/useHomeDashboard";
 import { AuthCard } from "../components/AuthCard";
 
 type WidgetKey = "revenue" | "tempo" | "finance" | "best" | "products" | "accessories" | "sync";
@@ -94,6 +95,7 @@ export default function Home() {
   const { since, until, dateMode } = dateFilter;
 
   const isExpanded = (key: WidgetKey) => expanded === key;
+  const { isLoading: homeLoading } = useHomeDashboard(since, until, isUniversal);
 
   return (
     <div className="flex flex-col items-center w-full min-h-screen bg-background pt-[calc(var(--tg-app-top-offset,var(--tg-safe-top,0px))+3.5rem)] px-4 sm:px-6 pb-24">
@@ -140,7 +142,15 @@ export default function Home() {
           </ErrorBoundary>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        {homeLoading && (
+          <div className="grid grid-cols-2 gap-4">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="animate-pulse rounded-xl bg-card border border-border p-4 shadow-sm min-h-[132px]" />
+            ))}
+          </div>
+        )}
+
+        <div className={`grid grid-cols-2 gap-4 ${homeLoading ? "hidden" : ""}`}>
           {can("home.revenue") && (
             <div className={isExpanded("revenue") ? "col-span-2" : "h-full"}>
               <ErrorBoundary variant="widget" name="Выручка">

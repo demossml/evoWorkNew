@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { TrendingUp } from "lucide-react";
 import { getAuthHeaders } from "@shared/api";
@@ -35,36 +36,24 @@ function fmtRub(n: number): string {
 }
 
 export function HighMarginProductsWidget({ since, until, expanded, onToggle }: Props) {
-  const [data, setData] = useState<HighMarginResponse | null>(null);
-  const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<MarginScope>("high");
   const [shopId, setShopId] = useState<string>("all");
   const { data: roleData } = useEmployeeRole();
   const canSeeProfitValue = canSeeProfit(roleData?.employeeRole);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const qs = new URLSearchParams({ since, until, scope: "all" });
-        if (shopId !== "all") qs.set("shopUuid", shopId);
-        const res = await fetch(`/api/evotor/high-margin-products?${qs}`, {
-          headers: getAuthHeaders(),
-        });
-        if (!res.ok) throw new Error(String(res.status));
-        const json = (await res.json()) as HighMarginResponse;
-        if (!cancelled) setData(json);
-      } catch {
-        if (!cancelled) setData(null);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [since, until, shopId]);
+  const { data, isLoading: loading } = useQuery<HighMarginResponse>({
+    queryKey: ["high-margin", since, until, shopId],
+    queryFn: async () => {
+      const qs = new URLSearchParams({ since, until, scope: "all" });
+      if (shopId !== "all") qs.set("shopUuid", shopId);
+      const res = await fetch(`/api/evotor/high-margin-products?${qs}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
 
   const threshold = data?.threshold ?? 0;
 

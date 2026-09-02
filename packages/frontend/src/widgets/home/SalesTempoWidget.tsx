@@ -78,14 +78,9 @@ export function SalesTempoWidget({ since, until, expanded, onToggle }: Props) {
 
   if (loading || !filtered) return <SkeletonCard tone="indigo" />;
 
-  const salesDeltaPct = prevFiltered?.netRevenue
-    ? Math.round(((filtered.netRevenue - prevFiltered.netRevenue) / prevFiltered.netRevenue) * 100)
-    : 0;
-
   // Данные карточки зависят от режима профиля
   let title: string;
   let mainValue: string;
-  let badge: string | null = null;
   let secondary: ReactNode;
   let bgColor: string;
 
@@ -94,7 +89,6 @@ export function SalesTempoWidget({ since, until, expanded, onToggle }: Props) {
     const deltaUp = (dc.deltaPct ?? 0) >= 0;
     title = "Динамика";
     mainValue = `${formatRub(dc.currentNet ?? 0)} ₽`;
-    badge = `${deltaUp ? "+" : ""}${dc.deltaPct ?? 0}%`;
     bgColor = deltaUp ? "hsl(var(--success))" : "hsl(var(--destructive))";
     secondary = (
       <span className="flex items-center gap-1">
@@ -106,22 +100,26 @@ export function SalesTempoWidget({ since, until, expanded, onToggle }: Props) {
     const pf = planFact ?? { actualNet: filtered.netRevenue, totalPlan: 0, planPct: 0, gapByNow: 0 };
     const hasPlan = (pf.totalPlan ?? 0) > 0;
     const gap = pf.gapByNow ?? 0;
-    title = "Темп продаж";
-    mainValue = `${formatRub(pf.actualNet ?? filtered.netRevenue)} ₽`;
-    if (hasPlan) badge = `${pf.planPct ?? 0}%`;
+    const gapUp = gap >= 0;
+    title = "Темп";
     bgColor = !hasPlan
       ? "hsl(var(--muted-foreground))"
-      : gap >= 0
+      : gapUp
         ? "hsl(var(--success))"
-        : "hsl(var(--destructive))",
-    secondary = hasPlan ? (
-      <span className="flex items-center gap-1">
-        {gap >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-        {gap >= 0 ? "Опережаем" : "Отстаём"} {formatRub(Math.abs(gap))} ₽
-      </span>
-    ) : (
-      <span>План не задан</span>
-    );
+        : "hsl(var(--destructive))";
+    if (hasPlan) {
+      mainValue = `${gapUp ? "+" : "−"}${formatRub(Math.abs(gap))} ₽`;
+      const pct = pf.planPct ?? 0;
+      secondary = (
+        <span className="flex items-center gap-1">
+          {gapUp ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+          {gapUp ? "опереж." : "отстаём"} · план {pct > 200 ? ">200%" : `${pct}%`}
+        </span>
+      );
+    } else {
+      mainValue = `${formatRub(pf.actualNet ?? filtered.netRevenue)} ₽`;
+      secondary = <span>План не задан</span>;
+    }
   }
 
   // ═══ Свёрнутая карточка ═══
@@ -138,16 +136,11 @@ export function SalesTempoWidget({ since, until, expanded, onToggle }: Props) {
             <Clock3 className="w-5 h-5 opacity-80 shrink-0" />
             <span className="text-xs font-medium opacity-90 truncate">{title}</span>
           </div>
-          {badge && (
-            <div className="flex items-center gap-1.5 shrink-0 ml-1">
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/20">{badge}</span>
-            </div>
-          )}
         </div>
         <div className="flex items-end justify-between gap-1.5">
           <div className="min-w-0 flex-1">
             <div className="text-lg font-bold truncate leading-tight">{mainValue}</div>
-            <div className="text-sm opacity-90 mt-1 truncate">{secondary}</div>
+            <div className="text-xs opacity-90 mt-1 truncate">{secondary}</div>
           </div>
         </div>
       </div>
