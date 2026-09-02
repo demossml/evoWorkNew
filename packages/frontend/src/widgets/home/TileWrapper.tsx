@@ -24,10 +24,12 @@ interface TileWrapperProps {
  */
 export function TileWrapper({ expanded, onToggle, card, detail }: TileWrapperProps) {
   return (
-    <div className="h-full">
+    <div className={expanded ? "" : "h-full"}>
       <div
         onClick={onToggle}
-        className={`h-full rounded-xl transition-all duration-300 ${
+        className={`rounded-xl transition-all duration-300 ${
+          expanded ? "" : "h-full"
+        } ${
           expanded
             ? "ring-2 ring-primary scale-[1.01]"
             : "hover:-translate-y-0.5 cursor-pointer"

@@ -212,8 +212,8 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
   );
 
   return (
-    <div className="h-full">
-      <div onClick={onToggle} className="h-full">{card}</div>
+    <div className={expanded ? "" : "h-full"}>
+      <div onClick={onToggle} className={expanded ? "" : "h-full"}>{card}</div>
       <AnimatePresence>{expanded && detail}</AnimatePresence>
     </div>
   );
