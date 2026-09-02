@@ -186,8 +186,19 @@ export function BottomNavigation({
   const showInProfile = (i: { profiles?: ProductProfile[] }) =>
     !i.profiles || i.profiles.includes(profile);
 
-  const canItem = (i: { permissionId?: string }) =>
-    !i.permissionId || can(i.permissionId);
+  // Единое правило видимости пункта «Ещё»:
+  // SUPERADMIN видит всё; для остальных пункт с permissionId открывается
+  // галочкой (can), без permissionId — по ролям.
+  const canSeeMoreItem = (i: {
+    roles: string[];
+    permissionId?: string;
+    profiles?: ProductProfile[];
+  }) => {
+    if (!showInProfile(i)) return false;
+    if (employeeRole === "SUPERADMIN") return true;
+    if (i.permissionId) return can(i.permissionId);
+    return i.roles.includes(employeeRole);
+  };
 
   const filteredMainNav = mainNav.filter(
     (i) => i.roles.includes(employeeRole) && showInProfile(i)
@@ -195,9 +206,7 @@ export function BottomNavigation({
   const filteredMoreGroups = moreGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter(
-        (i) => i.roles.includes(employeeRole) && showInProfile(i) && canItem(i)
-      ),
+      items: group.items.filter(canSeeMoreItem),
     }))
     .filter((group) => group.items.length > 0);
   const hasMore = filteredMoreGroups.length > 0;

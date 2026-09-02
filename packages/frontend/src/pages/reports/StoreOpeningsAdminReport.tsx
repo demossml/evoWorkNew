@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { useEmployeeRole } from "../../hooks/useApi";
+import { useFeaturePermissions } from "../../hooks/useFeaturePermissions";
 import { client } from "../../helpers/api";
 import { HelpButton } from "@shared/help/HelpSheet";
 import { Calendar, Popover, PopoverContent, PopoverTrigger } from "../../components/ui";
@@ -54,7 +55,11 @@ export default function StoreOpeningsAdminReport() {
   useTelegramBackButton();
 
   const { data: roleData } = useEmployeeRole();
+  const { can } = useFeaturePermissions();
   const isSuperAdmin = roleData?.employeeRole === "SUPERADMIN";
+  const isAdmin = roleData?.employeeRole === "ADMIN";
+  // SUPERADMIN всегда; ADMIN — только при галочке report.store_openings.
+  const allowed = isSuperAdmin || (isAdmin && can("report.store_openings"));
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [startDate, setStartDate] = useState(today);
@@ -152,11 +157,11 @@ export default function StoreOpeningsAdminReport() {
   };
 
   useEffect(() => {
-    if (isSuperAdmin) {
+    if (allowed) {
       void loadReport();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSuperAdmin]);
+  }, [allowed]);
 
   const filteredRecords = useMemo(() => {
     const records = report?.records ?? [];
@@ -202,11 +207,11 @@ export default function StoreOpeningsAdminReport() {
     }
   };
 
-  if (!isSuperAdmin) {
+  if (!allowed) {
     return (
       <div className="app-page p-4">
         <div className="max-w-3xl mx-auto rounded-xl bg-red-50 border border-red-200 p-4 text-red-700">
-          Доступ только для SUPERADMIN.
+          Доступ только для SUPERADMIN (или ADMIN с правом «Открытия (сводка)»).
         </div>
       </div>
     );

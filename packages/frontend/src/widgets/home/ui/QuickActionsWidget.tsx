@@ -14,6 +14,7 @@ import {
   type QuickActionModel,
 } from "@features/dashboard/model/quickActionsModel";
 import { useStockHealth } from "@/hooks/dashboard/useStockHealth";
+import { useFeaturePermissions } from "@/hooks/useFeaturePermissions";
 import { isTelegramMiniApp, telegram } from "@/helpers/telegram";
 
 interface QuickActionsWidgetProps {
@@ -23,8 +24,9 @@ interface QuickActionsWidgetProps {
 export function QuickActionsWidget({ employeeRole }: QuickActionsWidgetProps) {
   const navigate = useNavigate();
   const isMiniApp = isTelegramMiniApp();
+  const { can } = useFeaturePermissions();
 
-  const availableActions = getAvailableQuickActions(employeeRole);
+  const availableActions = getAvailableQuickActions(employeeRole, can);
 
   // Загружаем данные для бейджей
   const needsStockBadge = availableActions.some(a => a.badgeKey === "deadStock" || a.badgeKey === "lowStock");

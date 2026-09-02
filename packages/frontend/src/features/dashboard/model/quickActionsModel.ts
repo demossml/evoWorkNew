@@ -15,6 +15,8 @@ export type QuickActionModel = {
   roles: string[];
   /** Ключ для получения бейджа. undefined = нет бейджа */
   badgeKey?: "deadStock" | "openings" | "lowStock";
+  /** Право из FEATURE_CATALOG (report.*). Если задано — видимость по галочке. */
+  permissionId?: string;
 };
 
 export const QUICK_ACTIONS: QuickActionModel[] = [
@@ -58,6 +60,7 @@ export const QUICK_ACTIONS: QuickActionModel[] = [
     path: "/evotor/store-openings-admin",
     color: "from-teal-500 to-cyan-600",
     roles: ["SUPERADMIN"],
+    permissionId: "report.store_openings",
   },
   {
     title: "Расчеты прибыли",
@@ -77,6 +80,13 @@ export const QUICK_ACTIONS: QuickActionModel[] = [
   },
 ];
 
-export function getAvailableQuickActions(employeeRole: string) {
-  return QUICK_ACTIONS.filter((action) => action.roles.includes(employeeRole));
+export function getAvailableQuickActions(
+  employeeRole: string,
+  can?: (featureId: string) => boolean,
+) {
+  return QUICK_ACTIONS.filter((action) => {
+    if (employeeRole === "SUPERADMIN") return true;
+    if (action.permissionId) return can ? can(action.permissionId) : false;
+    return action.roles.includes(employeeRole);
+  });
 }
