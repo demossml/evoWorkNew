@@ -4443,81 +4443,87 @@ ${otherShopsInfo}
 			const date = c.req.query("date") || new Date().toISOString().slice(0, 10);
 			const shopName = c.req.query("shopName");
 
-			const db = c.env.DB;
-			const evo = c.var.evotor;
+			const db = c.get("db");
+			const tenantId = c.get("tenantId") || "default";
 
-			// Get shops from D1
-			const shopsResult = await db.prepare("SELECT uuid, name FROM shops").all<{ uuid: string; name: string }>();
-			const shops = (shopsResult.results ?? []) as ShopUuidName[];
-			if (!shops || !shops.length) return c.json({ rows: [], totalPlan: 0, actualNet: 0 });
+			// Только магазины tenant
+			const tenantShops = await getTenantShopUuids(db, tenantId);
+			if (tenantShops.length === 0) {
+				return c.json({ rows: [], totalPlan: 0, actualNet: 0, expectedByNow: 0, gapByNow: 0, planPct: 0, pacePct: 0 });
+			}
 
-			// Filter by shopName
+			const shopRows = await db
+				.prepare("SELECT uuid, name FROM shops WHERE tenant_id = ?")
+				.bind(tenantId)
+				.all<{ uuid: string; name: string }>();
+			const shops = shopRows.results ?? [];
+
 			const targetUuids = new Set<string>();
 			for (const shop of shops) {
 				if (!shopName || shop.name === shopName) {
 					targetUuids.add(shop.uuid);
 				}
 			}
+			if (targetUuids.size === 0) {
+				return c.json({ rows: [], totalPlan: 0, actualNet: 0, expectedByNow: 0, gapByNow: 0, planPct: 0, pacePct: 0 });
+			}
 
-			// Get plan from D1
-			const planByShop = await getPlan(date, db);
+			// План из D1 (таблица plan хранит даты в формате DD-MM-YYYY)
+			const [yp, mp, dp] = date.split("-");
+			const datePlan = `${dp}-${mp}-${yp}`;
+			const planByShop = await getPlan(datePlan, db);
 			const totalPlan = Object.entries(planByShop || {})
 				.filter(([uuid]) => targetUuids.has(uuid))
 				.reduce((sum, [, amount]) => sum + Number(amount), 0);
 
-			// Get actual sales
-			const since = formatDateWithTime(new Date(date), false);
-			const until = formatDateWithTime(new Date(date), true);
-
+			// Факт за день
+			const since = date.length <= 10 ? date + "T00:00:00" : date;
+			const until = date.length <= 10 ? date + "T23:59:59" : date;
+			const inClause = [...targetUuids].map(() => "?").join(",");
 			const docResult = await db
 				.prepare(`
 					SELECT shop_id, type, close_date, transactions
 					FROM index_documents
 					WHERE close_date >= ? AND close_date <= ?
 					  AND type IN ('SELL', 'PAYBACK')
+					  AND shop_id IN (${inClause})
 				`)
-				.bind(since, until)
+				.bind(since, until, ...[...targetUuids])
 				.all<{ shop_id: string; type: string; close_date: string; transactions: string }>();
 
-			// Group sales by hour: { hour: { sell, refund } }
+			// Группировка по часам
 			const hourly: Record<number, { sell: number; refund: number }> = {};
 			for (let h = 7; h <= 23; h++) hourly[h] = { sell: 0, refund: 0 };
 
-			if (docResult?.results) {
-				for (const row of docResult.results) {
-					if (!targetUuids.has(row.shop_id)) continue;
+			for (const row of docResult?.results ?? []) {
+				const closeHour = new Date(row.close_date).getHours();
+				if (closeHour < 7 || closeHour > 23) continue;
 
-					const closeHour = new Date(row.close_date).getHours();
-					if (closeHour < 7 || closeHour > 23) continue;
+				const isRefund = row.type === "PAYBACK";
+				let transactions: any[];
+				try {
+					transactions = JSON.parse(row.transactions);
+				} catch {
+					continue;
+				}
+				if (!Array.isArray(transactions)) continue;
 
-					const isRefund = row.type === "PAYBACK";
-
-					let transactions: any[];
-					try {
-						transactions = JSON.parse(row.transactions);
-					} catch {
-						continue;
-					}
-					if (!Array.isArray(transactions)) continue;
-
-					for (const tx of transactions) {
-						if (tx.type !== "REGISTER_POSITION") continue;
-						const sum = Number(tx.sum || 0);
-						if (isRefund) {
-							hourly[closeHour].refund += sum;
-						} else {
-							hourly[closeHour].sell += sum;
-						}
+				for (const tx of transactions) {
+					if (tx.type !== "REGISTER_POSITION") continue;
+					const sum = Number(tx.sum || 0);
+					if (isRefund) {
+						hourly[closeHour].refund += sum;
+					} else {
+						hourly[closeHour].sell += sum;
 					}
 				}
 			}
 
-			// Compute rows
 			const totalActualSell = Object.values(hourly).reduce((s, h) => s + h.sell, 0);
 			const totalActualRefund = Object.values(hourly).reduce((s, h) => s + h.refund, 0);
 			const actualNet = totalActualSell - totalActualRefund;
 
-			const openingHours = 17; // 7–23 inclusive
+			const openingHours = 17; // 7–23
 			const rows: {
 				hour: number;
 				label: string;
@@ -4533,17 +4539,8 @@ ${otherShopsInfo}
 			for (let h = 7; h <= 23; h++) {
 				const hourNet = hourly[h].sell - hourly[h].refund;
 				cumulativeActual += hourNet;
-
-				let hourPlan = 0;
-				if (totalPlan > 0) {
-					if (totalActualSell > 0) {
-						// Distribute plan proportionally to actual hourly sell
-						hourPlan = (hourly[h].sell / totalActualSell) * totalPlan;
-					} else {
-						hourPlan = totalPlan / openingHours;
-					}
-				}
-				cumulativeExpected += hourPlan;
+				// Ожидание — равномерно по времени смены (не пропорционально факту)
+				cumulativeExpected += totalPlan > 0 ? totalPlan / openingHours : 0;
 
 				rows.push({
 					hour: h,
@@ -4555,10 +4552,90 @@ ${otherShopsInfo}
 				});
 			}
 
-			return c.json({ rows, totalPlan: Math.round(totalPlan), actualNet: Math.round(actualNet) });
+			// expectedByNow по доле прошедшего времени смены (7:00–23:00)
+			const now = new Date();
+			const nowMin = now.getHours() * 60 + now.getMinutes();
+			const shiftStart = 7 * 60;
+			const shiftEnd = 23 * 60 + 59;
+			const elapsed = Math.max(0, Math.min(nowMin - shiftStart, shiftEnd - shiftStart));
+			const shiftTotal = shiftEnd - shiftStart;
+			const expectedByNow = totalPlan > 0 ? (totalPlan * elapsed) / shiftTotal : 0;
+			const gapByNow = actualNet - expectedByNow;
+			const planPct = totalPlan > 0 ? Math.round((actualNet / totalPlan) * 100) : 0;
+			const pacePct = expectedByNow > 0 ? Math.round((actualNet / expectedByNow) * 100) : 0;
+
+			return c.json({
+				rows,
+				totalPlan: Math.round(totalPlan),
+				actualNet: Math.round(actualNet),
+				expectedByNow: Math.round(expectedByNow),
+				gapByNow: Math.round(gapByNow),
+				planPct,
+				pacePct,
+			});
 		} catch (err) {
 			console.error("hourly-plan-fact error:", err);
-			return c.json({ rows: [], totalPlan: 0, actualNet: 0 });
+			return c.json({ rows: [], totalPlan: 0, actualNet: 0, expectedByNow: 0, gapByNow: 0, planPct: 0, pacePct: 0 });
+		}
+	})
+	.get("/api/analytics/revenue/day-compare", async (c) => {
+		try {
+			const db = c.get("db");
+			const tenantId = c.get("tenantId") || "default";
+			const shopUuids = await getTenantShopUuids(db, tenantId);
+
+			const fmtLocal = (d: Date): string =>
+				`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+			const dateParam = c.req.query("date");
+			const date = dateParam || fmtLocal(new Date());
+
+			const [y, m, dd] = date.split("-").map(Number);
+			const prevDate = fmtLocal(new Date(y, m - 1, dd - 1));
+
+			const sumNet = async (day: string): Promise<number> => {
+				if (shopUuids.length === 0) return 0;
+				const inClause = shopUuids.map(() => "?").join(",");
+				const docs = await db
+					.prepare(`SELECT type, transactions FROM index_documents
+					          WHERE close_date >= ? AND close_date <= ?
+					            AND type IN ('SELL', 'PAYBACK')
+					            AND shop_id IN (${inClause})`)
+					.bind(day + "T00:00:00", day + "T23:59:59", ...shopUuids)
+					.all<{ type: string; transactions: string }>();
+				let net = 0;
+				for (const doc of docs.results ?? []) {
+					const sign = doc.type === "PAYBACK" ? -1 : 1;
+					let txs: any[];
+					try { txs = JSON.parse(doc.transactions); } catch { continue; }
+					if (!Array.isArray(txs)) continue;
+					for (const tx of txs) {
+						if (tx.type !== "REGISTER_POSITION") continue;
+						net += (Number(tx.sum) || 0) * sign;
+					}
+				}
+				return net;
+			};
+
+			const currentNet = await sumNet(date);
+			const previousNet = await sumNet(prevDate);
+			const deltaPct =
+				previousNet > 0
+					? Math.round(((currentNet - previousNet) / previousNet) * 100)
+					: currentNet > 0
+						? 100
+						: 0;
+
+			return c.json({
+				date,
+				previousDate: prevDate,
+				currentNet: Math.round(currentNet),
+				previousNet: Math.round(previousNet),
+				deltaPct,
+			});
+		} catch (err) {
+			console.error("[day-compare] error:", err);
+			return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
 		}
 	})
 	.get("/api/analytics/revenue/refund-documents", async (c) => {
