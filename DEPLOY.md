@@ -31,14 +31,14 @@ TELEGRAM_STORAGE_CHAT_ID=<id-чата-для-файлов>
 TELEGRAM_STORAGE_BOT_TOKEN=<токен-бота-для-файлов>
 ```
 
-Пример (не настоящие токены):
+Пример (плейсхолдеры — реальные токены НЕ вставлять):
 
 ```bash
 DOMAIN=evo.mycompany.com
-EVOTOR_API_TOKEN=1126f94c-2b19-490e-872c-49ded3be310e
-BOT_TOKEN=8727487138:AAHnSTM9tisI2pOmRqooqTSHwsuJVtMmXag
-TELEGRAM_STORAGE_CHAT_ID=-5118742446
-TELEGRAM_STORAGE_BOT_TOKEN=8727487138:AAHnSTM9tisI2pOmRqooqTSHwsuJVtMmXag
+EVOTOR_API_TOKEN=<токен-эвотор-api>
+BOT_TOKEN=<токен-telegram-бота>
+TELEGRAM_STORAGE_CHAT_ID=<id-чата-для-файлов>
+TELEGRAM_STORAGE_BOT_TOKEN=<токен-бота-для-файлов>
 ```
 
 Файл `.env` НЕ коммитится (уже в `.gitignore`).

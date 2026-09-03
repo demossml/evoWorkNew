@@ -6,6 +6,9 @@ dist
 .dev.vars
 .env
 data/
+*.db
+*.sqlite
+logs/
 
 # local artifacts
 dev-dist/

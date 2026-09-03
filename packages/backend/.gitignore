@@ -3,3 +3,11 @@ node_modules
 .wrangler
 dist/**/*
 
+# secrets & local data — никогда не коммитить
+.dev.vars
+.env
+data/
+logs/
+*.db
+*.sqlite
+

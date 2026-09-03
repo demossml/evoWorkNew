@@ -1,0 +1,21 @@
+# Скопируйте в .dev.vars (gitignored) и заполните реальными значениями.
+# Никогда не коммитьте .dev.vars и не вставляйте сюда реальные токены в репо.
+
+# Evotor API-токен (ваша основная сеть)
+EVOTOR_API_TOKEN=
+
+# Telegram: бот для файлов/фото
+BOT_TOKEN=
+TELEGRAM_STORAGE_BOT_TOKEN=
+TELEGRAM_STORAGE_CHAT_ID=
+
+# DeepSeek AI (опционально; также можно задать per-tenant)
+DEEPSEEK_API_KEY=
+
+# Секрет-«pepper» для PBKDF2-хеширования паролей (≥ 32 случайных символа).
+# ВАЖНО: смена AUTH_SECRET инвалидирует все ранее созданные пароли (pepper подмешивается в хеш).
+AUTH_SECRET=
+
+# Локальные пути (не секреты, опционально)
+# PORT=3000
+# DATA_DIR=./data

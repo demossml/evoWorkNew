@@ -11,7 +11,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { readdirSync, existsSync, appendFileSync, mkdirSync } from "fs";
+import { readdirSync, existsSync, appendFileSync, mkdirSync, readFileSync } from "fs";
 import path from "path";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import cron from "node-cron";
@@ -30,6 +30,24 @@ import { runMigrations } from "./src/db/migrations";
 
 import { updatePlan_, getDataForCurrentDate, updateDataSaleByPlan, checkAndSendCriticalAlerts } from "./src/sync/cron";
 import { ensureDefaultTenant, runAllTenants } from "./src/sync/syncEngine";
+
+// ─── Загрузка .dev.vars (Cloudflare-стиль KEY=VALUE) для локального dev ───
+// Секреты НЕ хардкодим: читаем из окружения или .dev.vars (gitignored).
+// Пример переменных — в .dev.vars.example.
+function loadDevVars(): void {
+	try {
+		const content = readFileSync(path.resolve(process.cwd(), ".dev.vars"), "utf8");
+		for (const line of content.split("\n")) {
+			const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+			if (m && process.env[m[1]!] === undefined) {
+				process.env[m[1]!] = m[2]!.replace(/^["']|["']$/g, "");
+			}
+		}
+	} catch {
+		// .dev.vars отсутствует — используем process.env как есть
+	}
+}
+loadDevVars();
 
 const DATA_DIR = process.env.DATA_DIR ?? "./data";
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
@@ -61,9 +79,10 @@ function findWranglerD1(): string | null {
 }
 const DB_PATH = process.env.DB_PATH ?? findWranglerD1() ?? `${DATA_DIR}/local.db`;
 
-const BOT_TOKEN = process.env.BOT_TOKEN ?? "8727487138:AAHnSTM9tisI2pOmRqooqTSHwsuJVtMmXag";
-const EVOTOR_TOKEN = process.env.EVOTOR_API_TOKEN ?? "d786c889-9851-48d3-bafc-c0ed41ca1cc2";
-const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY ?? "sk-a766e22289df42339c515be265617c93";
+// Секреты — только из окружения/.dev.vars, без хардкода (fail-closed).
+const BOT_TOKEN = process.env.BOT_TOKEN ?? "";
+const EVOTOR_TOKEN = process.env.EVOTOR_API_TOKEN ?? "";
+const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY ?? "";
 
 // --- Инициализация локальных ресурсов ---
 const db = new LocalD1Database(DB_PATH);

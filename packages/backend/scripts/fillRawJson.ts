@@ -14,9 +14,11 @@ import { LocalD1Database } from "../src/adapters/local-db";
 import { Evotor } from "../src/evotor";
 import { formatDateWithTime } from "../src/utils";
 
-const TOKEN =
-	process.env.EVOTOR_API_TOKEN ??
-	"d786c889-9851-48d3-bafc-c0ed41ca1cc2";
+const TOKEN = process.env.EVOTOR_API_TOKEN;
+if (!TOKEN) {
+	console.error("❌ EVOTOR_API_TOKEN не задан (экспортируйте или добавьте в .dev.vars)");
+	process.exit(1);
+}
 const DB_PATH = process.env.DB_PATH ?? "./data/local.db";
 
 async function main() {
