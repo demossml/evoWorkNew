@@ -100,9 +100,11 @@ export default function Home() {
     <div className="flex flex-col items-center w-full min-h-screen bg-background pt-[calc(var(--tg-app-top-offset,var(--tg-safe-top,0px))+3.5rem)] px-3 sm:px-6 pb-24">
       <HomeTopBar queryClient={queryClient} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
       <div className="w-full max-w-7xl space-y-4">
-        <ErrorBoundary variant="widget" name="Ежедневный брифинг">
-          <DailyBriefing />
-        </ErrorBoundary>
+        {!isUniversal && (
+          <ErrorBoundary variant="widget" name="Ежедневный брифинг">
+            <DailyBriefing />
+          </ErrorBoundary>
+        )}
         {isUniversal && (
           <p className="text-[10px] text-muted-foreground px-1 -mt-1">
             Режим: универсальная розница
