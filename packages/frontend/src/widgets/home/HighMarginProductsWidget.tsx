@@ -70,7 +70,10 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
   const overallMargin = totalSum > 0 ? Math.round((totalProfit / totalSum) * 100) : 0;
 
   const title = scope === "high" ? "Высокомаржинальные товары" : "Низкомаржинальные товары";
-  const hint = scope === "high" ? `маржа ≥ ${threshold}%` : `маржа < ${threshold}%`;
+  // Для кассира — нейтральный текст без цифр порога/маржи.
+  const hint = canSeeProfitValue
+    ? (scope === "high" ? `маржа ≥ ${threshold}%` : `маржа < ${threshold}%`)
+    : (scope === "high" ? "Топ маржи" : "Низкая маржа");
 
   const toggle = (
     <div
@@ -114,7 +117,9 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
             <div className="text-xl font-bold tabular-nums truncate leading-tight">{fmtRub(totalSum)} ₽</div>
             <div className="text-xs opacity-90 mt-0.5 truncate flex items-center gap-2">
               <span>{scopedItems.length} поз.</span>
-              <span className="opacity-80">· маржа {overallMargin}%</span>
+              {canSeeProfitValue && (
+                <span className="opacity-80">· маржа {overallMargin}%</span>
+              )}
             </div>
           </div>
         </div>
@@ -151,12 +156,14 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span className="text-sm font-bold text-foreground">{fmtRub(totalSum)} ₽</span>
         <span>· {scopedItems.length} поз.</span>
-        <span>· маржа {overallMargin}%</span>
+        {canSeeProfitValue && <span>· маржа {overallMargin}%</span>}
       </div>
 
       {scopedItems.length === 0 ? (
         <div className="text-xs text-muted-foreground py-4 text-center">
-          Нет товаров с маржой {scope === "high" ? `≥ ${threshold}%` : `< ${threshold}%`} за период
+          Нет товаров {canSeeProfitValue
+            ? (scope === "high" ? `с маржой ≥ ${threshold}%` : `с маржой < ${threshold}%`)
+            : (scope === "high" ? "с высокой маржой" : "с низкой маржой")} за период
         </div>
       ) : (
         <div className="space-y-1 max-h-[50vh] overflow-y-auto">
@@ -185,9 +192,11 @@ export function HighMarginProductsWidget({ since, until, expanded, onToggle }: P
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
                   <span className="text-foreground font-medium">{item.quantity} шт</span>
-                  <span className={`font-semibold tabular-nums ${marginColor}`}>
-                    маржа {item.margin_pct.toFixed(1)}%
-                  </span>
+                  {canSeeProfitValue && (
+                    <span className={`font-semibold tabular-nums ${marginColor}`}>
+                      маржа {item.margin_pct.toFixed(1)}%
+                    </span>
+                  )}
                   {canSeeProfitValue && (
                     <span className="text-foreground/70 tabular-nums">приб. {fmtRub(item.profit)} ₽</span>
                   )}
