@@ -610,7 +610,7 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
     const uuids = arr
       .filter((u): u is string => typeof u === "string" && u.trim().length > 0)
       .map((u) => u.trim())
-      .slice(0, 3); // максимум 3 группы
+      .slice(0, 1); // максимум 1 группа
 
     const db = c.get("db");
     const tenantId = c.get("tenantId");

@@ -387,6 +387,7 @@ function GroupPickerCard({
   description,
   loadSelected,
   saveSelected,
+  singleSelect = false,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -394,6 +395,7 @@ function GroupPickerCard({
   description: string;
   loadSelected: () => Promise<string[]>;
   saveSelected: (uuids: string[]) => Promise<void>;
+  singleSelect?: boolean;
 }) {
   const [allGroups, setAllGroups] = useState<GroupOption[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -445,6 +447,13 @@ function GroupPickerCard({
   }, [allGroups, selected]);
 
   const toggle = (uuid: string) => {
+    if (singleSelect) {
+      // Одна группа: выбор новой заменяет предыдущую, повторный тап — снять.
+      const next = selected.includes(uuid) ? [] : [uuid];
+      setSelected(next);
+      void persist(next);
+      return;
+    }
     setSelected((prev) =>
       prev.includes(uuid) ? prev.filter((u) => u !== uuid) : [...prev, uuid],
     );
@@ -454,18 +463,23 @@ function GroupPickerCard({
   const deselectAll = () =>
     setSelected((prev) => prev.filter((u) => !filtered.some((g) => g.uuid === u)));
 
-  const handleSave = async () => {
+  const persist = async (uuids: string[]) => {
     setSaving(true);
     setMessage(null);
     try {
-      await saveSelected(selected);
-      setSaved([...selected]);
-      setMessage(`Сохранено: ${selected.length} групп`);
+      await saveSelected(uuids);
+      setSaved([...uuids]);
+      setMessage(`Сохранено: ${uuids.length} групп`);
     } catch (err) {
       setMessage(`Ошибка: ${err}`);
+      setSelected([...saved]);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    await persist(selected);
   };
 
   const handleReset = () => {
@@ -511,21 +525,23 @@ function GroupPickerCard({
                            placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 mb-3"
               />
 
-              {/* Кнопки выбрать/снять — липкие внутри карточки */}
-              <div className="sticky top-0 z-10 bg-card pt-1 pb-2 flex gap-2">
-                <button
-                  onClick={selectAll}
-                  className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground hover:bg-muted"
-                >
-                  Выбрать найденные
-                </button>
-                <button
-                  onClick={deselectAll}
-                  className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground hover:bg-muted"
-                >
-                  Снять найденные
-                </button>
-              </div>
+              {/* Кнопки выбрать/снять — только для multi-select */}
+              {!singleSelect && (
+                <div className="sticky top-0 z-10 bg-card pt-1 pb-2 flex gap-2">
+                  <button
+                    onClick={selectAll}
+                    className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground hover:bg-muted"
+                  >
+                    Выбрать найденные
+                  </button>
+                  <button
+                    onClick={deselectAll}
+                    className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground hover:bg-muted"
+                  >
+                    Снять найденные
+                  </button>
+                </div>
+              )}
 
               {/* Список групп: высокий, с запасом снизу, чтобы последний пункт
                   не уезжал под панель кнопок / bottom navigation */}
@@ -539,7 +555,8 @@ function GroupPickerCard({
                       type="checkbox"
                       checked={selected.includes(group.uuid)}
                       onChange={() => toggle(group.uuid)}
-                      className="w-3.5 h-3.5 accent-primary"
+                      disabled={saving}
+                      className="w-3.5 h-3.5 accent-primary disabled:opacity-40"
                     />
                     <span className="text-xs text-foreground truncate">{group.name}</span>
                   </label>
@@ -558,25 +575,27 @@ function GroupPickerCard({
                 </div>
               )}
 
-              {/* Кнопки сохранить/сбросить */}
-              <div className="flex gap-2">
-                <button
-                  onClick={handleSave}
-                  disabled={saving || !dirty}
-                  className="px-3 py-1.5 text-xs rounded-lg bg-primary/20 text-primary
-                             hover:bg-primary/30 disabled:opacity-30 transition-colors"
-                >
-                  {saving ? "Сохранение..." : "Сохранить"}
-                </button>
-                <button
-                  onClick={handleReset}
-                  disabled={!dirty}
-                  className="px-3 py-1.5 text-xs rounded-lg bg-muted text-muted-foreground
-                             hover:bg-muted disabled:opacity-30 transition-colors"
-                >
-                  Сбросить
-                </button>
-              </div>
+              {/* Кнопки сохранить/сбросить — только для multi-select (single — автосохранение) */}
+              {!singleSelect && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSave}
+                    disabled={saving || !dirty}
+                    className="px-3 py-1.5 text-xs rounded-lg bg-primary/20 text-primary
+                               hover:bg-primary/30 disabled:opacity-30 transition-colors"
+                  >
+                    {saving ? "Сохранение..." : "Сохранить"}
+                  </button>
+                  <button
+                    onClick={handleReset}
+                    disabled={!dirty}
+                    className="px-3 py-1.5 text-xs rounded-lg bg-muted text-muted-foreground
+                               hover:bg-muted disabled:opacity-30 transition-colors"
+                  >
+                    Сбросить
+                  </button>
+                </div>
+              )}
 
               {message && (
                 <div className={`mt-2 text-xs ${message.startsWith("Ошибка") ? "text-red-400" : "text-emerald-400"}`}>
@@ -1537,7 +1556,8 @@ export default function SettingsNew() {
             title="Фокус-категория"
             icon={<Crosshair className="w-5 h-5" />}
             borderColor="border-l-4 border-l-slate-400"
-            description="Группы товаров для отдельного контроля (любой бизнес). Показываются на главной, если выбраны."
+            description="Одна группа товаров для отдельного контроля. Показывается на главной, если выбрана."
+            singleSelect
             loadSelected={async () => {
               const res = await fetch("/api/tenant/focus-category", { headers: getAuthHeaders() });
               if (!res.ok) return [];
