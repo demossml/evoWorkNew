@@ -192,13 +192,13 @@ export async function runMigrations(db: D1Database): Promise<void> {
 
 	await insertSetting("bonus_accessories_rate", "0.05", "number", "bonus", "Бонус с аксессуаров", "% от продаж");
 	await insertSetting("bonus_plan_amount", "450", "number", "bonus", "Бонус за план", "₽ за выполнение");
-	await insertSetting("margin_green", "30", "number", "thresholds", "Маржа: зелёный", "≥ N%");
-	await insertSetting("margin_yellow", "15", "number", "thresholds", "Маржа: жёлтый", "≥ N%");
-	await insertSetting("plan_green", "90", "number", "thresholds", "План: зелёный", "≥ N%");
-	await insertSetting("plan_yellow", "70", "number", "thresholds", "План: жёлтый", "≥ N%");
+	await insertSetting("margin_green", "30", "number", "thresholds", "Маржа: зелёный уровень", "от N%");
+	await insertSetting("margin_yellow", "15", "number", "thresholds", "Маржа: жёлтый уровень", "от N%");
+	await insertSetting("plan_green", "90", "number", "thresholds", "План: зелёный", "от N%");
+	await insertSetting("plan_yellow", "70", "number", "thresholds", "План: жёлтый", "от N%");
 	await insertSetting("accessory_share_target", "12", "number", "thresholds", "Цель аксессуаров", "% в выручке");
 	await insertSetting("dead_stock_days", "14", "number", "thresholds", "Мёртвый сток", "дней без продаж");
-	await insertSetting("high_margin_threshold", "40", "number", "thresholds", "Порог высокомаржинального товара", "% маржи");
+	await insertSetting("high_margin_threshold", "40", "number", "thresholds", "Порог высокой маржи", "% маржи");
 	await insertSetting("sync_delay_shops", "7000", "number", "sync", "Задержка: магазины", "мс");
 	await insertSetting("sync_delay_requests", "2000", "number", "sync", "Задержка: запросы", "мс");
 	await insertSetting("upload_max_attempts", "4", "number", "upload", "Макс. попыток загрузки", "");

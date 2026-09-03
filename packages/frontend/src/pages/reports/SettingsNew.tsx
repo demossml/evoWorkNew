@@ -73,13 +73,13 @@ function formatLabel(key: string): string {
     bonus_plan_amount: "Бонус за план, ₽",
     base_salary: "Оклад, ₽/день",
     salary_mode: "Режим оплаты",
-    margin_green: "Маржа: зелёный, ≥ %",
-    margin_yellow: "Маржа: жёлтый, ≥ %",
-    plan_green: "План: зелёный, ≥ %",
-    plan_yellow: "План: жёлтый, ≥ %",
+    margin_green: "Маржа: зелёный уровень, от %",
+    margin_yellow: "Маржа: жёлтый уровень, от %",
+    plan_green: "План: зелёный, от %",
+    plan_yellow: "План: жёлтый, от %",
     accessory_share_target: "Цель аксессуаров, %",
     dead_stock_days: "Мёртвый сток, дней",
-    high_margin_threshold: "Порог высокомаржинального товара, %",
+    high_margin_threshold: "Порог высокой маржи, %",
   };
   return map[key] ?? key;
 }
@@ -1361,12 +1361,22 @@ export default function SettingsNew() {
       "upload_lock_ttl",
       "api_timeout",
     ]);
+    // Ключи, которые не показываем в общих настройках:
+    // opening_point_config — конфиг «Открытие ТТ» (настраивается в отчёте открытия);
+    // role_feature_permissions — права фич (своя плитка «Права: отчёты и главный экран»);
+    // "margin_green;" — битый дубль с опечаткой в ключе (легитимный — «margin_green» в Порогах).
+    const hiddenSettingKeys = new Set([
+      "opening_point_config",
+      "role_feature_permissions",
+      "margin_green;",
+    ]);
     // В коммерческом режиме план-настройки не показываем
     const hiddenUniversalPlanKeys = new Set(["plan_green", "plan_yellow", "bonus_plan_amount"]);
     for (const s of settings ?? []) {
       // salary-категория скрыта — настройки продавцов в отдельной плитке
       if (s.key === "vape_group_uuids" || s.category === "salary") continue;
       if (hiddenInfraKeys.has(s.key)) continue;
+      if (hiddenSettingKeys.has(s.key)) continue;
       if (isUniversal && hiddenUniversalPlanKeys.has(s.key)) continue;
       const cat = s.category || "general";
       if (!map[cat]) map[cat] = [];
