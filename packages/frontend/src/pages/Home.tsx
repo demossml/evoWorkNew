@@ -105,11 +105,6 @@ export default function Home() {
             <DailyBriefing />
           </ErrorBoundary>
         )}
-        {isUniversal && (
-          <p className="text-[10px] text-muted-foreground px-1 -mt-1">
-            Режим: универсальная розница
-          </p>
-        )}
 
         <ErrorBoundary variant="widget" name="Фокус">
           {can("home.focus") && <FocusCategoryWidget />}

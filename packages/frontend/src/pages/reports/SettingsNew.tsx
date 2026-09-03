@@ -34,7 +34,7 @@ import { FeaturePermissionsCard } from "../../components/FeaturePermissionsCard"
 import { SettingsCollapsibleCard } from "../../components/SettingsCollapsibleCard";
 import { HelpButton } from "@shared/help/HelpSheet";
 import { AiProviderCard } from "../../components/AiProviderCard";
-import { ProductProfileCard, ModeIndicator } from "../../components/ProductProfileCard";
+import { ProductProfileCard } from "../../components/ProductProfileCard";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -1403,7 +1403,6 @@ export default function SettingsNew() {
             <div>
               <h1 className="text-base font-bold">Настройки</h1>
               <p className="text-[10px] text-muted-foreground">Пороги, бонусы, синхронизация</p>
-              <ModeIndicator />
             </div>          </div>
 
           <div className="flex items-center gap-2">

@@ -16,27 +16,7 @@ const LABELS: Record<Profile, string> = {
   universal: "Универсальная розница",
 };
 
-/** Маленькая метка текущего режима (для шапки Settings). */
-export function ModeIndicator() {
-  const [label, setLabel] = useState<string | null>(null);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch("/api/tenant/product-profile", { headers: getAuthHeaders() });
-        if (!res.ok) return;
-        const d = await res.json();
-        setLabel(d.product_profile === "universal" ? "Универсальная розница" : "Моя сеть");
-      } catch {
-        /* ignore */
-      }
-    };
-    void load();
-  }, []);
-
-  if (!label) return null;
-  return <span className="text-[10px] text-muted-foreground">Режим: {label}</span>;
-}
+/** Маленькая метка текущего режима — удалена: надпись «Режим: …» не показываем. */
 
 export function ProductProfileCard() {
   const [me, setMe] = useState<{ user: { role: string }; isPlatformOwner?: boolean } | null>(null);
