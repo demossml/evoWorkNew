@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, RefreshCw, AlertTriangle } from "lucide-react";
+import { getAuthHeaders } from "@shared/api";
 
 /**
  * SyncStatusWidget — плитка-статусбар универсального движка синхронизации.
@@ -74,7 +75,7 @@ function StatusDot({ status }: { status: "running" | "error" | "ok" | "empty" })
 }
 
 async function fetchSyncStatus(): Promise<SyncStatusResponse> {
-  const resp = await fetch("/api/sync/status");
+  const resp = await fetch("/api/sync/status", { headers: getAuthHeaders() });
   if (!resp.ok) throw new Error(`sync/status failed: ${resp.status}`);
   return resp.json();
 }
@@ -102,7 +103,7 @@ export function SyncStatusWidget({
     setRunning(true);
     try {
       // force — игнорируем интервалы, чтобы наглядно увидеть процесс
-      await fetch("/api/sync/run?force=1", { method: "POST" });
+      await fetch("/api/sync/run?force=1", { method: "POST", headers: getAuthHeaders() });
     } catch {
       // статус отобразится на следующем опросе
     }

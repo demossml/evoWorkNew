@@ -18,7 +18,7 @@ import { hashMetrics, getCachedAnalysis, saveCachedAnalysis, saveConversation, g
 import { computeSellerAdvancedStats, computeWeekdayComparison, computeWeekdayBreakdown } from "./services/sellerAdvancedStats";
 import { generateSellerInsights } from "./services/sellerInsights";
 import { computeHourlyCompare } from "./services/sellerHourlyCompare";
-import { requireAdmin, requireSuperAdmin, assertShopAccess, getTenantShopUuids } from "./helpers";
+import { requireAdmin, requireSuperAdmin, assertShopAccess, getTenantShopUuids, isPlatformOwner } from "./helpers";
 import { registerAuthRoutes } from "./modules/auth/routes";
 import { registerAiProviderRoutes } from "./modules/ai/providerRoutes";
 import { resolveDeepseekKey } from "./services/deepseek";
@@ -158,21 +158,37 @@ export const api = new Hono<IEnv>()
 	// Статус универсального движка синхронизации (плитка на главном экране).
 	// Включается/выключается настройкой sync_status_tile_enabled (1 — вкл, 0 — выкл).
 	.get("/api/sync/status", async (c) => {
+		// Без валидной сессии (guest) — 401: не светим чужие данные.
+		const authSource = c.get("authSource");
+		if (authSource === "guest") {
+			return c.json({ error: "unauthorized" }, 401);
+		}
+
 		const db = c.get("db");
+		const tenantId = c.get("tenantId") || "default";
+		// Список всех тенантов — только platform owner; остальные видят только свой.
+		const owner = await isPlatformOwner(c);
 		try {
 			const { getNumberSetting } = await import("./services/settingsService.js");
 			const tileEnabled = (await getNumberSetting(db, "sync_status_tile_enabled", 1)) !== 0;
 
-			const tenants = await db
-				.prepare(`SELECT id, name, status FROM tenants ORDER BY id`)
-				.all<{ id: string; name: string; status: string }>();
+			const tenants = owner
+				? await db
+					.prepare(`SELECT id, name, status FROM tenants ORDER BY id`)
+					.all<{ id: string; name: string; status: string }>()
+				: await db
+					.prepare(`SELECT id, name, status FROM tenants WHERE id = ?`)
+					.bind(tenantId)
+					.all<{ id: string; name: string; status: string }>();
 
 			const states = await db
 				.prepare(`
 					SELECT tenant_id, store_id, resource, last_success_at, last_close_date, status, error, updated_at
 					FROM sync_state
+					WHERE tenant_id = ?
 					ORDER BY tenant_id, store_id, resource
 				`)
+				.bind(tenantId)
 				.all<{
 					tenant_id: string;
 					store_id: string;
@@ -185,27 +201,33 @@ export const api = new Hono<IEnv>()
 				}>();
 
 			const docsTotal = await db
-				.prepare(`SELECT COUNT(*) as n FROM index_documents`)
+				.prepare(`SELECT COUNT(*) as n FROM index_documents WHERE tenant_id = ?`)
+				.bind(tenantId)
 				.first<{ n: number }>();
 
 			const docsByType = await db
 				.prepare(`
 					SELECT type, COUNT(*) as n
 					FROM index_documents
+					WHERE tenant_id = ?
 					GROUP BY type
 					ORDER BY n DESC
 					LIMIT 25
 				`)
+				.bind(tenantId)
 				.all<{ type: string; n: number }>();
 
 			const shopsCount = await db
-				.prepare(`SELECT COUNT(*) as n FROM shops`)
+				.prepare(`SELECT COUNT(*) as n FROM shops WHERE tenant_id = ?`)
+				.bind(tenantId)
 				.first<{ n: number }>();
 			const employeesCount = await db
-				.prepare(`SELECT COUNT(*) as n FROM employees`)
+				.prepare(`SELECT COUNT(*) as n FROM employees WHERE tenant_id = ?`)
+				.bind(tenantId)
 				.first<{ n: number }>();
 			const devicesCount = await db
-				.prepare(`SELECT COUNT(*) as n FROM devices`)
+				.prepare(`SELECT COUNT(*) as n FROM devices WHERE tenant_id = ?`)
+				.bind(tenantId)
 				.first<{ n: number }>();
 
 			return c.json({

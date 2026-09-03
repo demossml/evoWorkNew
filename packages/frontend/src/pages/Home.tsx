@@ -232,7 +232,7 @@ function SyncStatusLine() {
   }>({
     queryKey: ["sync-status-line"],
     queryFn: async () => {
-      const res = await fetch("/api/sync/status");
+      const res = await fetch("/api/sync/status", { headers: getAuthHeaders() });
       if (!res.ok) throw new Error(String(res.status));
       return res.json();
     },
