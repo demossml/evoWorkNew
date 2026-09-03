@@ -94,11 +94,11 @@ export default function Home() {
   const { since, until, dateMode } = dateFilter;
 
   const isExpanded = (key: WidgetKey) => expanded === key;
-  const { isLoading: homeLoading } = useHomeDashboard(since, until, isUniversal);
+  const { isLoading: homeLoading, isFetching: homeFetching } = useHomeDashboard(since, until, isUniversal);
 
   return (
     <div className="flex flex-col items-center w-full min-h-screen bg-background pt-[calc(var(--tg-app-top-offset,var(--tg-safe-top,0px))+3.5rem)] px-3 sm:px-6 pb-24">
-      <HomeTopBar queryClient={queryClient} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
+      <HomeTopBar queryClient={queryClient} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} fetching={homeFetching} />
       <div className="w-full max-w-7xl space-y-4">
         {!isUniversal && (
           <ErrorBoundary variant="widget" name="Ежедневный брифинг">
@@ -283,10 +283,12 @@ function LastUpdated() {
   );
 }
 
-function HomeTopBar({ queryClient, isAdmin, isSuperAdmin }: { queryClient: QueryClient; isAdmin: boolean; isSuperAdmin: boolean }) {
+function HomeTopBar({ queryClient, isAdmin, isSuperAdmin, fetching }: { queryClient: QueryClient; isAdmin: boolean; isSuperAdmin: boolean; fetching?: boolean }) {
   const [online, setOnline] = useState(navigator.onLine);
   const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
+  // busy — идёт ручной invalidate ИЛИ авто-refetch Home-плиток
+  const busy = refreshing || !!fetching;
 
   useEffect(() => {
     const goOnline = () => setOnline(true);
@@ -351,12 +353,12 @@ function HomeTopBar({ queryClient, isAdmin, isSuperAdmin }: { queryClient: Query
             onClick={handleRefresh}
             disabled={refreshing}
             className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md active:scale-95 transition-all disabled:opacity-70 ${
-              refreshing
+              busy
                 ? "text-primary bg-primary/15"
                 : "text-muted-foreground bg-secondary hover:bg-secondary/80"
             }`}
           >
-            <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-3 h-3 ${busy ? "animate-spin" : ""}`} />
             Обновить
           </button>
           <button

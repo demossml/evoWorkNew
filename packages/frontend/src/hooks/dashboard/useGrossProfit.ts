@@ -41,6 +41,8 @@ export function useGrossProfit(params?: { since?: string; until?: string; enable
 			return res.json();
 		},
 		staleTime: 2 * 60_000,
+		refetchInterval: 60_000,
+		refetchOnWindowFocus: true,
 		enabled,
 	});
 }

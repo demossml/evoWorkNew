@@ -29,6 +29,8 @@ export function useHomeDashboard(since: string, until: string, isUniversal: bool
       return res.json();
     },
     staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
   });
 
   const tempo = useQuery({
@@ -42,6 +44,8 @@ export function useHomeDashboard(since: string, until: string, isUniversal: bool
       return res.json();
     },
     staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
   });
 
   return {
