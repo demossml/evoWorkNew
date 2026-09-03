@@ -21,6 +21,7 @@ import {
 } from "../../hooks/useSettings";
 import { getAuthHeaders } from "@shared/api";
 import { useProductProfile } from "../../hooks/useProductProfile";
+import { useIsPlatformOwner } from "../../hooks/useIsPlatformOwner";
 import { subscribeToPush, unsubscribeFromPush } from "../../pwa";
 import {
   Settings2, Gift, Gauge, RefreshCcw, Upload, Globe, Bell,
@@ -1286,6 +1287,7 @@ export default function SettingsNew() {
 
   const { data: settings, isLoading, error } = useSettings();
   const { isUniversal } = useProductProfile();
+  const isPlatformOwner = useIsPlatformOwner();
   const updateMutation = useUpdateSetting();
   const batchMutation = useBatchUpdateSettings();
 
@@ -1543,8 +1545,8 @@ export default function SettingsNew() {
           </SettingsCollapsibleCard>
         )}
 
-        {/* Режим приложения (только SUPERADMIN) */}
-        {!isLoading && !error && (
+        {/* Режим приложения (только platform owner) */}
+        {!isLoading && !error && isPlatformOwner && (
           <SettingsCollapsibleCard title="Режим приложения" icon={<Globe className="w-5 h-5" />} helpId="settings-product-profile">
             <ProductProfileCard />
           </SettingsCollapsibleCard>

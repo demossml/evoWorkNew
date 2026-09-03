@@ -16,6 +16,10 @@ DEEPSEEK_API_KEY=
 # ВАЖНО: смена AUTH_SECRET инвалидирует все ранее созданные пароли (pepper подмешивается в хеш).
 AUTH_SECRET=
 
+# Владельцы платформы (comma-separated telegram id или app user id).
+# Доп. способ пометить platform owner помимо tenantId === "default".
+# PLATFORM_OWNER_IDS=5700958253,475039971
+
 # Локальные пути (не секреты, опционально)
 # PORT=3000
 # DATA_DIR=./data

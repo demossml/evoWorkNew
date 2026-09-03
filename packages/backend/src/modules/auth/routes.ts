@@ -5,7 +5,7 @@
 
 import { Hono } from "hono";
 import type { IEnv } from "../../types";
-import { requireSuperAdmin, SUPERADMIN_IDS, getTenantShopUuids } from "../../helpers";
+import { requireSuperAdmin, requirePlatformOwner, isPlatformOwner, SUPERADMIN_IDS, getTenantShopUuids } from "../../helpers";
 import {
   upsertTenant,
   getTenantById,
@@ -219,6 +219,7 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
         user.role === "SUPERADMIN" ? [] : await getUserShopIds(db, user.id);
       return c.json({
         authSource: "session",
+        isPlatformOwner: await isPlatformOwner(c),
         user: {
           id: user.id,
           login: user.login,
@@ -238,6 +239,7 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
         (SUPERADMIN_IDS.has(userId) ? "SUPERADMIN" : "CASHIER");
       return c.json({
         authSource: "telegram",
+        isPlatformOwner: await isPlatformOwner(c),
         user: {
           id: userId,
           login: null,
@@ -566,7 +568,7 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
     });
   });
 
-  app.put("/api/tenant/product-profile", requireSuperAdmin, async (c) => {
+  app.put("/api/tenant/product-profile", requirePlatformOwner, async (c) => {
     const body = await c.req
       .json<{ product_profile?: string }>()
       .catch(() => ({}));

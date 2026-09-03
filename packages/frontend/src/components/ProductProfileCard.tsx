@@ -1,6 +1,6 @@
 /**
  * ProductProfileCard.tsx — переключатель режима приложения (vape | universal).
- * Только SUPERADMIN. Пока только сохраняет флаг; скрытие виджетов — следующий шаг.
+ * Только platform owner (isPlatformOwner из /api/auth/me).
  */
 
 import { useEffect, useState } from "react";
@@ -39,7 +39,7 @@ export function ModeIndicator() {
 }
 
 export function ProductProfileCard() {
-  const [me, setMe] = useState<{ user: { role: string } } | null>(null);
+  const [me, setMe] = useState<{ user: { role: string }; isPlatformOwner?: boolean } | null>(null);
   const [checking, setChecking] = useState(true);
   const [profile, setProfile] = useState<Profile>("vape");
   const [saving, setSaving] = useState(false);
@@ -53,7 +53,7 @@ export function ProductProfileCard() {
         if (!res.ok) return;
         const data = await res.json();
         setMe(data);
-        if (data.user.role === "SUPERADMIN") {
+        if (data.isPlatformOwner) {
           const p = await fetch("/api/tenant/product-profile", { headers: getAuthHeaders() });
           if (p.ok) {
             const d = await p.json();
@@ -70,7 +70,7 @@ export function ProductProfileCard() {
   }, []);
 
   if (checking) return null;
-  if (!me || me.user.role !== "SUPERADMIN") return null;
+  if (!me?.isPlatformOwner) return null;
 
   const select = async (next: Profile) => {
     if (next === profile) return;

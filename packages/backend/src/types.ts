@@ -14,6 +14,8 @@ export type IEnv = {
 		R2: R2Bucket;
 		R2_PUBLIC_URL: string;
 		R2_ACCOUNT_ID?: string;
+		/** Список id владельцев платформы (comma-separated): telegram id или app user id */
+		PLATFORM_OWNER_IDS?: string;
 		/** Секрет для хеширования паролей (pepper). Обязателен в prod. */
 		AUTH_SECRET: string;
 	};

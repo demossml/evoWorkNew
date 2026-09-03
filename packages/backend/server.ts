@@ -123,6 +123,7 @@ const app = new Hono()
 			TELEGRAM_STORAGE_BOT_TOKEN: BOT_TOKEN,
 			TELEGRAM_STORAGE_CHAT_ID: process.env.TELEGRAM_STORAGE_CHAT_ID ?? "",
 			DEEPSEEK_API_KEY: DEEPSEEK_KEY,
+			PLATFORM_OWNER_IDS: process.env.PLATFORM_OWNER_IDS ?? "",
 			AUTH_SECRET: process.env.AUTH_SECRET ?? "dev-auth-secret-change-me-32chars",
 		} as any;
 

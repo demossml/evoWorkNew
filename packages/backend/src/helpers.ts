@@ -219,6 +219,48 @@ export const requireSuperAdmin = async (c: IContext, next: Next) => {
 };
 
 /**
+ * isPlatformOwner — владелец платформы (имеет право менять платформенные
+ * настройки, например product_profile vape/universal). Достаточно ЛЮБОГО:
+ *   1) tenantId === "default" — основная сеть владельца;
+ *   2) userId ∈ env.PLATFORM_OWNER_IDS (comma-separated; telegram id или app user id);
+ *   3) tenant.evotor_token === env.EVOTOR_API_TOKEN (осторожно: только если
+ *      токен один на владельца).
+ * Предпочтение: (1) + (2) — явный список в secret/env.
+ */
+export async function isPlatformOwner(c: IContext): Promise<boolean> {
+  const tenantId = (c.get("tenantId") as string) || "default";
+  if (tenantId === "default") return true;
+
+  const userId = (c.get("userId") as string) || "";
+  const rawIds = (c.env.PLATFORM_OWNER_IDS || "").trim();
+  if (rawIds) {
+    const ids = new Set(rawIds.split(",").map((s) => s.trim()).filter(Boolean));
+    if (userId && ids.has(userId)) return true;
+  }
+
+  const envToken = (c.env.EVOTOR_API_TOKEN || "").trim();
+  if (envToken) {
+    try {
+      const { getTenantById } = await import("./modules/auth/repo");
+      const tenant = await getTenantById(c.env.DB, tenantId);
+      if (tenant?.evotor_token && tenant.evotor_token === envToken) return true;
+    } catch {
+      /* ignore — fallthrough к false */
+    }
+  }
+
+  return false;
+}
+
+/** Только platform owner (например, для PUT /api/tenant/product-profile). */
+export const requirePlatformOwner = async (c: IContext, next: Next) => {
+  const authSource = c.get("authSource") as string;
+  if (authSource === "guest") return c.json({ error: "forbidden" }, 403);
+  if (await isPlatformOwner(c)) return next();
+  return c.json({ error: "forbidden" }, 403);
+};
+
+/**
  * Проверка доступа к магазину.
  * Вызывать внутри handler: assertShopAccess(c, shopId).
  * SUPERADMIN проходит всегда (tenant filter отдельно).
