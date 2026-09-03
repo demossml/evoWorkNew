@@ -4,7 +4,7 @@ import { RegisterUserCard } from "@features/employees";
 import { useEmployeeRole } from "../hooks/useApi";
 import { useFeaturePermissions } from "../hooks/useFeaturePermissions";
 import { useProductProfile } from "../hooks/useProductProfile";
-import { useIsFetching, useQuery } from "@tanstack/react-query";
+import { useQuery, useIsFetching } from "@tanstack/react-query";
 import {
   PlanStatusWidget,
   QuickActionsWidget,
@@ -50,7 +50,6 @@ export default function Home() {
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getTodayRange);
   const [expanded, setExpanded] = useState<WidgetKey | null>(null);
   const queryClient = useQueryClient();
-  const isFetching = useIsFetching() > 0;
 
   const toggle = useCallback((key: WidgetKey) => {
     setExpanded((prev) => (prev === key ? null : key));
@@ -101,10 +100,6 @@ export default function Home() {
     <div className="flex flex-col items-center w-full min-h-screen bg-background pt-[calc(var(--tg-app-top-offset,var(--tg-safe-top,0px))+3.5rem)] px-3 sm:px-6 pb-24">
       <HomeTopBar queryClient={queryClient} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
       <div className="w-full max-w-7xl space-y-4">
-        {isFetching && (
-          <p className="text-[10px] text-muted-foreground text-center -mb-1">Обновление…</p>
-        )}
-
         <ErrorBoundary variant="widget" name="Ежедневный брифинг">
           <DailyBriefing />
         </ErrorBoundary>
@@ -285,9 +280,7 @@ function LastUpdated() {
   return (
     <div className="text-center mt-6 mb-2">
       <span className="text-xs text-muted-foreground">
-        {fetching > 0 ? (
-          <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-primary animate-pulse" />Обновление...</span>
-        ) : `Данные от ${timeStr}`}
+        {`Данные от ${timeStr}`}
       </span>
     </div>
   );
@@ -311,9 +304,11 @@ function HomeTopBar({ queryClient, isAdmin, isSuperAdmin }: { queryClient: Query
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await queryClient.invalidateQueries();
-    // Small delay so user sees the spinner
-    setTimeout(() => setRefreshing(false), 600);
+    try {
+      await queryClient.invalidateQueries();
+    } finally {
+      setRefreshing(false);
+    }
   }, [queryClient]);
 
   const [loggingOut, setLoggingOut] = useState(false);
@@ -358,7 +353,11 @@ function HomeTopBar({ queryClient, isAdmin, isSuperAdmin }: { queryClient: Query
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-muted-foreground bg-secondary rounded-md hover:bg-secondary/80 active:scale-95 transition-all disabled:opacity-50"
+            className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md active:scale-95 transition-all disabled:opacity-70 ${
+              refreshing
+                ? "text-primary bg-primary/15"
+                : "text-muted-foreground bg-secondary hover:bg-secondary/80"
+            }`}
           >
             <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
             Обновить
