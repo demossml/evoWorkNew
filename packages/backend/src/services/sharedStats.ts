@@ -6,6 +6,7 @@
 
 import type { D1Database } from "@cloudflare/workers-types";
 import { getVapeGroupUuids } from "./settingsService";
+import { dateStrInZone } from "../lib/time";
 
 // ===================== Statistics =====================
 
@@ -106,10 +107,8 @@ export interface LinearRegressionResult {
   r2: number;
 }
 
-export function formatDateLocal(d: Date): string {
-  const offset = 3 * 60 * 60 * 1000; // MSK
-  const local = new Date(d.getTime() + offset);
-  return local.toISOString().slice(0, 10);
+export function formatDateLocal(d: Date, timeZone = "Europe/Moscow"): string {
+	return dateStrInZone(d, timeZone);
 }
 
 /**

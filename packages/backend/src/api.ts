@@ -19,6 +19,7 @@ import { computeSellerAdvancedStats, computeWeekdayComparison, computeWeekdayBre
 import { generateSellerInsights } from "./services/sellerInsights";
 import { computeHourlyCompare } from "./services/sellerHourlyCompare";
 import { requireAdmin, requireSuperAdmin, assertShopAccess, getTenantShopUuids, isPlatformOwner } from "./helpers";
+import { DEFAULT_TIMEZONE, evotorDayRangeUtc, todayDateStr } from "./lib/time";
 import { registerAuthRoutes } from "./modules/auth/routes";
 import { registerAiProviderRoutes } from "./modules/ai/providerRoutes";
 import { resolveDeepseekKey } from "./services/deepseek";
@@ -858,13 +859,17 @@ export const api = new Hono<IEnv>()
 		const tenantId = c.get("tenantId") || "default";
 		const shopUuids = await getTenantShopUuids(db, tenantId);
 
-		const salesData = await getSalesTodayFromD1(db, shopUuids);
+		const tzRow = await db
+			.prepare(`SELECT default_timezone FROM tenants WHERE id = ?`)
+			.bind(tenantId)
+			.first<{ default_timezone: string }>();
+		const tz = tzRow?.default_timezone || DEFAULT_TIMEZONE;
+
+		const salesData = await getSalesTodayFromD1(db, shopUuids, tz);
 
 		assert(salesData, "No sales data found");
 
-		const now = new Date();
-		const since = formatDateWithTime(now, false);
-		const until = formatDateWithTime(now, true);
+		const { since, until } = evotorDayRangeUtc(tz);
 		const salesByGroup = await getGroup(db, since, until, shopUuids);
 
 		return c.json({ salesData, salesByGroup });
@@ -1652,7 +1657,11 @@ export const api = new Hono<IEnv>()
 				since = dateParam + "T00:00:00";
 				until = dateParam + "T23:59:59";
 			} else {
-				const today = new Date().toISOString().slice(0, 10);
+				const tzRow = await db
+					.prepare(`SELECT default_timezone FROM tenants WHERE id = ?`)
+					.bind(c.get("tenantId") || "default")
+					.first<{ default_timezone: string }>();
+				const today = todayDateStr(tzRow?.default_timezone || DEFAULT_TIMEZONE);
 				since = today + "T00:00:00";
 				until = today + "T23:59:59";
 			}

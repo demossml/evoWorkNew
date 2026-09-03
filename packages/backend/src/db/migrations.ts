@@ -333,6 +333,7 @@ export async function runMigrations(db: D1Database): Promise<void> {
 
 	await addColumnIfMissing(db, "employees", "tenant_id", "TEXT NOT NULL DEFAULT 'default'");
 	await addColumnIfMissing(db, "shops", "tenant_id", "TEXT NOT NULL DEFAULT 'default'");
+	await addColumnIfMissing(db, "shops", "timezone", "TEXT"); // NULL = наследовать tenant.default_timezone
 	await createIndexIfMissing(db, "employees", "idx_employees_tenant", "tenant_id");
 	await createIndexIfMissing(db, "shops", "idx_shops_tenant", "tenant_id");
 
@@ -354,6 +355,10 @@ export async function runMigrations(db: D1Database): Promise<void> {
 	await addColumnIfMissing(db, "tenants", "product_profile", "TEXT NOT NULL DEFAULT 'vape'");
 	// Фокус-группы товаров (JSON array of uuid strings) — универсальный KPI
 	await addColumnIfMissing(db, "tenants", "focus_group_uuids", "TEXT");
+	// Часовой пояс сети (IANA); кассовый день считается в этом поясе
+	await addColumnIfMissing(db, "tenants", "default_timezone", "TEXT NOT NULL DEFAULT 'Europe/Moscow'");
+	// Подтверждён ли пояс (онбординг показывается пока 0)
+	await addColumnIfMissing(db, "tenants", "timezone_setup_completed", "INTEGER NOT NULL DEFAULT 0");
 
 	// app_settings → per-tenant (PRIMARY KEY (tenant_id, key))
 	await migrateAppSettingsToTenantScope(db);

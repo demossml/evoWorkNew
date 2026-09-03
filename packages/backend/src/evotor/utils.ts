@@ -1197,12 +1197,12 @@ export async function getCashByShopsFromD1(
 export async function getSalesTodayFromD1(
 	db: D1Database,
 	shopUuids?: string[],
+	timeZone: string = "Europe/Moscow",
 ): Promise<Record<string, Record<string, number>>> {
 	const { getShopNameUuidsFromDB, getShopUuidsFromDB } = await import("../sync/db.js");
+	const { evotorDayRangeUtc } = await import("../lib/time.js");
 
-	const now = new Date();
-	const since = formatDateWithTimeLocal(now, false);
-	const until = formatDateWithTimeLocal(now, true);
+	const { since, until } = evotorDayRangeUtc(timeZone);
 
 	const paymentType: Record<string, string> = {
 		CARD: "Банковской картой:",
@@ -1258,14 +1258,6 @@ export async function getSalesTodayFromD1(
 		.forEach(([k, v]) => { sorted[k] = v; });
 
 	return sorted;
-}
-
-function formatDateWithTimeLocal(date: Date, isEndOfDay: boolean): string {
-	const y = date.getFullYear();
-	const m = String(date.getMonth() + 1).padStart(2, "0");
-	const d = String(date.getDate()).padStart(2, "0");
-	const time = isEndOfDay ? "23:59:59" : "00:00:00";
-	return `${y}-${m}-${d}T${time}.000+0300`;
 }
 
 // ============================================================================

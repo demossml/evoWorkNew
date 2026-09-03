@@ -6,6 +6,7 @@
 import { Hono } from "hono";
 import type { IEnv } from "../../types";
 import { requireSuperAdmin, requirePlatformOwner, isPlatformOwner, SUPERADMIN_IDS, getTenantShopUuids } from "../../helpers";
+import { DEFAULT_TIMEZONE, effectiveShopTimezone, isValidTimezone, timezoneLabel } from "../../lib/time";
 import {
   upsertTenant,
   getTenantById,
@@ -217,9 +218,12 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
       }
       const shopIds =
         user.role === "SUPERADMIN" ? [] : await getUserShopIds(db, user.id);
+      const tenant = await getTenantById(db, user.tenant_id);
       return c.json({
         authSource: "session",
         isPlatformOwner: await isPlatformOwner(c),
+        default_timezone: tenant?.default_timezone || DEFAULT_TIMEZONE,
+        timezone_setup_needed: !tenant?.timezone_setup_completed,
         user: {
           id: user.id,
           login: user.login,
@@ -237,9 +241,12 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
       const role =
         (c.get("role") as string) ||
         (SUPERADMIN_IDS.has(userId) ? "SUPERADMIN" : "CASHIER");
+      const tenant = await getTenantById(db, (c.get("tenantId") as string) || "default");
       return c.json({
         authSource: "telegram",
         isPlatformOwner: await isPlatformOwner(c),
+        default_timezone: tenant?.default_timezone || DEFAULT_TIMEZONE,
+        timezone_setup_needed: !tenant?.timezone_setup_completed,
         user: {
           id: userId,
           login: null,
@@ -547,11 +554,19 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
   app.get("/api/tenant/shops", async (c) => {
     const tenantId = c.get("tenantId");
     const db = c.get("db");
+    const tenant = await getTenantById(db, tenantId);
+    const defaultTz = tenant?.default_timezone || DEFAULT_TIMEZONE;
     const res = await db
-      .prepare(`SELECT uuid, name FROM shops WHERE tenant_id = ? ORDER BY name`)
+      .prepare(`SELECT uuid, name, timezone FROM shops WHERE tenant_id = ? ORDER BY name`)
       .bind(tenantId)
-      .all<{ uuid: string; name: string }>();
-    return c.json({ success: true, shops: res.results ?? [] });
+      .all<{ uuid: string; name: string; timezone: string | null }>();
+    const shops = (res.results ?? []).map((s) => ({
+      uuid: s.uuid,
+      name: s.name,
+      timezone: s.timezone ?? null,
+      effective_timezone: effectiveShopTimezone(s.timezone, defaultTz),
+    }));
+    return c.json({ success: true, shops, default_timezone: defaultTz });
   });
 
   // ─────────────────────────────────────────────────────────────
@@ -589,6 +604,83 @@ export function registerAuthRoutes(app: Hono<IEnv>) {
     return c.json({
       product_profile: profile,
       label: profile === "universal" ? "Универсальная розница" : "Моя сеть",
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // Часовой пояс сети
+  // ─────────────────────────────────────────────────────────────
+  app.get("/api/tenant/timezone", async (c) => {
+    const db = c.get("db");
+    const tenantId = c.get("tenantId");
+    const t = await getTenantById(db, tenantId);
+    const tz = t?.default_timezone || DEFAULT_TIMEZONE;
+    return c.json({
+      default_timezone: tz,
+      label: timezoneLabel(tz),
+      timezone_setup_completed: t?.timezone_setup_completed ? 1 : 0,
+    });
+  });
+
+  app.put("/api/tenant/timezone", requireSuperAdmin, async (c) => {
+    const body = await c.req
+      .json<{ default_timezone?: string; apply_to_all_shops?: boolean }>()
+      .catch(() => ({}));
+    const tz = (body.default_timezone || "").trim();
+    if (!isValidTimezone(tz)) {
+      return c.json({ success: false, error: "invalid_timezone" }, 400);
+    }
+    const db = c.get("db");
+    const tenantId = c.get("tenantId");
+    await db
+      .prepare(`UPDATE tenants SET default_timezone = ?, timezone_setup_completed = 1, updated_at = datetime('now') WHERE id = ?`)
+      .bind(tz, tenantId)
+      .run();
+    if (body.apply_to_all_shops) {
+      await db
+        .prepare(`UPDATE shops SET timezone = ? WHERE tenant_id = ?`)
+        .bind(tz, tenantId)
+        .run();
+    }
+    return c.json({
+      default_timezone: tz,
+      label: timezoneLabel(tz),
+      timezone_setup_completed: 1,
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // Часовой пояс конкретного магазина (null = наследовать сеть)
+  // ─────────────────────────────────────────────────────────────
+  app.put("/api/tenant/shops/:uuid/timezone", requireSuperAdmin, async (c) => {
+    const uuid = c.req.param("uuid");
+    const body = await c.req
+      .json<{ timezone?: string | null }>()
+      .catch(() => ({}));
+    const tz = body.timezone === null || body.timezone === undefined
+      ? null
+      : String(body.timezone).trim();
+    if (tz && !isValidTimezone(tz)) {
+      return c.json({ success: false, error: "invalid_timezone" }, 400);
+    }
+    const db = c.get("db");
+    const tenantId = c.get("tenantId");
+    const shop = await db
+      .prepare(`SELECT uuid FROM shops WHERE uuid = ? AND tenant_id = ?`)
+      .bind(uuid, tenantId)
+      .first<{ uuid: string }>();
+    if (!shop) {
+      return c.json({ success: false, error: "not_found" }, 404);
+    }
+    await db
+      .prepare(`UPDATE shops SET timezone = ? WHERE uuid = ? AND tenant_id = ?`)
+      .bind(tz, uuid, tenantId)
+      .run();
+    const tenant = await getTenantById(db, tenantId);
+    return c.json({
+      uuid,
+      timezone: tz,
+      effective_timezone: effectiveShopTimezone(tz, tenant?.default_timezone || DEFAULT_TIMEZONE),
     });
   });
 

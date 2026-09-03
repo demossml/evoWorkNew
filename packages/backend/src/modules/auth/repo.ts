@@ -40,6 +40,10 @@ export type TenantRow = {
 	product_profile?: string | null;
 	/** Фокус-группы товаров (JSON array of uuid strings) */
 	focus_group_uuids?: string | null;
+	/** Часовой пояс сети (IANA) */
+	default_timezone?: string | null;
+	/** Подтверждён ли пояс (онбординг) */
+	timezone_setup_completed?: number | null;
 };
 
 // --- tenants ---
@@ -71,7 +75,7 @@ export async function getTenantById(
 ): Promise<TenantRow | null> {
 	return (
 		(await db
-			.prepare(`SELECT id, name, evotor_token, status, deepseek_api_key, product_profile, focus_group_uuids FROM tenants WHERE id = ?`)
+			.prepare(`SELECT id, name, evotor_token, status, deepseek_api_key, product_profile, focus_group_uuids, default_timezone, timezone_setup_completed FROM tenants WHERE id = ?`)
 			.bind(id)
 			.first<TenantRow>()) ?? null
 	);
@@ -83,7 +87,7 @@ export async function findTenantByToken(
 ): Promise<TenantRow | null> {
 	return (
 		(await db
-			.prepare(`SELECT id, name, evotor_token, status, deepseek_api_key, product_profile, focus_group_uuids FROM tenants WHERE evotor_token = ?`)
+			.prepare(`SELECT id, name, evotor_token, status, deepseek_api_key, product_profile, focus_group_uuids, default_timezone, timezone_setup_completed FROM tenants WHERE evotor_token = ?`)
 			.bind(token)
 			.first<TenantRow>()) ?? null
 	);

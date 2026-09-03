@@ -2,6 +2,7 @@ import { useLocation } from "react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PWAInstall } from "./pwa";
+import { TimezoneOnboarding } from "./components/TimezoneOnboarding";
 import { useEmployeeRole } from "./hooks/useApi";
 import { useTheme } from "./hooks/useTheme";
 import { useUser } from "./hooks/userProvider";
@@ -107,6 +108,7 @@ function App() {
   return (
     <>
       <PWAInstall />
+      <TimezoneOnboarding />
       {/* Офлайн-индикатор */}
       {!isOnline && (
         <div className="fixed top-0 left-0 right-0 z-[100] bg-destructive text-destructive-foreground text-center py-1 text-sm font-medium">

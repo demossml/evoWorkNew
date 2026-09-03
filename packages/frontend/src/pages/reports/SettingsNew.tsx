@@ -22,6 +22,7 @@ import {
 import { getAuthHeaders } from "@shared/api";
 import { useProductProfile } from "../../hooks/useProductProfile";
 import { useIsPlatformOwner } from "../../hooks/useIsPlatformOwner";
+import { useEmployeeRole } from "../../hooks/useApi";
 import { subscribeToPush, unsubscribeFromPush } from "../../pwa";
 import {
   Settings2, Gift, Gauge, RefreshCcw, Upload, Globe, Bell,
@@ -35,6 +36,7 @@ import { SettingsCollapsibleCard } from "../../components/SettingsCollapsibleCar
 import { HelpButton } from "@shared/help/HelpSheet";
 import { AiProviderCard } from "../../components/AiProviderCard";
 import { ProductProfileCard } from "../../components/ProductProfileCard";
+import { TimezoneCard } from "../../components/TimezoneCard";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -1288,6 +1290,8 @@ export default function SettingsNew() {
   const { data: settings, isLoading, error } = useSettings();
   const { isUniversal } = useProductProfile();
   const isPlatformOwner = useIsPlatformOwner();
+  const { data: roleData } = useEmployeeRole();
+  const isSuperAdmin = roleData?.employeeRole === "SUPERADMIN";
   const updateMutation = useUpdateSetting();
   const batchMutation = useBatchUpdateSettings();
 
@@ -1544,6 +1548,13 @@ export default function SettingsNew() {
         {!isLoading && !error && (
           <SettingsCollapsibleCard title="Токен Эвотор" icon={<Store className="w-5 h-5" />}>
             <EvotorTokenCard />
+          </SettingsCollapsibleCard>
+        )}
+
+        {/* Часовой пояс (только SUPERADMIN) */}
+        {!isLoading && !error && isSuperAdmin && (
+          <SettingsCollapsibleCard title="Часовой пояс" icon={<Globe className="w-5 h-5" />}>
+            <TimezoneCard />
           </SettingsCollapsibleCard>
         )}
 
