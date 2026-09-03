@@ -10,6 +10,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
+import { getAuthHeaders } from "@shared/api";
 
 export interface AppSetting {
   key: string;
@@ -26,7 +27,7 @@ const SETTINGS_URL = "/api/settings";
 // ─── Fetch helpers ────────────────────────────────────────────────────
 
 async function fetchSettings(): Promise<AppSetting[]> {
-  const res = await fetch(SETTINGS_URL, { headers: { initData: "guest" } });
+  const res = await fetch(SETTINGS_URL, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error("Ошибка загрузки настроек");
   return res.json();
 }
@@ -34,7 +35,7 @@ async function fetchSettings(): Promise<AppSetting[]> {
 async function putSetting(key: string, value: string): Promise<void> {
   const res = await fetch(`${SETTINGS_URL}/${encodeURIComponent(key)}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", initData: "guest" },
+    headers: getAuthHeaders(),
     body: JSON.stringify({ value }),
   });
   if (!res.ok) {
@@ -46,7 +47,7 @@ async function putSetting(key: string, value: string): Promise<void> {
 async function postBatchSettings(updates: Array<{ key: string; value: string }>): Promise<void> {
   const res = await fetch(`${SETTINGS_URL}/batch`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", initData: "guest" },
+    headers: getAuthHeaders(),
     body: JSON.stringify(updates),
   });
   if (!res.ok) {

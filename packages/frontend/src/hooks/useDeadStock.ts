@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { getAuthHeaders } from "@shared/api";
 
 interface DeadStockItem {
   itemId: string;
@@ -44,7 +45,7 @@ export function useDeadStock(params: UseDeadStockParams = {}) {
   return useQuery<DeadStockResponse>({
     queryKey: ["dead-stock", params.daysWithoutSales, params.shopId, params.since, params.until],
     queryFn: async () => {
-      const res = await fetch(`/api/analytics/dead-stock?${query}`);
+      const res = await fetch(`/api/analytics/dead-stock?${query}`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Ошибка загрузки");
       return res.json();
     },

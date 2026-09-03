@@ -2,7 +2,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { buildPlanDomainModel, type PlanDomainModel } from '@/features/plan/planService';
-import { fetchPlanForToday } from '@shared/api';
+import { fetchPlanForToday, getAuthHeaders } from '@shared/api';
 
 /** Основной хук плана. Принимает date, передаёт в API как ?date=. */
 export function usePlanData(date: string) {
@@ -11,7 +11,7 @@ export function usePlanData(date: string) {
     queryFn: async () => {
       // Вызываем fetchPlanForToday, но добавляем date в URL
       // (fetchPlanForToday использует hono client, обходим через fetch)
-      const res = await fetch(`/api/evotor/plan-for-today?date=${date}`);
+      const res = await fetch(`/api/evotor/plan-for-today?date=${date}`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Ошибка загрузки плана');
       return res.json() as Promise<{
         salesData: Record<string, { datePlan: number; dataSales: number; dataQuantity: Record<string, { qty: number; sum: number }> }>;
@@ -38,7 +38,7 @@ export function usePlanWeekAgo(date: string) {
   const { data: raw, isLoading } = useQuery({
     queryKey: ['plan', prevDate],
     queryFn: async () => {
-      const res = await fetch(`/api/evotor/plan-for-today?date=${prevDate}`);
+      const res = await fetch(`/api/evotor/plan-for-today?date=${prevDate}`, { headers: getAuthHeaders() });
       if (!res.ok) return null;
       return res.json() as Promise<{
         salesData: Record<string, { datePlan: number; dataSales: number; dataQuantity: Record<string, { qty: number; sum: number }> }>;

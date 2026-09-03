@@ -22,6 +22,7 @@ import {
 } from "@/features/plan/planService";
 import { useProductProfile } from "@/hooks/useProductProfile";
 import { labelFor } from "@/config/productCopy";
+import { getAuthHeaders } from "@shared/api";
 
 // ── Цвета статусов ──
 const STATUS_COLORS = {
@@ -413,8 +414,11 @@ function ExportBlock({ shop, date }: { shop: PlanShop; date: string }) {
       const formData = new FormData();
       formData.append("file", blob, "report.jpg");
 
+      const headers = getAuthHeaders();
+      delete headers["Content-Type"]; // FormData — boundary сам
       const res = await fetch("/api/evotor/share-report", {
         method: "POST",
+        headers,
         body: formData,
       });
 

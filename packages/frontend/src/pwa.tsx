@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { getAuthHeaders } from "@shared/api";
 
 export function isPWAInstalled(): boolean {
   return (
@@ -195,7 +196,7 @@ export async function subscribeToPush(): Promise<boolean> {
     const registration = await navigator.serviceWorker.ready;
 
     // Получаем VAPID public key с сервера
-    const keyResp = await fetch("/api/push/vapid-public-key");
+    const keyResp = await fetch("/api/push/vapid-public-key", { headers: getAuthHeaders() });
     if (!keyResp.ok) return false;
     const { publicKey } = await keyResp.json();
     if (!publicKey) return false;
@@ -208,7 +209,7 @@ export async function subscribeToPush(): Promise<boolean> {
     // Отправляем подписку на сервер
     await fetch("/api/push/subscribe", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify(subscription.toJSON()),
     });
 
@@ -226,7 +227,7 @@ export async function unsubscribeFromPush(): Promise<void> {
     if (subscription) {
       await fetch("/api/push/unsubscribe", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ endpoint: subscription.endpoint }),
       });
       await subscription.unsubscribe();
@@ -272,7 +273,7 @@ export async function reportPushOutcome(title: string, outcome: "opened" | "clic
   try {
     await fetch("/api/push/outcome", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ title, outcome }),
     });
   } catch { /* ignore */ }

@@ -6,6 +6,7 @@ import {
   Truck, Trash2, Tag, ShieldCheck, X, Download,
 } from "lucide-react";
 import { useDeadStock } from "@/hooks/useDeadStock";
+import { getAuthHeaders } from "@shared/api";
 
 // ── Types ──
 
@@ -147,7 +148,8 @@ function AnalysisModal({
     queryKey: ["dead-stock-analyze", item.itemId, item.shopId],
     queryFn: async () => {
       const res = await fetch(
-        `/api/analytics/dead-stock/analyze?itemId=${item.itemId}&shopId=${item.shopId}`
+        `/api/analytics/dead-stock/analyze?itemId=${item.itemId}&shopId=${item.shopId}`,
+        { headers: getAuthHeaders() }
       );
       if (!res.ok) throw new Error("Ошибка анализа");
       return res.json();
@@ -373,7 +375,7 @@ export function DeadStockWidget() {
   const { data: shopsData } = useQuery<{ shopOptions: Record<string, string> }>({
     queryKey: ["shops-list"],
     queryFn: async () => {
-      const res = await fetch("/api/evotor/shops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: "" }) });
+      const res = await fetch("/api/evotor/shops", { method: "POST", headers: getAuthHeaders(), body: JSON.stringify({ userId: "" }) });
       if (!res.ok) return { shopOptions: {} };
       return res.json();
     },
@@ -386,7 +388,7 @@ export function DeadStockWidget() {
     if (plannedActions.length === 0) return;
     const res = await fetch("/api/analytics/dead-stock/actions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ actions: plannedActions }),
     });
     if (!res.ok) return;

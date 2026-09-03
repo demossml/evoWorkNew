@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@shared/api";
+import { queryKeys, getAuthHeaders } from "@shared/api";
 
 export interface StockItem {
   name: string;
@@ -150,7 +150,7 @@ function groupByShop<T extends { shopUuid: string; shopName: string }>(
 }
 
 async function fetchStockHealth(days: number): Promise<StockHealthData> {
-  const resp = await fetch(`/api/evotor/stock-health?days=${days}`);
+  const resp = await fetch(`/api/evotor/stock-health?days=${days}`, { headers: getAuthHeaders() });
   if (!resp.ok) throw new Error(`Stock health failed: ${resp.status}`);
   const raw: RawStockHealthResponse = await resp.json();
 
@@ -198,7 +198,7 @@ async function fetchStockHealth(days: number): Promise<StockHealthData> {
 }
 
 async function fetchStockTransfer(days: number): Promise<{ recommendations: TransferRec[] }> {
-  const resp = await fetch(`/api/evotor/stock-health?days=${days}`);
+  const resp = await fetch(`/api/evotor/stock-health?days=${days}`, { headers: getAuthHeaders() });
   if (!resp.ok) throw new Error(`Stock transfer failed: ${resp.status}`);
   const raw: RawStockHealthResponse = await resp.json();
   return {

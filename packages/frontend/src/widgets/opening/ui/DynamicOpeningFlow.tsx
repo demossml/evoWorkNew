@@ -22,7 +22,9 @@ async function uploadPhotos(files: File[], stepId: string, userId: string, shopU
     fd.append("shopUuid", shopUuid);
     fd.append("fileKey", `${stepId}_${file.name}_${file.size}`);
     try {
-      const res = await fetch("/api/uploads/upload-photos", { method: "POST", body: fd });
+      const headers = getAuthHeaders();
+      delete headers["Content-Type"]; // FormData — браузер сам выставит boundary
+      const res = await fetch("/api/uploads/upload-photos", { method: "POST", headers, body: fd });
       if (res.ok) {
         const data = (await res.json()) as { id?: string; file_id?: string; fileId?: string };
         const id = data.id ?? data.file_id ?? data.fileId;

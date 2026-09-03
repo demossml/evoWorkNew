@@ -1,6 +1,7 @@
 import React from "react";
 import { useStockHealth, useStockTransfer } from "@/hooks/dashboard/useStockHealth";
 import type { StockItem, OutOfStockItem, TransferRec } from "@/hooks/dashboard/useStockHealth";
+import { getAuthHeaders } from "@shared/api";
 
 function formatMoney(n: number): string {
   if (n == null || !Number.isFinite(n)) return "0";
@@ -391,7 +392,7 @@ export function StockHealthWidget() {
                       });
                       const resp = await fetch("/api/ai/director/deadstock-export", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: getAuthHeaders(),
                         body: JSON.stringify({
                           items: exportItems,
                           shop: selectedShop,

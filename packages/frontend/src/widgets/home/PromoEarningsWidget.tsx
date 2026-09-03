@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { DollarSign, TrendingUp, Loader2 } from "lucide-react";
+import { getAuthHeaders } from "@shared/api";
 
 interface PromoItem {
   product: string;
@@ -23,7 +24,7 @@ export function PromoEarningsWidget({ employeeUuid }: Props) {
   const fetchData = useCallback(async () => {
     try {
       // Проверяем, есть ли активные акции
-      const promoRes = await fetch("/api/promo/products", { headers: { initData: "guest" } });
+      const promoRes = await fetch("/api/promo/products", { headers: getAuthHeaders() });
       const promoData = await promoRes.json();
       const active = (promoData.products ?? []).filter((p: any) => p.is_active);
       setHasActivePromos(active.length > 0);
@@ -31,7 +32,7 @@ export function PromoEarningsWidget({ employeeUuid }: Props) {
       if (active.length === 0) { setItems([]); setTotal(0); setLoading(false); return; }
 
       const params = employeeUuid ? `?employee_uuid=${encodeURIComponent(employeeUuid)}` : "";
-      const res = await fetch(`/api/promo/today-earnings${params}`, { headers: { initData: "guest" } });
+      const res = await fetch(`/api/promo/today-earnings${params}`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
       setItems(data.items ?? []);

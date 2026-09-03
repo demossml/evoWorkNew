@@ -5,6 +5,7 @@ import {
   MoveRight, Trash2, Tag, Loader2,
   ShoppingCart, ArrowRight,
 } from "lucide-react";
+import { getAuthHeaders } from "@shared/api";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid,
@@ -136,7 +137,7 @@ export const DeadStockDetailModal: React.FC<DeadStockDetailModalProps> = ({
   const fetchFastData = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`/api/analytics/dead-stock/analyze?itemId=${item.itemId}&shopId=${item.shopId}&fast=1`);
+      const res = await fetch(`/api/analytics/dead-stock/analyze?itemId=${item.itemId}&shopId=${item.shopId}&fast=1`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (!res.ok || json.error) throw new Error(json.error || `Ошибка ${res.status}`);
       setFastData({
@@ -155,7 +156,7 @@ export const DeadStockDetailModal: React.FC<DeadStockDetailModalProps> = ({
   const fetchAiAnalysis = useCallback(async () => {
     setAiLoading(true);
     try {
-      const res = await fetch(`/api/analytics/dead-stock/analyze?itemId=${item.itemId}&shopId=${item.shopId}`);
+      const res = await fetch(`/api/analytics/dead-stock/analyze?itemId=${item.itemId}&shopId=${item.shopId}`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (!res.ok || json.error) throw new Error(json.error || `Ошибка ${res.status}`);
       setAnalysis(json.analysis ?? null);

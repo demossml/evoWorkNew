@@ -139,8 +139,9 @@ const app = new Hono()
 		await next();
 	})
 	.use("/*", async (c, next) => {
-		// Единый dual-mode authenticate (Bearer-сессия + legacy Telegram)
-		await authenticate(c, next);
+		// Единый fail-closed authenticate (Bearer-сессия + legacy Telegram).
+		// ВАЖНО: return — authenticate может вернуть Response (401/403).
+		return authenticate(c, next);
 	})
 	.get("/health", (c) => c.json({ status: "ok", uptime: process.uptime(), ts: Date.now() }))
 	.route("/", api)

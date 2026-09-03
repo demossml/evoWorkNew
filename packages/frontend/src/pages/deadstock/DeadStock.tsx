@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { telegram, isTelegramMiniApp } from "../../helpers/telegram";
 import { client } from "../../helpers/api";
+import { getAuthHeaders } from "@shared/api";
 import { HelpButton } from "@shared/help/HelpSheet";
 import type { DateRange } from "react-day-picker";
 import { Popover, PopoverContent, PopoverTrigger, Calendar } from "../../components/ui";
@@ -189,7 +190,7 @@ export default function DeadSt() {
     if (!reportData || reportData.salesData.length === 0) return;
     const fetchCosts = async () => {
       try {
-        const res = await fetch(`/api/analytics/dead-stock?daysWithoutSales=0&shopId=all`);
+        const res = await fetch(`/api/analytics/dead-stock?daysWithoutSales=0&shopId=all`, { headers: getAuthHeaders() });
         if (!res.ok) return;
         const json = await res.json();
         const items = json.items ?? [];
@@ -503,7 +504,7 @@ export default function DeadSt() {
                     }));
                     const res = await fetch("/api/dead-stocks/save-report", {
                       method: "POST",
-                      headers: { "Content-Type": "application/json" },
+                      headers: getAuthHeaders(),
                       body: JSON.stringify({
                         title: `План действий: ${formatPeriod(shopName, startDate, endDate)}`,
                         plannedActions: actions,

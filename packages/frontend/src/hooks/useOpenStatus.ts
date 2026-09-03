@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { getAuthHeaders } from "@shared/api";
 
 export interface ShopOpenStatus {
   shopId: string;
@@ -22,7 +23,7 @@ interface OpenStatusResponse {
 }
 
 async function fetchOpenStatus(date: string): Promise<OpenStatusResponse> {
-  const res = await fetch(`/api/evotor/shops/open-status?date=${date}`);
+  const res = await fetch(`/api/evotor/shops/open-status?date=${date}`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error("Ошибка загрузки статуса открытия");
   return res.json();
 }

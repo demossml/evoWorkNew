@@ -2,7 +2,7 @@ import type { Next } from "hono";
 import type { D1Database } from "@cloudflare/workers-types";
 import { Evotor } from "./evotor";
 import type { IContext } from "./types";
-import { assert, createIndexDocumentsTable, createOpeningPhotosTable, createOpenStorsTable, isValidSign } from "./utils";
+import { createIndexDocumentsTable, createOpeningPhotosTable, createOpenStorsTable, isValidSign } from "./utils";
 import { createSettingsTable } from "./db/repositories/settings";
 import { runMigrations } from "./db/migrations";
 import { drizzle } from "drizzle-orm/d1";
@@ -49,21 +49,63 @@ export const initialize = async (c: IContext, next: Next) => {
 };
 
 /**
- * authenticate — dual-mode:
- *   1) Bearer-сессия (app_sessions) — приоритет;
- *   2) Legacy Telegram (initData / telegram-id) — как раньше.
+ * Public (безавторизационные) маршруты — явный whitelist.
+ * Всё остальное без валидной auth → 401 (fail-closed), tenantId НЕ default.
+ */
+const PUBLIC_ROUTES: { method: string; path: string }[] = [
+	{ method: "GET", path: "/health" },
+	{ method: "POST", path: "/api/auth/login" },
+	{ method: "POST", path: "/api/auth/connect-token" },
+];
+
+function isPublicRoute(method: string, path: string): boolean {
+	// Статика/фронтенд (PWA: index.html, manifest, assets, /reports/:key HTML-отчёты) — публично.
+	if (!path.startsWith("/api/")) return true;
+	// Публичные share-ссылки на картинки отчётов из R2.
+	if (method === "GET" && path.startsWith("/api/evotor/share-report/")) return true;
+	return PUBLIC_ROUTES.some((r) => r.method === method && r.path === path);
+}
+
+let publicRoutesLogged = false;
+
+/**
+ * authenticate — fail-closed:
+ *   1) Public whitelist (health, login, connect-token, статика, share-ссылки);
+ *   2) Bearer-сессия (app_sessions) — tenantId/role/shopIds из user record;
+ *   3) Legacy Telegram (initData / telegram-id) — только ваша сеть (tenant default);
+ *   4) Всё остальное (гость) → 401, tenantId не default.
  * Источник истины tenant/shopIds/role — сессия, а не body/query клиента.
  */
 export const authenticate = async (c: IContext, next: Next) => {
   const db = c.env.DB;
-  // Defaults
-  c.set("tenantId", "default");
+  const method = c.req.method;
+  const path = new URL(c.req.url).pathname;
+
+  // Fail-closed defaults: гость НЕ привязан к default tenant.
+  c.set("tenantId", "");
   c.set("role", "");
   c.set("shopIds", []);
   c.set("authSource", "guest");
   c.set("appUserId", undefined);
 
-  // 1) Bearer session
+  // Логируем публичный список один раз (dev).
+  if (!publicRoutesLogged) {
+    publicRoutesLogged = true;
+    if (typeof process === "undefined" || process.env?.NODE_ENV !== "production") {
+      console.log(
+        "[auth] public routes:",
+        PUBLIC_ROUTES.map((r) => `${r.method} ${r.path}`).join(", "),
+        "+ статика (non-/api) + GET /api/evotor/share-report/*",
+      );
+    }
+  }
+
+  // 1) Public whitelist — пропускаем без auth.
+  if (isPublicRoute(method, path)) {
+    return next();
+  }
+
+  // 2) Bearer session
   const authHeader = c.req.header("Authorization") || "";
   const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
   const sessionFromHeader = bearer || c.req.header("X-Session-Id") || "";
@@ -102,43 +144,37 @@ export const authenticate = async (c: IContext, next: Next) => {
         return next();
       }
     }
-    // невалидная сессия — падаем в telegram/guest
-  }
-
-  // 2) Legacy Telegram (как было)
-  const initData = c.req.header("initData") || "guest";
-
-  if (initData === "guest") {
-    const manualId = c.req.header("telegram-id");
-    if (manualId) {
-      c.set("user", {
-        id: manualId,
-        first_name: "",
-        last_name: "",
-        username: "",
-        photo_url: "",
-      });
-      c.set("userId", manualId);
-      c.set("authSource", "telegram");
-    } else {
-      c.set("user", {
-        id: "",
-        first_name: "",
-        last_name: "",
-        username: "",
-        photo_url: "",
-      });
-      c.set("userId", "");
-      c.set("authSource", "guest");
-    }
+    // Невалидная сессия — fail-closed (НЕ падаем в telegram/guest).
   } else {
-    const payload = Object.fromEntries(new URLSearchParams(initData));
-    const isValid = await isValidSign(c.env.BOT_TOKEN, payload);
-    assert(isValid, "invalid signature");
-    const user = JSON.parse(payload.user);
-    c.set("user", user);
-    c.set("userId", user.id.toString());
-    c.set("authSource", "telegram");
+    // 3) Legacy Telegram (initData / telegram-id) — только ваша сеть (default tenant)
+    const initData = c.req.header("initData") || "guest";
+
+    if (initData === "guest") {
+      const manualId = c.req.header("telegram-id");
+      if (manualId) {
+        c.set("user", {
+          id: manualId,
+          first_name: "",
+          last_name: "",
+          username: "",
+          photo_url: "",
+        });
+        c.set("userId", manualId);
+        c.set("tenantId", "default");
+        c.set("authSource", "telegram");
+      }
+    } else {
+      const payload = Object.fromEntries(new URLSearchParams(initData));
+      const isValid = await isValidSign(c.env.BOT_TOKEN, payload);
+      if (isValid) {
+        const user = JSON.parse(payload.user);
+        c.set("user", user);
+        c.set("userId", user.id.toString());
+        c.set("tenantId", "default");
+        c.set("authSource", "telegram");
+      }
+      // невалидная подпись → гость → 401 ниже
+    }
   }
 
   // Legacy Telegram: роль сразу (нужна /api/auth/me, UsersAccessCard, requireAdmin)
@@ -154,9 +190,11 @@ export const authenticate = async (c: IContext, next: Next) => {
         /* ignore */
       }
     }
+    return next();
   }
 
-  return next();
+  // 4) Гость — fail-closed: 401, tenantId не default.
+  return c.json({ error: "unauthorized" }, 401);
 };
 
 // SUPERADMIN Telegram IDs (legacy, hardcoded)

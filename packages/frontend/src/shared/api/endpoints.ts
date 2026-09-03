@@ -1,4 +1,4 @@
-import { client } from "./client";
+import { client, getAuthHeaders } from "./client";
 import {
   useDataSourceStore,
   type DataSource,
@@ -27,7 +27,7 @@ function getTodayDateString() {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function apiGet(path: string): Promise<any> {
-  const res = await fetch(path, { headers: { initData: "guest" } });
+  const res = await fetch(path, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(`Ошибка: ${res.status}`);
   return res.json();
 }
@@ -36,7 +36,7 @@ async function apiGet(path: string): Promise<any> {
 async function apiPost(path: string, body: any): Promise<any> {
   const res = await fetch(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json", initData: "guest" },
+    headers: getAuthHeaders(),
     body: JSON.stringify(body),
   });
   if (!res.ok) {
