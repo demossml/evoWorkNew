@@ -34,7 +34,7 @@ export const FEATURE_CATALOG: FeatureDef[] = [
   { id: "home.sync_status", label: "Синхронизация (Home)", group: "home" },
 
   // ── Reports ──
-  { id: "report.sales_today", label: "Продуктовый отчёт", group: "report", path: "/evotor/sales-report" },
+  { id: "report.sales_today", label: "Отчёт по продажам", group: "report", path: "/evotor/sales-report" },
   { id: "report.period_comparison", label: "Сравнение периодов", group: "report", path: "/evotor/period-comparison" },
   { id: "report.salary", label: "Зарплата сотрудников", group: "report", path: "/evotor/salary-report" },
   { id: "report.sales_period", label: "Финансовый отчёт", group: "report", path: "/evotor/sales-for-the-period", profit: true },

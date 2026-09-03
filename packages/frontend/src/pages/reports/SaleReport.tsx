@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMe, useEmployeeRole } from "../../hooks/useApi";
+import { useFeaturePermissions } from "../../hooks/useFeaturePermissions";
 import { motion } from "framer-motion";
 import { useTelegramBackButton } from "../../hooks/useSimpleTelegramBackButton";
 import { telegram, isTelegramMiniApp } from "../../helpers/telegram";
@@ -110,6 +111,7 @@ export default function SalesReport() {
 
   const { data } = useMe();
   const { data: roleData } = useEmployeeRole();
+  const { can } = useFeaturePermissions();
   const isAdmin = roleData?.employeeRole === "ADMIN" || roleData?.employeeRole === "SUPERADMIN";
   const [showProfit, setShowProfit] = useState(false);
   const userId = data?.id?.toString() || "";
@@ -376,6 +378,18 @@ export default function SalesReport() {
       setIsLoadingAi(false);
     }
   };
+
+  // 🔹 Доступ: SUPERADMIN всегда; остальные — по галочке report.sales_today.
+  // (can() для SUPERADMIN всегда true, для CASHIER — из CASHIER-списка прав.)
+  if (!can("report.sales_today")) {
+    return (
+      <div className="app-page flex items-center justify-center bg-background p-4">
+        <div className="max-w-md w-full rounded-xl bg-card border border-border p-4 text-sm text-muted-foreground">
+          Нет доступа к отчёту по продажам. Обратитесь к администратору.
+        </div>
+      </div>
+    );
+  }
 
   // 🔹 Состояния загрузки / ошибки
   if (isLoadingReport) return <LoadingState />;

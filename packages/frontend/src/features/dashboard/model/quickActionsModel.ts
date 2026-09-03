@@ -43,7 +43,8 @@ export const QUICK_ACTIONS: QuickActionModel[] = [
     iconKey: "file_text",
     path: "/evotor/sales-report",
     color: "from-blue-500 to-blue-600",
-    roles: ["ADMIN", "SUPERADMIN"],
+    roles: ["CASHIER", "ADMIN", "SUPERADMIN"],
+    permissionId: "report.sales_today",
   },
   {
     title: "Прогноз закупки",
